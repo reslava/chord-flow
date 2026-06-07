@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "loom": {
+      "type": "stdio",
+      "command": "loom",
+      "args": [
+        "mcp"
+      ],
+      "env": {
+        "LOOM_ROOT": "J:/src/chord-flow"
+      }
+    }
+  }
+}
