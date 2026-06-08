@@ -3,15 +3,18 @@ type: design
 id: de_01KTHJD3QTBGRVX3BBRD29PKAW
 title: ChordFlow MVP — Design
 status: draft
-created: 2026-06-07
-version: 1
+created: "2026-06-07T00:00:00.000Z"
+updated: 2026-06-08
+version: 2
 tags: []
 parent_id: id_01KTHJ61W7749XVY7AKGZV7F9D
 requires_load: []
 ---
 # ChordFlow MVP — Design
 
-Translates `mvp-idea.md` into concrete component design. Architecture baseline: **desktop-first Photino + C# engine + JS/alphaTab**, **vertical slices over a shared Domain kernel**, SQLite persistence. alphaTab is the render/playback layer only.
+Translates `mvp-idea.md` into concrete component design. Architecture baseline: **desktop-first WinForms + WebView2 + C# engine + JS/alphaTab**, **vertical slices over a shared Domain kernel**, SQLite persistence. alphaTab is the render/playback layer only.
+
+> **Host decision (Phase 2):** the host was migrated from **Photino.NET → WinForms + the official `Microsoft.Web.WebView2` control**. Photino's WebView2 **composition controller** renders a black/blank window on this stack (.NET 10 + WebView2 runtime 149); the WinForms control uses the **windowed controller** (the same path Edge uses) and renders correctly. The C# engine/renderer/feature slices and the bridge *envelope contract* were unaffected — only `Infrastructure/` + the `wwwroot/app.js` bridge shim changed. Full investigation: `loom/refs/photino-net-desktop-host-reference.md`, chat `mvp-chat-002`.
 
 ---
 
@@ -22,7 +25,7 @@ Single .NET solution, one runnable host project plus a test project.
 ```
 ChordFlow.sln
   src/
-    ChordFlow.App/                 ← Photino host (entry point), wwwroot, DI wiring
+    ChordFlow.App/                 ← WinForms + WebView2 host (entry point), wwwroot, DI wiring
       Domain/                      ← pure music kernel (no I/O, no UI)
       Rendering/                   ← AlphaTexRenderer (only code that knows alphaTex)
       Features/                    ← vertical slices
@@ -30,13 +33,13 @@ ChordFlow.sln
         PracticeSession/
         ExerciseLibrary/
         Progress/
-      Infrastructure/              ← SQLite store, Photino bridge, web message router
-      wwwroot/                     ← index.html, app.js, alphaTab.min.js, soundfont
+      Infrastructure/              ← SQLite store, WebView2 bridge, web message router
+      wwwroot/                     ← index.html, app.js, alphaTab.min.js, font/, soundfont/
   tests/
     ChordFlow.Tests/               ← xUnit, targets Domain + Rendering
 ```
 
-Rationale: one assembly for the MVP keeps it simple; folders enforce the conceptual boundaries. We can split `Domain`/`Rendering` into their own libraries later if we add a CLI/web front-end (the idea doc's Phase-2). No MediatR — a slice is a class with a method.
+Rationale: one assembly for the MVP keeps it simple; folders enforce the conceptual boundaries. We can split `Domain`/`Rendering` into their own libraries later if we add a CLI/web front-end (the idea doc's Phase-2). No MediatR — a slice is a class with a method. The host project targets `net10.0-windows` (`UseWindowsForms`); the Domain/Rendering/Features code is plain C# and stays portable.
 
 ---
 
@@ -125,19 +128,25 @@ For a "beat 1 & 3" pattern in 4/4 the bar is four quarter beats: chord, rest, ch
 
 > The `x.string` frets are **not hardcoded in the renderer** — the renderer asks `VoicingBook.Lookup(chord, difficulty)` for `FretPosition`s and formats them. The renderer maps `Duration → :N`, `Beat.IsHit==false → r`, and emits `\ks` from `Key`.
 
-**Open verification items (resolve in the playground during implementation, not now):**
-- Exact token for **dotted** durations and **ties** (the earlier chat's `h.2` / `(...)h.2` notation is unverified and likely wrong — do **not** copy it). MVP rhythms (beat-1, beat-1+3, quarters) need only `:4` + `r`, so dotted/ties are **not required for v1**.
-- Whether `\ks bb` vs `\ks Bb` casing matters; docs show lowercase flats.
+**Resolved during Phase 2 implementation:** MVP rhythms (beat-1, beat-1+3, quarters) need only `:4` + `r`; dotted/tie tokens stay out of scope (EX4). `\ks bb` lowercase confirmed.
 
 ---
 
 ## 4. Host & bridge (`Infrastructure/`)
 
-### Photino window
-`PhotinoWindow` loads `wwwroot/index.html`. No HTTP server, no localhost port. The window *is* the app.
+### WinForms + WebView2 window
+A WinForms `Form` hosts a dock-filled `WebView2` control (`Microsoft.Web.WebView2.WinForms`) — the window *is* the app. After `EnsureCoreWebView2Async`, the host maps the local `wwwroot` to a virtual host and navigates to it:
+
+```csharp
+web.CoreWebView2.SetVirtualHostNameToFolderMapping(
+    "chordflow.local", wwwrootPath, CoreWebView2HostResourceAccessKind.Allow);
+web.CoreWebView2.Navigate("https://chordflow.local/index.html");
+```
+
+This gives the page a real **`https` origin** with **no HTTP server and no localhost port** (it's an in-process resource intercept — satisfies C2). The real origin also un-blocks alphaTab's soundfont fetch, which a `file://` (null-origin) page would CORS-block. WinForms' WebView2 uses the **windowed controller** (the path that renders on this stack; WPF/Photino's composition controller does not — see the host-decision note above).
 
 ### C# ↔ JS bridge — a narrow string protocol
-Photino gives `SendWebMessage(string)` (C#→JS) and a received-message handler (JS→C#). We send small JSON envelopes, but the **payload that matters is just the alphaTex string**.
+WebView2 gives `CoreWebView2.PostWebMessageAsString(string)` (C#→JS) and the `CoreWebView2.WebMessageReceived` event (JS→C#). We send small JSON envelopes; the **payload that matters is just the alphaTex string**.
 
 C# → JS:
 ```json
@@ -151,15 +160,15 @@ JS → C#:
 { "type": "beatChanged", "bar": 3, "beat": 1 }   // for future progress/accuracy
 ```
 
-A `WebMessageRouter` deserializes envelopes and dispatches to the active feature slice. Envelope `type` strings are the bridge's only contract surface.
+A `WebMessageRouter` deserializes envelopes and dispatches to the active feature slice. Envelope `type` strings are the bridge's only contract surface — **unchanged across the Photino→WebView2 migration** (only the transport call sites changed). `PhotinoBridge` → `WebView2Bridge`; the router is host-agnostic.
 
 ### JS glue (`wwwroot/app.js`)
 Thin. Owns the alphaTab instance, translates envelopes to alphaTab API calls:
 - `loadScore` → `api.tex(msg.tex)`
-- `play`/`stop` → `api.playPause()` / `api.stop()`
+- `play`/`stop` → `api.playPause()` / `api.stop()`; `setTempo` → `api.playbackSpeed = bpm / baseTempo`
 - alphaTab events `playerStateChanged` / `activeBeatsChanged` → post `playbackFinished` / `beatChanged` back to C#.
 
-alphaTab config: `core.tex = true` not used (we call `api.tex` imperatively), `player.enablePlayer = true`, `player.soundFont = '/soundfont/sonivox.sf2'`, cursor enabled for the synced highlight.
+Transport on the JS side: `window.chrome.webview.postMessage(json)` (JS→C#) and `window.chrome.webview.addEventListener('message', e => …)` (C#→JS). The `Bridge` module feature-detects, so opening `index.html` with no host still works (renders a `SAMPLE_TEX` fallback). alphaTab config: `player.enablePlayer = true`, `player.soundFont = 'soundfont/sonivox.sf2'` (relative; same-origin under the virtual host), `scrollMode = Off`, cursor enabled for the synced highlight. (`core.useWorkers` can be `true` now that the origin is real; it was `false` only for the `file://` null-origin era.)
 
 ---
 
@@ -170,7 +179,7 @@ Each slice is a class composing Domain + Rendering + Infrastructure. No mediator
 | Slice | Responsibility (MVP) |
 |-------|----------------------|
 | `GenerateExercise` | Build an `Exercise` (12-bar blues, chosen key, chosen rhythm, tempo, Beginner) → `AlphaTexRenderer.Render` → push `loadScore` to JS. |
-| `PracticeSession` | Drive play/stop/tempo via the bridge; receive `playbackFinished`. |
+| `PracticeSession` | Drive play/stop/tempo via the bridge; receive `playbackFinished`/`beatChanged`. |
 | `ExerciseLibrary` | List saved exercises from SQLite; re-load one. |
 | `Progress` | On "mark practiced," write a `PracticeRecord` to SQLite. (No accuracy detection in v1.) |
 
@@ -189,24 +198,27 @@ Exercises store the **definition** (the `Exercise` record fields), never the alp
 - **Progression:** `12bar_blues` = `I I I I  IV IV  I I  V IV I V` (Dominant7 quality).
 - **Keys:** all 12, MVP UI exposes Bb first.
 - **Rhythm patterns:** `beat_1` (`hit,rest,rest,rest`), `beat_1_3` (`hit,rest,hit,rest`), `quarters` (`hit,hit,hit,hit`) — all quarter `Duration`.
-- **Beginner shell voicings:** small authored table (Bb, Eb, F at minimum for the blues). Frets to be confirmed in the alphaTab playground so rendered tab + audio match before locking — this is the one data-correctness gate for v1.
+- **Beginner shell voicings:** small authored table — Bb7 `(1.5 0.4 1.3)`, Eb7 `(6.5 5.4 6.3)`, F7 `(8.5 7.4 8.3)` confirmed; rendered tab + audio match.
 
 ---
 
 ## 7. Risks confirmed / carried forward
 
-- **alphaTex dotted/tie syntax** — unverified, but **not needed for MVP** rhythms. Verify before adding shuffle/syncopation (Phase 2).
-- **Soundfont** — need a small, redistributable GM `.sf2`; confirm license + size.
-- **WebView2** — present on Win11; cross-platform render testing deferred (desktop-first, Windows MVP).
-- **alphaTab JS API names** (`api.tex`, `playerStateChanged`, `activeBeatsChanged`, `soundFont`) — confirm exact names against the installed alphaTab version during the bridge step.
+- **Host rendering (RESOLVED):** Photino's WebView2 composition controller renders black on .NET 10 + WebView2 149. Migrated to WinForms + WebView2 (windowed controller). See the host-decision note + `loom/refs/photino-net-desktop-host-reference.md`.
+- **Soundfont origin (RESOLVED):** `file://` CORS-blocks alphaTab's soundfont fetch; the virtual-host `https` origin fixes it.
+- **alphaTex dotted/tie syntax** — unverified, **not needed for MVP** (EX4). Verify before adding shuffle/syncopation.
+- **Soundfont** — Sonivox GM `sonivox.sf2`, **Apache-2.0**, ~1.35 MB — small + redistributable (C7 satisfied).
+- **Windows-only host** — WinForms is Windows-only; aligned with EX8 (Windows-first). Engine stays UI-agnostic, so a cross-platform/web front-end remains additive (C1, EX5).
+- **alphaTab JS API names** — verified against the installed alphaTab 1.8.3 (`api.tex`, `playerStateChanged`, `activeBeatsChanged`, `playbackSpeed`, `soundFont`, `ScrollMode`).
 
 ---
 
-## 8. Implementation order (feeds the plan)
+## 8. Implementation order (feeds the plans)
 
-1. Solution + Domain kernel types + `Transposer` (unit-tested, no UI).
-2. `AlphaTexRenderer` + `VoicingBook` seed data (unit-tested: known `Exercise` → expected alphaTex string).
-3. Photino host + `wwwroot` + alphaTab wiring; render a hardcoded alphaTex string end-to-end.
-4. Bridge protocol + JS glue; `GenerateExercise` pushes a real score; play with synced cursor.
-5. SQLite + `ExerciseLibrary` + `Progress` (save / list / mark practiced).
-6. Wire the minimal UI controls (key picker, rhythm picker, tempo, generate, play, save).
+1. Solution + Domain kernel types + `Transposer` (unit-tested, no UI). — *Phase 1*
+2. `AlphaTexRenderer` + `VoicingBook` seed data (unit-tested: known `Exercise` → expected alphaTex string). — *Phase 1*
+3. Desktop host + `wwwroot` + alphaTab wiring; render a hardcoded alphaTex string end-to-end. — *Phase 2*
+4. Bridge protocol + JS glue; `GenerateExercise` pushes a real score; play with synced cursor. — *Phase 2*
+5. Host migration Photino → WinForms + WebView2 (virtual-host origin; `chrome.webview` bridge). — *Phase 2b*
+6. SQLite + `ExerciseLibrary` + `Progress` (save / list / mark practiced).
+7. Wire the minimal UI controls (key picker, rhythm picker, tempo, generate, play, save).
