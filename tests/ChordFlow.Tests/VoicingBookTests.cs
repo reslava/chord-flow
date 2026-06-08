@@ -88,4 +88,24 @@ public class VoicingBookTests
 
         Assert.Throws<NotSupportedException>(() => VoicingBook.Lookup(bb7, Difficulty.Intermediate));
     }
+
+    [Fact]
+    public void Lookup_BeginnerShell_CarriesDiagramMetadata()
+    {
+        // Bb7 = frets (1,0,1) on strings 5/4/3; diagram first fret is the lowest used (0),
+        // strings 1/2/6 are muted, and the shell shape uses no barre.
+        var bb7 = new Chord(new PitchClass(10), Quality.Dominant7);
+
+        Voicing voicing = VoicingBook.Lookup(bb7, Difficulty.Beginner);
+
+        Assert.Null(voicing.BarreFret);
+        Assert.Equal(0, voicing.FirstFret);
+        Assert.Equal(new[] { 1, 2, 6 }, voicing.MutedStrings);
+    }
+
+    [Fact]
+    public void BeginnerShellStrategy_ReportsBeginnerDifficulty()
+    {
+        Assert.Equal(Difficulty.Beginner, new BeginnerShellStrategy().Difficulty);
+    }
 }

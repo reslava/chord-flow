@@ -150,3 +150,22 @@ ammend the design, but this mvp is just the beginning to have a starting point t
 release 0.2.0
 update all README, CHANGELOG, etc
 commit, push, tag
+
+
+## AI:
+
+## 🚀 v0.2.0 shipped
+
+**Release:** https://github.com/reslava/chord-flow/releases/tag/v0.2.0
+
+- **Design amended** (`mvp-design.md` v3) — §2 + §6 now describe the **computed movable dom7 shell** (all 12 keys), §7 records the voicing-coverage resolution, §4/§5 note the Phase-3 bridge vocabulary + slices. The earlier "authored rows, not code changes" note is explicitly superseded.
+- **Version → 0.2.0** (`ChordFlow.App.csproj`).
+- **README + CHANGELOG** updated (features, 39 tests, project layout, full 0.2.0 entry).
+- **Commit** `7b3c266` on `main` (no attribution), pushed. **Tag** `v0.2.0` (annotated), pushed. **GitHub release** created.
+- 25 files, 39/39 tests green; `.sf2` still git-ignored (fetched at build), no `.db` in the tree.
+
+That closes Phase 3: persistence + library + progress + the builder UI, plus the all-12-keys voicing fix you found and verified.
+
+Noted your framing — **this MVP is the foundation**, not the destination: a starting point for real chord-progression + rhythm training across rhythm *and* lead guitar. When you're ready we'll open a new chat to scope those features (more progressions, lead/scale content, additional voicing sets, difficulty progression, etc.).
+
+Say `close` to close this chat.

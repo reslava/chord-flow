@@ -4,6 +4,44 @@ All notable changes to ChordFlow are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-06-08
+
+Phase 4 — music-theory-first domain. A focused rewrite of the `Domain/` kernel so
+transposition, diatonic generation, voicings, rhythm, swing/shuffle, and lead
+targets are all *derived*, never hand-authored. The sequential `Beat` rhythm model
+is replaced by a positional 48-PPQ tick grid. No UI or persistence-schema changes.
+
+### Added
+- **Harmony** — `Quality` backed by interval sets (8 v1 qualities) via
+  `QualityIntervals`; chord-relative `ChordTone`/`ChordTones` (the b7-of-G7 bridge);
+  first-class `Scale` + `DiatonicChord.Build` (I maj7 … vii m7b5); `NoteSpeller`
+  (per-key spelling, promoted out of the renderer); `ScaleDegree` distinct from
+  `RomanDegree` (two degree frames).
+- **Voicings** — optional diagram metadata on `Voicing` (`BarreFret`/`FirstFret`/
+  muted strings); `IVoicingStrategy` + `BeginnerShellStrategy`; `VoicingBook` is now
+  a strategy dispatcher; `Fretboard` geometry.
+- **Rhythm (tick grid)** — `TickGrid` (PPQ 48), `TimeSignature`, `RhythmEvent`,
+  `Stroke`/`Accent`, `PickupMeasure`, and a tick-based `RhythmPattern`. A
+  `RhythmQuantizer` in the `Rendering/` seam compiles the grid to `:N` slots.
+- **Overlays** — `Feel` + `FeelTransform` (playback-time long-short warp),
+  `AccentPattern` (backbeat), `StrokeOverlay` — composable, never stored on a pattern.
+- **Lead training** — `TargetZone`/`Importance`/`LeadTargets`; guide tones (3 & 7)
+  derived from the interval sets and resolved to fretboard positions (domain only).
+- **Reference doc** — `loom/refs/chordflow-domain-model-reference.md` mapping the kernel;
+  linked from `loom/ctx.md`.
+
+### Changed
+- **Rhythm model migrated** from sequential `Beat(Duration, IsHit)` to the positional
+  tick grid; `Beat`/`Duration` removed and the renderer's inline duration logic replaced
+  by the quantizer. Existing alphaTex output is byte-identical for the MVP patterns.
+- `Transposer` now consumes a `Scale`; the renderer derives spelling from `NoteSpeller`
+  and the `\ts` header from the pattern's `TimeSignature`.
+- `Exercise` gained a `Feel` field (defaults to Straight; applied at render time, not stored).
+
+### Tests
+- 106 xUnit tests (was 39); all green. Includes a Bb 12-bar-blues end-to-end render
+  smoke check through the new path.
+
 ## [0.2.0] — 2026-06-08
 
 Phase 3 — persistence & UI. ChordFlow becomes a usable trainer: build an exercise
@@ -81,5 +119,6 @@ as tablature, and plays it back with a synchronized beat cursor.
   the next phase).
 - No audio-input accuracy detection (out of scope for v1).
 
+[0.3.0]: https://github.com/reslava/chord-flow/releases/tag/v0.3.0
 [0.2.0]: https://github.com/reslava/chord-flow/releases/tag/v0.2.0
 [0.1.0]: https://github.com/reslava/chord-flow/releases/tag/v0.1.0

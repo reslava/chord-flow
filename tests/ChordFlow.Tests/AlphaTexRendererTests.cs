@@ -81,6 +81,43 @@ public class AlphaTexRendererTests
     }
 
     [Fact]
+    public void Render_TickPatternWithCustomTimeSignatureHeader_DerivesTsFromPattern()
+    {
+        // The \ts header now derives from the pattern's TimeSignature rather than a hardcoded "4 4".
+        var progression = new Progression("test", "Test", new RomanDegree[] { new(1, Quality.Dominant7) });
+        var exercise = new Exercise(
+            new Key(new PitchClass(10), false),
+            progression,
+            SeedData.Quarters,
+            90,
+            Difficulty.Beginner);
+
+        string tex = Renderer.Render(exercise);
+
+        Assert.Contains("\\ts 4 4", tex);
+        // Quantized through the new tick path: four quarter hits, stateful ":4" once.
+        Assert.EndsWith(":4 (1.5 0.4 1.3) (1.5 0.4 1.3) (1.5 0.4 1.3) (1.5 0.4 1.3) |", tex);
+    }
+
+    [Fact]
+    public void Render_Pickup_EmitsLeadingMeasureBeforeBars()
+    {
+        // A one-beat pickup voiced with the first chord adds a leading bar (=> an extra pipe).
+        var pickup = new PickupMeasure(new[] { RhythmEvent.Hit(0, 48) }, LengthTicks: 48);
+        var rhythm = new RhythmPattern("p", "Pickup", SeedData.Beat1.Events, TimeSignature.FourFour, pickup);
+        var progression = new Progression("test", "Test", new RomanDegree[] { new(1, Quality.Dominant7) });
+        var exercise = new Exercise(
+            new Key(new PitchClass(10), false), progression, rhythm, 80, Difficulty.Beginner);
+
+        string tex = Renderer.Render(exercise);
+
+        // Pickup bar + the single progression bar = 2 pipes. The pickup carries the ":4"; the main
+        // bar's first slot inherits the stateful duration, so no second ":4".
+        Assert.Equal(2, tex.Count(c => c == '|'));
+        Assert.EndsWith(":4 (1.5 0.4 1.3) |\n(1.5 0.4 1.3) r r r |", tex);
+    }
+
+    [Fact]
     public void Render_MinorKey_Throws()
     {
         var exercise = new Exercise(

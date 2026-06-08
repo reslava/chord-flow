@@ -1,8 +1,8 @@
 namespace ChordFlow.Domain;
 
 /// <summary>
-/// Hand-authored MVP seed data: the single supported progression (12-bar blues),
-/// the three rhythm patterns, and the 12 major keys. Pure constants — no I/O.
+/// Hand-authored MVP seed data: the single supported progression (12-bar blues), the three rhythm
+/// patterns (tick-grid model), and the 12 major keys. Pure constants — no I/O.
 /// </summary>
 public static class SeedData
 {
@@ -20,41 +20,39 @@ public static class SeedData
             new(5, Quality.Dominant7), new(4, Quality.Dominant7), new(1, Quality.Dominant7), new(5, Quality.Dominant7),
         });
 
-    /// <summary>Hit on beat 1 only, rests on 2/3/4 (all quarters).</summary>
+    // Rhythm patterns on the tick grid (48 PPQ): a quarter = 48, the 4/4 bar = 192. Each hit is one
+    // quarter; the quantizer fills the gaps with quarter rests.
+
+    /// <summary>Hit on beat 1 only.</summary>
     public static readonly RhythmPattern Beat1 = new(
         "beat_1",
         "Beat 1",
-        new Beat[]
-        {
-            new(Duration.Quarter, true),
-            new(Duration.Quarter, false),
-            new(Duration.Quarter, false),
-            new(Duration.Quarter, false),
-        });
+        new[] { RhythmEvent.Hit(0, TickGrid.Ppq) },
+        TimeSignature.FourFour);
 
-    /// <summary>Hits on beats 1 and 3, rests on 2/4 (all quarters).</summary>
+    /// <summary>Hits on beats 1 and 3.</summary>
     public static readonly RhythmPattern Beat1And3 = new(
         "beat_1_3",
         "Beats 1 & 3",
-        new Beat[]
+        new[]
         {
-            new(Duration.Quarter, true),
-            new(Duration.Quarter, false),
-            new(Duration.Quarter, true),
-            new(Duration.Quarter, false),
-        });
+            RhythmEvent.Hit(0, TickGrid.Ppq),
+            RhythmEvent.Hit(2 * TickGrid.Ppq, TickGrid.Ppq),
+        },
+        TimeSignature.FourFour);
 
     /// <summary>Hits on every quarter beat.</summary>
     public static readonly RhythmPattern Quarters = new(
         "quarters",
         "Quarters",
-        new Beat[]
+        new[]
         {
-            new(Duration.Quarter, true),
-            new(Duration.Quarter, true),
-            new(Duration.Quarter, true),
-            new(Duration.Quarter, true),
-        });
+            RhythmEvent.Hit(0, TickGrid.Ppq),
+            RhythmEvent.Hit(TickGrid.Ppq, TickGrid.Ppq),
+            RhythmEvent.Hit(2 * TickGrid.Ppq, TickGrid.Ppq),
+            RhythmEvent.Hit(3 * TickGrid.Ppq, TickGrid.Ppq),
+        },
+        TimeSignature.FourFour);
 
     /// <summary>The three MVP rhythm patterns, in UI order.</summary>
     public static readonly IReadOnlyList<RhythmPattern> RhythmPatterns = new[] { Beat1, Beat1And3, Quarters };

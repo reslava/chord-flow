@@ -65,7 +65,7 @@ interactively in the project root and approve the `loom` server, or use
 
 ### Rules
 
-- **Before `ToolSearch`-ing for a `loom_*` tool, read the `loom://catalog` resource** — MCP tool schemas are deferred, so you only see tool *names* until you fetch them. The catalog is the grouped name index; consult it, find the exact tool, then `ToolSearch select:<exact name>` (one targeted fetch, no keyword flailing).
+- **`loom://catalog` is loaded at session start (step 2) — consult it, never keyword-flail.** MCP tool schemas are deferred, so you only see tool *names* until you fetch them. The catalog (loaded up front) is the grouped name index; find the exact tool in it, then `ToolSearch select:<exact name>` (one targeted fetch). If the catalog is not yet in context when you need a `loom_*` tool, read `loom://catalog` **before** the first `ToolSearch` — a blind `ToolSearch` for a `loom_*` tool (keyword guessing without the catalog) is a rule violation.
 - **All writes to `loom/**/*.md` go through MCP tools** — frontmatter, body, state mutations, and prose edits alike (see the "AI session rules" hard rule below for the full breakdown and the gate hook that enforces it).
 - Use `loom://context/{docId}` (or `loom://context/thread/{weaveId}/{threadId}`) before starting any thread work. The Unified Context Pipeline bundles global/weave/thread ctx + parent chain + requires_load in a single read.
 - `do-next-step` prompt is the primary workflow driver: call it with the active planId to get context + step instruction.
@@ -141,8 +141,9 @@ The "is this thread already in transcript?" decision lives **in the AI**, not in
    📘 loom-ctx loaded — global context ready
    ```
    (or `⚠️ loom-ctx not loaded — proceeding without global context` on failure).
-2. **Read active work from MCP** — `loom://state?status=active,implementing`. Emit `🧵 Active: <thread IDs>`. MCP is the only source of truth — do not maintain a hand-written active-work pointer.
-3. **Call `do-next-step` prompt** with the active planId. Bundles thread context (idea, design, current plan, requires_load docs), the next incomplete step, and a pre-filled `loom_complete_step` call.
+2. **Load the tool catalog** — read the `loom://catalog` resource so the grouped `loom_*` tool index is in context *before* any tool is needed. Emit `📡 MCP: loom://catalog` then `🗂️ loom-catalog loaded — tool index ready`. Mandatory and unconditional: it removes the "first `ToolSearch` runs blind" moment that causes the index to be skipped. Once loaded, never `ToolSearch` for a `loom_*` tool without first consulting this index — go straight from catalog → `ToolSearch select:<exact name>`.
+3. **Read active work from MCP** — `loom://state?status=active,implementing`. Emit `🧵 Active: <thread IDs>`. MCP is the only source of truth — do not maintain a hand-written active-work pointer.
+4. **Call `do-next-step` prompt** with the active planId. Bundles thread context (idea, design, current plan, requires_load docs), the next incomplete step, and a pre-filled `loom_complete_step` call.
 
 After the reads, output this block and **STOP**:
 
