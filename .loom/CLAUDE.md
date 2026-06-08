@@ -57,6 +57,7 @@ interactively in the project root and approve the `loom` server, or use
 
 | Entry point | When to use |
 |-------------|-------------|
+| `loom://catalog` resource | Grouped index of every `loom_*` tool (name + one-line purpose). **Read it before searching for a tool**, then `ToolSearch select:<exact name>` — it removes the discovery search, not the one-time schema fetch |
 | `loom://context/{docId}` resource (or `loom://context/thread/{weaveId}/{threadId}`) | Load the assembled context bundle (global/weave/thread ctx + parent chain + requires_load) for a doc or thread before working on it |
 | `do-next-step` prompt | Get the next incomplete step with full context pre-loaded |
 | `continue-thread` prompt | Review thread state and get a next-action suggestion |
@@ -64,6 +65,7 @@ interactively in the project root and approve the `loom` server, or use
 
 ### Rules
 
+- **Before `ToolSearch`-ing for a `loom_*` tool, read the `loom://catalog` resource** — MCP tool schemas are deferred, so you only see tool *names* until you fetch them. The catalog is the grouped name index; consult it, find the exact tool, then `ToolSearch select:<exact name>` (one targeted fetch, no keyword flailing).
 - **All writes to `loom/**/*.md` go through MCP tools** — frontmatter, body, state mutations, and prose edits alike (see the "AI session rules" hard rule below for the full breakdown and the gate hook that enforces it).
 - Use `loom://context/{docId}` (or `loom://context/thread/{weaveId}/{threadId}`) before starting any thread work. The Unified Context Pipeline bundles global/weave/thread ctx + parent chain + requires_load in a single read.
 - `do-next-step` prompt is the primary workflow driver: call it with the active planId to get context + step instruction.
@@ -75,6 +77,8 @@ interactively in the project root and approve the `loom` server, or use
 ---
 
 ## AI session rules
+
+> **#1 rule — reply INSIDE the active chat doc.** This is the single most-violated rule. If a chat doc is the active context and you answer only in the terminal, that is a **bug**, not a stylistic choice — the reply is lost the moment the terminal scrolls. Once a chat doc is active, every reply (including short follow-ups) goes inside it via `loom_append_to_chat` until the user says `close` or opens a different chat. See the full rule below.
 
 - **Chat Mode (default):** Respond naturally. Never modify frontmatter or files without explicit approval.
 - **Action Mode:** Only when the user explicitly asks. Respond with a JSON proposal per the handshake protocol.

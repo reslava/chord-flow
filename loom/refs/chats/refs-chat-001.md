@@ -1508,3 +1508,38 @@ Each plan is **draft** with a parsed steps table. The natural starting point is 
 > Note on structure: I split by phase because each phase has a clean "done" boundary (tested engine → it renders+plays → it persists+has UI). If you'd rather have a **single MVP plan** with all 13 steps in one table, say so and I'll consolidate — easy to change before we start implementing.
 
 Next: `loom_start_plan` on Phase 1 and begin Step 1 (the solution scaffold). Want me to start Phase 1?
+
+## Rafa:
+
+Question about reqs:
+
+reqs was locked and then plans was generated, you detailed with reques satisfies them in you reply line 1483, so we have 11 req gaps
+but plans steps tables, column Satisfies are empty, why?
+
+## AI:
+
+Good catch — and it's a real gap, not a bug. Two different granularities are in play:
+
+**Plan-level mapping (filled):** The req coverage I quoted at line 1483 lives in each plan's **Goal prose**, e.g. plan-001 line 19:
+> *"Satisfies req IN1–IN5, IN11; constraints C1, C3, C4, C5."*
+
+So the *whole plan → reqs* link exists, and across the 3 plans that's where the 11 INs get accounted for.
+
+**Step-level mapping (empty):** The `Satisfies` **column** in the steps table is per-*step* traceability — "which req does *this individual step* close." Those are all `—` because `loom_create_plan` does **not** auto-derive a step→req mapping. It parses the steps table you/I authored and leaves `Satisfies` at its default `—`; the tool has no way to know that, say, Step 5 (AlphaTexRenderer) is the one that satisfies `IN5`. That column is meant to be filled deliberately.
+
+So nothing was lost — the req→plan coverage is intact at the plan level — but the **fine-grained step→req traceability is unfilled**. That matters later for two things: `loom_verify_req` / gap reporting (it can confirm "every locked IN is claimed by some step"), and knowing exactly which step to touch when a req changes.
+
+If you want it tight, I can backfill the `Satisfies` column per step. The natural mapping is roughly:
+
+**Plan 1 (Engine & Renderer):**
+| # | Step | Satisfies |
+|---|------|-----------|
+| 1 | Scaffold solution + tests | IN11 (xUnit harness) |
+| 2 | Domain kernel records | IN1 |
+| 3 | Transposer + 12-bar blues + 3 rhythms, 12 keys | IN2, IN3 |
+| 4 | VoicingBook shell voicings | IN4 |
+| 5 | AlphaTexRenderer | IN5 |
+
+**Plan 2 (IN6–IN8)** and **Plan 3 (IN9, IN10)** map similarly per their steps.
+
+Want me to backfill all three steps tables via `loom_update_doc`? (Plan-1 is `status: active`, so I'd edit it in place — version bump on each.) Or leave the mapping at plan-level and rely on the Goal prose for coverage.
