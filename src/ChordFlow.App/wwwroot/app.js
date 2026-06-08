@@ -1,15 +1,14 @@
 // ChordFlow WebView glue.
 //
-// Owns the alphaTab instance and the C#<->JS bridge. Local transport controls
-// (play/stop/tempo) drive alphaTab; alphaTab events are mapped back over the
-// bridge (playerStateChanged -> playbackFinished, activeBeatsChanged ->
-// beatChanged); and inbound loadScore/play/stop/setTempo envelopes let the C#
-// host drive it too. The synced beat cursor is alphaTab's built-in highlight,
-// enabled by player.enablePlayer.
+// Owns the alphaTab instance and the C#<->JS bridge. UI controls (key/rhythm
+// pickers, Generate, Play/Stop, Tempo, Save, Mark-practiced, the saved list) each
+// post a bridge envelope to their C# slice; inbound envelopes from the host
+// (loadScore, play/stop/setTempo, exerciseList, practiceRecorded) drive alphaTab
+// and the UI. The synced beat cursor is alphaTab's built-in highlight.
 //
 // Transport is WebView2's window.chrome.webview (see the Bridge module). When
-// opened with no host (plain browser) the bridge is absent, so we fall back to
-// rendering SAMPLE_TEX for standalone dev.
+// opened with no host (plain browser) the bridge is absent, so transport falls
+// back to driving alphaTab directly and a SAMPLE_TEX score is rendered.
 "use strict";
 
 // --- WebView2 transport -----------------------------------------------------
@@ -36,6 +35,17 @@ const Bridge = (function () {
 })();
 
 const ChordFlow = (function () {
+  // Key names per tonic pitch class (0 = C .. 11 = B), spelled to match the
+  // renderer's \ks. Used for the key picker and the saved-list labels.
+  const KEY_NAMES = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+
+  // The three MVP rhythm patterns (id + display name), matching SeedData.
+  const RHYTHMS = [
+    { id: "beat_1", name: "Beat 1" },
+    { id: "beat_1_3", name: "Beats 1 & 3" },
+    { id: "quarters", name: "Quarters" },
+  ];
+
   // Browser-dev fallback only — in the app the host pushes the real score.
   // Matches AlphaTexRenderer's output for 12-bar blues in Bb, "Beats 1 & 3".
   const SAMPLE_TEX = [
@@ -69,6 +79,45 @@ const ChordFlow = (function () {
     if (el) el.textContent = text;
   }
 
+  // --- pickers -------------------------------------------------------------
+  function populatePickers() {
+    const keySel = $("key");
+    if (keySel) {
+      KEY_NAMES.forEach((name, pc) => {
+        const o = document.createElement("option");
+        o.value = String(pc);
+        o.textContent = name;
+        keySel.appendChild(o);
+      });
+      keySel.value = "10"; // Bb default, matching the host's boot score
+    }
+
+    const rSel = $("rhythm");
+    if (rSel) {
+      RHYTHMS.forEach((r) => {
+        const o = document.createElement("option");
+        o.value = r.id;
+        o.textContent = r.name;
+        rSel.appendChild(o);
+      });
+      rSel.value = "beat_1_3";
+    }
+  }
+
+  function rhythmName(id) {
+    const r = RHYTHMS.find((x) => x.id === id);
+    return r ? r.name : id;
+  }
+
+  // The current builder selections — the payload for a generate envelope.
+  function selections() {
+    return {
+      keyPitchClass: parseInt($("key").value, 10) || 0,
+      rhythmId: $("rhythm").value || "beat_1_3",
+      tempo: parseInt($("tempo").value, 10) || baseTempo,
+    };
+  }
+
   // --- transport controls --------------------------------------------------
   function setTransportEnabled(enabled) {
     ["btnPlay", "btnStop", "tempo"].forEach((id) => {
@@ -84,15 +133,79 @@ const ChordFlow = (function () {
     api.playbackSpeed = bpm / baseTempo;
   }
 
-  function setupTransport() {
+  // --- control wiring ------------------------------------------------------
+  // In host mode each control posts an envelope to its C# slice; the host echoes
+  // play/stop/setTempo back to drive alphaTab. In browser-dev (no bridge) the
+  // transport drives alphaTab directly and the DB-backed actions are no-ops.
+  function setupControls() {
     const play = $("btnPlay");
     const stop = $("btnStop");
     const tempo = $("tempo");
+    const gen = $("btnGenerate");
+    const save = $("btnSave");
+    const practice = $("btnPractice");
 
-    if (play) play.addEventListener("click", () => api && api.playPause());
-    if (stop) stop.addEventListener("click", () => api && api.stop());
+    if (play) {
+      play.addEventListener("click", () => {
+        if (Bridge.available) Bridge.send({ type: "play" });
+        else if (api) api.playPause();
+      });
+    }
+    if (stop) {
+      stop.addEventListener("click", () => {
+        if (Bridge.available) Bridge.send({ type: "stop" });
+        else if (api) api.stop();
+      });
+    }
     if (tempo) {
-      tempo.addEventListener("change", () => applyTempo(parseInt(tempo.value, 10)));
+      tempo.addEventListener("change", () => {
+        const bpm = parseInt(tempo.value, 10);
+        if (!bpm) return;
+        if (Bridge.available) Bridge.send({ type: "setTempo", bpm });
+        else applyTempo(bpm);
+      });
+    }
+    if (gen) {
+      gen.addEventListener("click", () => {
+        if (Bridge.available) Bridge.send({ type: "generate", ...selections() });
+        else if (api) api.tex(SAMPLE_TEX); // dev fallback: no engine in the browser
+      });
+    }
+    if (save) {
+      save.addEventListener("click", () => Bridge.send({ type: "save" }));
+    }
+    if (practice) {
+      practice.addEventListener("click", () => Bridge.send({ type: "markPracticed" }));
+    }
+  }
+
+  // --- saved-exercise library ----------------------------------------------
+  function libraryLabel(ex) {
+    const key = KEY_NAMES[ex.key] !== undefined ? KEY_NAMES[ex.key] : ex.key;
+    const base = `${key} · ${rhythmName(ex.rhythmId)} · ${ex.tempo} BPM`;
+    // Mark practiced exercises with a ✓ and the count.
+    return ex.practicedCount > 0 ? `${base}  ✅ ${ex.practicedCount}` : base;
+  }
+
+  function renderLibrary(exercises) {
+    const ul = $("library");
+    if (!ul) return;
+    ul.innerHTML = "";
+
+    if (!exercises || exercises.length === 0) {
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = "No saved exercises";
+      ul.appendChild(li);
+      return;
+    }
+
+    for (const ex of exercises) {
+      const li = document.createElement("li");
+      li.textContent = libraryLabel(ex);
+      li.title = "Load this exercise";
+      li.addEventListener("click", () => Bridge.send({ type: "loadExercise", id: ex.id }));
+      ul.appendChild(li);
     }
   }
 
@@ -124,6 +237,16 @@ const ChordFlow = (function () {
           setTempoInput(msg.bpm);
           applyTempo(msg.bpm);
         }
+        break;
+      case "exerciseList":
+        renderLibrary(msg.exercises);
+        break;
+      case "practiceRecorded":
+        setStatus(`practiced ✓ — recorded ${msg.count}×`);
+        break;
+      case "status":
+        setStatus(msg.text);
+        if (msg.isError) console.error("ChordFlow host:", msg.text);
         break;
       default:
         console.warn("ChordFlow: unhandled envelope type:", msg.type);
@@ -173,6 +296,8 @@ const ChordFlow = (function () {
   }
 
   function init() {
+    populatePickers();
+
     if (typeof alphaTab === "undefined") {
       setStatus("alphaTab failed to load");
       console.error("alphaTab global not found — check wwwroot/alphaTab.min.js bundling.");
@@ -214,7 +339,7 @@ const ChordFlow = (function () {
       console.error("alphaTab error:", err);
     });
 
-    setupTransport();
+    setupControls();
     wirePlaybackEvents();
 
     if (Bridge.available) {

@@ -6,10 +6,19 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- SQLite persistence (constraint C2: one offline file, no server). Design is a
+         build-only dependency (PrivateAssets=all) — needed for `dotnet ef migrations`,
+         never shipped at runtime. See Infrastructure/ChordFlowDbContext.cs. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+
     <!-- Official Microsoft WebView2 host (WinForms = windowed controller, which
          renders on this net10 + WebView2-149 stack where Photino's composition
          controller produced a black window). See loom/refs/photino-net-desktop-host-reference.md. -->
@@ -34,10 +43,7 @@
       <SoundfontDir>$(MSBuildProjectDirectory)\wwwroot\soundfont</SoundfontDir>
       <SoundfontUrl>https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.3/dist/soundfont/sonivox.sf2</SoundfontUrl>
     </PropertyGroup>
-    <DownloadFile Condition="!Exists('$(SoundfontDir)\sonivox.sf2')"
-                  SourceUrl="$(SoundfontUrl)"
-                  DestinationFolder="$(SoundfontDir)"
-                  SkipUnchangedFiles="true" />
+    <DownloadFile Condition="!Exists('$(SoundfontDir)\sonivox.sf2')" SourceUrl="$(SoundfontUrl)" DestinationFolder="$(SoundfontDir)" SkipUnchangedFiles="true" />
   </Target>
 
 </Project>

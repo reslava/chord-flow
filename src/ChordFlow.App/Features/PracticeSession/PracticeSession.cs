@@ -22,7 +22,14 @@ public sealed class PracticeSessionHandler
     {
         _bridge = bridge;
 
-        // Subscribe to inbound playback echoes from the WebView.
+        // Inbound transport requests from the UI route here (each control posts an
+        // envelope to its slice): Play/Stop/SetTempo echo the matching command back
+        // to alphaTab via the bridge, so this slice owns the playback state.
+        router.PlayRequested += Play;
+        router.StopRequested += Stop;
+        router.SetTempoRequested += SetTempo;
+
+        // Inbound playback echoes from the WebView.
         router.PlaybackFinished += OnPlaybackFinished;
         router.BeatChanged += OnBeatChanged;
     }

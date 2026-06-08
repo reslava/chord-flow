@@ -508,3 +508,24 @@ mark step 4 done
 this is v0.1.0 , create CHANGELOG, update README, etc
 commit, push, tag, release
 
+
+
+## AI:
+
+## 🚀 v0.1.0 shipped
+
+**Release:** https://github.com/reslava/chord-flow/releases/tag/v0.1.0
+
+- **Step 4 ✅ → plan-004 (host migration) done.** Phase 2 + Phase 2b complete; render + audio + synced cursor verified live.
+- **Commit** `7831a2d` on `main` (no attribution), pushed.
+- **Tag** `v0.1.0` (annotated), pushed.
+- **GitHub release** created with notes.
+
+**Repo housekeeping:**
+- `README.md` + `CHANGELOG.md` added; `<Version>0.1.0</Version>` set.
+- **Soundfont handled per the `.gitignore` intent** ("bundled at build time, not committed"): added an MSBuild `DownloadFile` target that fetches `sonivox.sf2` on first build if missing — verified by deleting it and rebuilding (re-downloaded, 1.29 MB). The Apache-2.0 `LICENSE`/`README` for it *are* committed; the binary isn't.
+- 27 files committed; **no `.sf2`** in the tree (sanity-checked); 26 tests green.
+
+That closes the black-window saga: root-caused (Photino composition controller vs WinForms windowed controller on the net10 + WebView2-149 stack), migrated, documented (design + reqs + `photino-net-desktop-host-reference.md`), and released.
+
+Next phase whenever you want it: SQLite persistence + the on-screen pickers (key/rhythm/tempo/generate/save) — `IN9`/`IN10`. Say `close` if you want to close this chat.

@@ -5,7 +5,7 @@ title: ChordFlow MVP — Design
 status: draft
 created: "2026-06-07T00:00:00.000Z"
 updated: 2026-06-08
-version: 2
+version: 3
 tags: []
 parent_id: id_01KTHJ61W7749XVY7AKGZV7F9D
 requires_load: []
@@ -76,7 +76,7 @@ public readonly record struct FretPosition(int String, int Fret);        // 1 = 
 **Key services (pure functions):**
 
 - `Transposer` — `Chord[] Realize(Progression, Key)`: maps each `RomanDegree` to a concrete `Chord` in the key. 12-bar blues degrees use **Dominant7** quality (blues convention) but MVP renders shell triads; quality is carried for later.
-- `VoicingBook` — `Voicing Lookup(Chord, Difficulty)`: for MVP, a hand-authored table of **beginner shell voicings** keyed by chord root/quality. This is the one place literal frets live (verified data, see §6).
+- `VoicingBook` — `Voicing Lookup(Chord, Difficulty)`: a computed **movable dom7 shell shape** on the A/D/G strings — root at fret `R` on the A string, voicing `(s5:R, s4:R-1, s3:R)`, `R` kept in 1..12 so the shape stays contiguous (no negative frets; the lowest, A7, sits an octave up). One rule covers **all 12 keys** — this is what proves the transposition engine — and reproduces the original Bb7/Eb7/F7 frets exactly. The one place literal frets are defined (verified data, see §6).
 
 The composed **exercise model** the engine emits:
 
@@ -152,15 +152,20 @@ C# → JS:
 ```json
 { "type": "loadScore", "tex": "\\title \"...\" ... ", "tempo": 80 }
 { "type": "play" }   { "type": "stop" }   { "type": "setTempo", "bpm": 90 }
+{ "type": "exerciseList", "exercises": [ ... ] }   { "type": "practiceRecorded", "exerciseId": 3, "count": 2 }
+{ "type": "status", "text": "...", "isError": true }
 ```
 JS → C#:
 ```json
 { "type": "ready" }
+{ "type": "generate", "keyPitchClass": 10, "rhythmId": "beat_1_3", "tempo": 80 }
+{ "type": "play" }   { "type": "stop" }   { "type": "setTempo", "bpm": 90 }
+{ "type": "save" }   { "type": "listExercises" }   { "type": "loadExercise", "id": 3 }   { "type": "markPracticed" }
 { "type": "playbackFinished" }
 { "type": "beatChanged", "bar": 3, "beat": 1 }   // for future progress/accuracy
 ```
 
-A `WebMessageRouter` deserializes envelopes and dispatches to the active feature slice. Envelope `type` strings are the bridge's only contract surface — **unchanged across the Photino→WebView2 migration** (only the transport call sites changed). `PhotinoBridge` → `WebView2Bridge`; the router is host-agnostic.
+A `WebMessageRouter` deserializes envelopes and dispatches to the active feature slice. Envelope `type` strings are the bridge's only contract surface — **unchanged across the Photino→WebView2 migration** (only the transport call sites changed). `PhotinoBridge` → `WebView2Bridge`; the router is host-agnostic. UI controls each post an envelope that routes to their slice (Phase 3): transport (play/stop/setTempo) routes through `PracticeSession`, which echoes the command back to alphaTab.
 
 ### JS glue (`wwwroot/app.js`)
 Thin. Owns the alphaTab instance, translates envelopes to alphaTab API calls:
@@ -178,10 +183,10 @@ Each slice is a class composing Domain + Rendering + Infrastructure. No mediator
 
 | Slice | Responsibility (MVP) |
 |-------|----------------------|
-| `GenerateExercise` | Build an `Exercise` (12-bar blues, chosen key, chosen rhythm, tempo, Beginner) → `AlphaTexRenderer.Render` → push `loadScore` to JS. |
-| `PracticeSession` | Drive play/stop/tempo via the bridge; receive `playbackFinished`/`beatChanged`. |
-| `ExerciseLibrary` | List saved exercises from SQLite; re-load one. |
-| `Progress` | On "mark practiced," write a `PracticeRecord` to SQLite. (No accuracy detection in v1.) |
+| `GenerateExercise` | Build an `Exercise` (12-bar blues, chosen key, chosen rhythm, tempo, Beginner) → `AlphaTexRenderer.Render` → push `loadScore` to JS. `Build` (definition only) is exposed so the host can keep the current definition for the save path. |
+| `PracticeSession` | Drive play/stop/tempo via the bridge; receive `playbackFinished`/`beatChanged`. Inbound transport requests (play/stop/setTempo) route here. |
+| `ExerciseLibrary` | Save an `Exercise` definition; list saved exercises (with practice counts); re-load one — regenerating alphaTex from the definition on load (never persisting it). |
+| `Progress` | On "mark practiced," write a `PracticeRecord` to SQLite. (No accuracy detection in v1.) An unsaved exercise is saved first so the record always has a target. |
 
 ### Persistence (SQLite)
 EF Core (Dapper is a fine alternative; EF chosen for migration tooling). Tables:
@@ -189,16 +194,16 @@ EF Core (Dapper is a fine alternative; EF chosen for migration tooling). Tables:
 Exercises(Id, Key, ProgressionId, RhythmId, Tempo, Difficulty, CreatedUtc)
 PracticeRecords(Id, ExerciseId, PracticedUtc)
 ```
-Exercises store the **definition** (the `Exercise` record fields), never the alphaTex — alphaTex is regenerated on load so a renderer fix improves all saved exercises.
+Exercises store the **definition** (the `Exercise` record fields), never the alphaTex — alphaTex is regenerated on load so a renderer fix improves all saved exercises. The DB is a single local file at `%LOCALAPPDATA%\ChordFlow\chordflow.db`; migrations apply on startup. The `Design` package is build-only (`PrivateAssets=all`); a design-time factory backs `dotnet ef`.
 
 ---
 
 ## 6. Seed data (verified, authored during implementation)
 
 - **Progression:** `12bar_blues` = `I I I I  IV IV  I I  V IV I V` (Dominant7 quality).
-- **Keys:** all 12, MVP UI exposes Bb first.
+- **Keys:** all 12 — the UI key picker exposes every key, and all render via the movable shell (Bb is the boot default).
 - **Rhythm patterns:** `beat_1` (`hit,rest,rest,rest`), `beat_1_3` (`hit,rest,hit,rest`), `quarters` (`hit,hit,hit,hit`) — all quarter `Duration`.
-- **Beginner shell voicings:** small authored table — Bb7 `(1.5 0.4 1.3)`, Eb7 `(6.5 5.4 6.3)`, F7 `(8.5 7.4 8.3)` confirmed; rendered tab + audio match.
+- **Beginner shell voicings:** a computed **movable dom7 shell** (not an authored table) — `(s5:R, s4:R-1, s3:R)` with the root fret `R` kept in 1..12, covering all 12 keys with one shape. Bb7/Eb7/F7 fall out as `(1.5 0.4 1.3)` / `(6.5 5.4 6.3)` / `(8.5 7.4 8.3)`; the pitch-class content (root / +4 / ♭7) is unit-verified for every root. *(Amended in Phase 3: this was a 3-row hand-authored table covering only the Bb blues; it was generalized to a movable shape so the UI key picker can offer all 12 keys — superseding the earlier "voicings added as authored rows, not code changes" note.)*
 
 ---
 
@@ -206,6 +211,7 @@ Exercises store the **definition** (the `Exercise` record fields), never the alp
 
 - **Host rendering (RESOLVED):** Photino's WebView2 composition controller renders black on .NET 10 + WebView2 149. Migrated to WinForms + WebView2 (windowed controller). See the host-decision note + `loom/refs/photino-net-desktop-host-reference.md`.
 - **Soundfont origin (RESOLVED):** `file://` CORS-blocks alphaTab's soundfont fetch; the virtual-host `https` origin fixes it.
+- **Voicing coverage (RESOLVED, Phase 3):** the original 3-row voicing table only rendered the Bb blues, so the key picker silently failed off Bb. Replaced with the computed movable shell → all 12 keys; host handlers now surface a `status` error rather than silently dropping an unrenderable score.
 - **alphaTex dotted/tie syntax** — unverified, **not needed for MVP** (EX4). Verify before adding shuffle/syncopation.
 - **Soundfont** — Sonivox GM `sonivox.sf2`, **Apache-2.0**, ~1.35 MB — small + redistributable (C7 satisfied).
 - **Windows-only host** — WinForms is Windows-only; aligned with EX8 (Windows-first). Engine stays UI-agnostic, so a cross-platform/web front-end remains additive (C1, EX5).
@@ -220,5 +226,5 @@ Exercises store the **definition** (the `Exercise` record fields), never the alp
 3. Desktop host + `wwwroot` + alphaTab wiring; render a hardcoded alphaTex string end-to-end. — *Phase 2*
 4. Bridge protocol + JS glue; `GenerateExercise` pushes a real score; play with synced cursor. — *Phase 2*
 5. Host migration Photino → WinForms + WebView2 (virtual-host origin; `chrome.webview` bridge). — *Phase 2b*
-6. SQLite + `ExerciseLibrary` + `Progress` (save / list / mark practiced).
-7. Wire the minimal UI controls (key picker, rhythm picker, tempo, generate, play, save).
+6. SQLite + `ExerciseLibrary` + `Progress` (save / list / mark practiced). — *Phase 3*
+7. Wire the minimal UI controls (key picker, rhythm picker, tempo, generate, play, save, mark practiced, saved list). — *Phase 3*
