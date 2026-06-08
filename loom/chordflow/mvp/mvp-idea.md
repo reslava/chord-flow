@@ -2,9 +2,10 @@
 type: idea
 id: id_01KTHJ61W7749XVY7AKGZV7F9D
 title: ChordFlow MVP
-status: draft
-created: 2026-06-07
-version: 1
+status: done
+created: "2026-06-07T00:00:00.000Z"
+updated: 2026-06-08
+version: 2
 tags: []
 parent_id: null
 requires_load: []

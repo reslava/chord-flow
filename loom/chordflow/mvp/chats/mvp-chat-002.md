@@ -2,9 +2,10 @@
 type: chat
 id: ch_01KTK6S4QXCZFV64ZG4RCGR420
 title: Phase 2 WebView2/Photino black-window diagnosis
-status: active
-created: 2026-06-08
-version: 1
+status: done
+created: "2026-06-08T00:00:00.000Z"
+updated: 2026-06-08
+version: 2
 tags: []
 parent_id: null
 requires_load: []

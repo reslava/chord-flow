@@ -2,10 +2,10 @@
 type: design
 id: de_01KTHJD3QTBGRVX3BBRD29PKAW
 title: ChordFlow MVP — Design
-status: draft
+status: done
 created: "2026-06-07T00:00:00.000Z"
 updated: 2026-06-08
-version: 3
+version: 4
 tags: []
 parent_id: id_01KTHJ61W7749XVY7AKGZV7F9D
 requires_load: []

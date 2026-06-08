@@ -2,9 +2,10 @@
 type: design
 id: de_01KTM0DRF3Q7F4X35RMCBX6DDT
 title: Music-Theory Domain Model — Design
-status: draft
-created: 2026-06-08
-version: 1
+status: done
+created: "2026-06-08T00:00:00.000Z"
+updated: 2026-06-08
+version: 2
 tags: []
 parent_id: null
 requires_load: []
