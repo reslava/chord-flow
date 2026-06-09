@@ -17,7 +17,8 @@ public sealed class ExerciseEntity
     /// <summary>Tonic pitch class 0..11 (10 = Bb). Major mode assumed for the MVP.</summary>
     public int Key { get; set; }
 
-    /// <summary>Seed progression id (MVP: <c>12bar_blues</c>).</summary>
+    /// <summary>References a <see cref="ProgressionEntity.Id"/> row (e.g. <c>12bar_blues</c>). String
+    /// reference; the FK is left implicit for the MVP (id lookup is enough).</summary>
     public string ProgressionId { get; set; } = "";
 
     /// <summary>Seed rhythm id (<c>beat_1</c> / <c>beat_1_3</c> / <c>quarters</c>).</summary>

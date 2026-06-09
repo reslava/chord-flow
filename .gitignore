@@ -56,3 +56,6 @@ src/**/wwwroot/soundfont/*.sf3
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# --- Internal Documentation (excluded from public repo) ---
+docs/internal/

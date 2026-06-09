@@ -130,6 +130,72 @@ public class AlphaTexRendererTests
         Assert.Throws<NotSupportedException>(() => Renderer.Render(exercise));
     }
 
+    [Fact]
+    public void Render_TwoChordBar_VoicesEachHalfWithItsChord()
+    {
+        // "17_67" = I7 (first half) · VI7 (second half) in Bb, struck on every quarter.
+        var prog = ProgressionParser.Parse("p", "P", "17_67", TimeSignature.FourFour);
+        var exercise = new Exercise(new Key(new PitchClass(10), false), prog, SeedData.Quarters, 90, Difficulty.Beginner);
+
+        IReadOnlyList<string> groups = ChordGroups(LastBar(Renderer.Render(exercise)));
+
+        Assert.Equal(4, groups.Count);
+        Assert.Equal(groups[0], groups[1]);     // both quarters of the I7 half
+        Assert.Equal(groups[2], groups[3]);     // both quarters of the VI7 half
+        Assert.NotEqual(groups[0], groups[2]);  // the chord actually changes at the boundary
+    }
+
+    [Fact]
+    public void Render_ThreeChordBar_ExplicitSlots_VoicesNinetySixFortyEightFortyEight()
+    {
+        // "17:2_67:1_27:1" = I7 (half) · VI7 (quarter) · ii7 (quarter), struck on every quarter.
+        var prog = ProgressionParser.Parse("p", "P", "17:2_67:1_27:1", TimeSignature.FourFour);
+        var exercise = new Exercise(new Key(new PitchClass(10), false), prog, SeedData.Quarters, 90, Difficulty.Beginner);
+
+        IReadOnlyList<string> groups = ChordGroups(LastBar(Renderer.Render(exercise)));
+
+        Assert.Equal(4, groups.Count);
+        Assert.Equal(groups[0], groups[1]);     // the I7 half spans quarters 1–2
+        Assert.NotEqual(groups[1], groups[2]);  // → VI7 at quarter 3
+        Assert.NotEqual(groups[2], groups[3]);  // → ii7 at quarter 4
+        Assert.NotEqual(groups[0], groups[3]);
+    }
+
+    [Fact]
+    public void Render_FourChordBar_VoicesEachQuarterDistinctly()
+    {
+        var prog = ProgressionParser.Parse("p", "P", "17_27_37_47", TimeSignature.FourFour);
+        var exercise = new Exercise(new Key(new PitchClass(10), false), prog, SeedData.Quarters, 90, Difficulty.Beginner);
+
+        IReadOnlyList<string> groups = ChordGroups(LastBar(Renderer.Render(exercise)));
+
+        Assert.Equal(4, groups.Count);
+        Assert.Equal(4, groups.Distinct().Count()); // I7/II7/III7/IV7 all different
+    }
+
+    [Fact]
+    public void Render_BluesViaDsl_IsByteIdenticalToSeedProgression()
+    {
+        // The DSL round-trip must reproduce the existing seed output exactly (C4 backward compatibility).
+        var key = new Key(new PitchClass(10), false);
+        string viaSeed = Renderer.Render(
+            new Exercise(key, SeedData.TwelveBarBlues, SeedData.Beat1And3, 80, Difficulty.Beginner));
+
+        var dslProg = ProgressionParser.Parse(
+            "12bar_blues", "12-Bar Blues", "17 17 17 17 47 47 17 17 57 47 17 57", TimeSignature.FourFour);
+        string viaDsl = Renderer.Render(
+            new Exercise(key, dslProg, SeedData.Beat1And3, 80, Difficulty.Beginner));
+
+        Assert.Equal(viaSeed, viaDsl);
+    }
+
+    private static string LastBar(string tex) => tex.Split('\n')[^1];
+
+    private static IReadOnlyList<string> ChordGroups(string barLine) =>
+        System.Text.RegularExpressions.Regex.Matches(barLine, @"\([^)]*\)")
+            .Select(m => m.Value)
+            .ToList();
+
     private static int CountOccurrences(string haystack, string needle)
     {
         int count = 0;

@@ -63,6 +63,8 @@ internal static class Program
                 using (var db = new ChordFlowDbContext(dbOptions))
                 {
                     db.Database.Migrate();
+                    // Seed the built-in default progressions on first run (idempotent by Id).
+                    db.SeedBuiltInProgressions();
                 }
 
                 // Bridge wiring — same envelope contract, WebView2 transport. Build it

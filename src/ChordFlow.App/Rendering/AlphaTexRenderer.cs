@@ -11,6 +11,12 @@ namespace ChordFlow.Rendering;
 /// <c>:N</c> durations, <c>( )</c> chord groups, <c>r</c> rests, separated by <c>|</c>. Note spelling
 /// comes from <see cref="NoteSpeller"/> and rhythm tokens from <see cref="RhythmQuantizer"/> — this
 /// type only formats them.
+/// <para>
+/// Chords are no longer 1:1 with bars (harmonic-rhythm layer): each bar is realized into ordered
+/// <see cref="RealizedSpan"/>s and the rhythm is quantized with that bar's chord boundaries, so every
+/// slot is mapped to the chord covering its <see cref="RhythmSlot.StartTick"/>. A single-chord bar has
+/// no interior boundaries, so it reduces to the original one-chord-per-bar output (C4/C6).
+/// </para>
 /// </summary>
 public sealed class AlphaTexRenderer : IScoreRenderer
 {
@@ -29,7 +35,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
 
         RhythmPattern rhythm = exercise.Rhythm;
         TimeSignature ts = rhythm.TimeSignature;
-        Chord[] chords = Transposer.Realize(exercise.Progression, exercise.Key);
+        IReadOnlyList<RealizedBar> bars = Transposer.RealizeBars(exercise.Progression, exercise.Key);
 
         var sb = new StringBuilder();
 
@@ -44,22 +50,26 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         // --- Bars ---
         // Duration is stateful in alphaTex: a ":N" token persists across beats and bars until changed.
         string? currentDuration = null;
-        var barLines = new List<string>(chords.Length + 1);
+        var barLines = new List<string>(bars.Count + 1);
 
-        // A pickup/anacrusis renders as a leading measure, voiced with the first chord.
-        if (rhythm.Pickup is { } pickup && chords.Length > 0)
+        // A pickup/anacrusis renders as a leading measure, voiced with the first chord of the first bar.
+        if (rhythm.Pickup is { } pickup && bars.Count > 0)
         {
+            Chord firstChord = bars[0].Spans[0].Chord;
             IReadOnlyList<RhythmSlot> pickupSlots = RhythmQuantizer.Quantize(pickup);
-            barLines.Add(RenderBar(pickupSlots, chords[0], exercise.Difficulty, ref currentDuration));
+            barLines.Add(RenderBar(pickupSlots, _ => firstChord, exercise.Difficulty, ref currentDuration));
         }
 
         // Apply the exercise's groove feel as a playback-time warp before quantizing (identity for
         // Straight). The stored pattern stays straight — Feel is never baked into it (C4).
         IReadOnlyList<RhythmEvent> feltEvents = FeelTransform.Apply(rhythm.Events, exercise.Feel, ts);
-        IReadOnlyList<RhythmSlot> barSlots = RhythmQuantizer.Quantize(feltEvents, ts);
-        foreach (Chord chord in chords)
+        foreach (RealizedBar bar in bars)
         {
-            barLines.Add(RenderBar(barSlots, chord, exercise.Difficulty, ref currentDuration));
+            // Re-attack the strum at each interior chord change; quantize this bar against its own
+            // boundaries so a slot landing on a new chord starts a fresh attack.
+            IReadOnlyList<int> boundaries = InteriorBoundaries(bar);
+            IReadOnlyList<RhythmSlot> slots = RhythmQuantizer.Quantize(feltEvents, ts, boundaries);
+            barLines.Add(RenderBar(slots, bar.ChordCovering, exercise.Difficulty, ref currentDuration));
         }
 
         sb.Append(string.Join("\n", barLines));
@@ -67,10 +77,32 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         return sb.ToString();
     }
 
-    private static string RenderBar(
-        IReadOnlyList<RhythmSlot> slots, Chord chord, Difficulty difficulty, ref string? currentDuration)
+    // Bar-relative ticks where the chord changes (exclusive of 0 and the bar end). Empty for a
+    // single-chord bar, so its quantization is identical to the pre-harmonic-rhythm output.
+    private static IReadOnlyList<int> InteriorBoundaries(RealizedBar bar)
     {
-        string chordGroup = FormatChord(chord, difficulty);
+        if (bar.Spans.Count <= 1)
+        {
+            return Array.Empty<int>();
+        }
+
+        var boundaries = new List<int>(bar.Spans.Count - 1);
+        int tick = 0;
+        for (int i = 0; i < bar.Spans.Count - 1; i++)
+        {
+            tick += bar.Spans[i].DurationTicks;
+            boundaries.Add(tick);
+        }
+
+        return boundaries;
+    }
+
+    private static string RenderBar(
+        IReadOnlyList<RhythmSlot> slots,
+        Func<int, Chord> chordForTick,
+        Difficulty difficulty,
+        ref string? currentDuration)
+    {
         var tokens = new List<string>(slots.Count);
 
         foreach (RhythmSlot slot in slots)
@@ -91,7 +123,8 @@ public sealed class AlphaTexRenderer : IScoreRenderer
                 currentDuration = durationToken;
             }
 
-            string body = slot.IsRest ? "r" : chordGroup;
+            // Each slot is voiced with the chord covering its onset tick (harmonic-rhythm lookup).
+            string body = slot.IsRest ? "r" : FormatChord(chordForTick(slot.StartTick), difficulty);
             tokens.Add(prefix + body);
         }
 

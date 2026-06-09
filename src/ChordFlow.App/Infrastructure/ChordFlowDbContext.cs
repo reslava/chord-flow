@@ -1,3 +1,4 @@
+using ChordFlow.Domain;
 using ChordFlow.Infrastructure.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,6 +18,44 @@ public sealed class ChordFlowDbContext : DbContext
     public DbSet<ExerciseEntity> Exercises => Set<ExerciseEntity>();
 
     public DbSet<PracticeRecordEntity> PracticeRecords => Set<PracticeRecordEntity>();
+
+    public DbSet<ProgressionEntity> Progressions => Set<ProgressionEntity>();
+
+    /// <summary>
+    /// First-run seeding: insert any <see cref="SeedData.BuiltInProgressions"/> not already present
+    /// (matched by <c>Id</c>) with <see cref="ProgressionOrigin.BuiltIn"/>. Idempotent — re-running adds
+    /// only missing rows and never touches existing or user-defined ones. Returns the number inserted.
+    /// </summary>
+    public int SeedBuiltInProgressions()
+    {
+        HashSet<string> existing = Progressions.Select(p => p.Id).ToHashSet();
+
+        int added = 0;
+        foreach (ProgressionDefinition def in SeedData.BuiltInProgressions)
+        {
+            if (existing.Contains(def.Id))
+            {
+                continue;
+            }
+
+            Progressions.Add(new ProgressionEntity
+            {
+                Id = def.Id,
+                Name = def.Name,
+                Dsl = def.Dsl,
+                Origin = ProgressionOrigin.BuiltIn,
+                CreatedUtc = DateTime.UtcNow,
+            });
+            added++;
+        }
+
+        if (added > 0)
+        {
+            SaveChanges();
+        }
+
+        return added;
+    }
 
     /// <summary>
     /// Default on-disk database path: <c>%LOCALAPPDATA%\ChordFlow\chordflow.db</c>.
@@ -49,6 +88,14 @@ public sealed class ChordFlowDbContext : DbContext
         modelBuilder.Entity<PracticeRecordEntity>(e =>
         {
             e.HasKey(x => x.Id);
+        });
+
+        modelBuilder.Entity<ProgressionEntity>(e =>
+        {
+            // Stable string id (slug for built-ins, GUID for user progressions) is the PK.
+            e.HasKey(x => x.Id);
+            // Store Origin by name (BuiltIn/UserDefined) — readable in the DB, matching the Difficulty convention.
+            e.Property(x => x.Origin).HasConversion<string>();
         });
     }
 }
