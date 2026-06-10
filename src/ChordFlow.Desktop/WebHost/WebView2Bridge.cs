@@ -1,7 +1,8 @@
 using System.Text.Json;
+using ChordFlow.Bridge;
 using Microsoft.Web.WebView2.Core;
 
-namespace ChordFlow.Infrastructure;
+namespace ChordFlow.Desktop.WebHost;
 
 /// <summary>
 /// Transport seam over the WebView2 message channel — the WinForms-host analogue

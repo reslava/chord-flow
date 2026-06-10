@@ -1,6 +1,6 @@
 using ChordFlow.Domain;
 
-namespace ChordFlow.Infrastructure.Entities;
+namespace ChordFlow.Persistence.Entities;
 
 /// <summary>
 /// Persisted progression <b>definition</b> — the canonical Nashville <see cref="Dsl"/> string is the v1

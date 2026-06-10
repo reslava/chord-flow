@@ -4,6 +4,43 @@ All notable changes to ChordFlow are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-06-10
+
+Harmonic rhythm + a clean engine/host split. Progressions gain multiple chords per
+bar via a key-independent text DSL, and the single project is split into a
+host-agnostic engine and a thin desktop host so the "engine stays UI-agnostic" rule
+is enforced by the compiler.
+
+### Added
+- **Harmonic-rhythm layer — multi-chord-per-bar progressions.** `HarmonicBar` /
+  `ChordSpan` let a single bar hold several chords, each with its own tick duration.
+- **Progression DSL** — a Nashville-style, key-independent notation parsed by
+  `ProgressionParser`: bars separated by spaces, chords within a bar by `_`, scale
+  degrees `1`–`7` with quality suffixes (`-`/`m`, `7`, `-7`/`m7`, `maj7`/`^7`,
+  `°`/`dim`, `ø`/`m7b5`, `+`/`aug`), and per-chord durations via even split or
+  explicit `:slots`. End-user guide:
+  [`chordflow-dsl-reference.md`](loom/refs/chordflow-dsl-reference.md).
+- **Documentation** — a public [Progression DSL guide](loom/refs/chordflow-dsl-reference.md)
+  (linked from the README) and an [architecture overview](loom/refs/chordflow-architecture-reference.md),
+  both as `loom/refs/` reference docs.
+
+### Changed
+- **Project split — `ChordFlow.App` → `ChordFlow.Core` + `ChordFlow.Desktop`.** The
+  host-agnostic engine (Domain, Rendering, Features, the `Bridge/` contract, and
+  `Persistence/`) moved to `ChordFlow.Core` (`net10.0`, **zero UI references**); the
+  WinForms + WebView2 host moved to `ChordFlow.Desktop` (`net10.0-windows`).
+  Dependency direction is strictly Desktop → Core, so the UI-agnostic-engine rule is
+  now a compile-time guarantee and a future web host is additive rather than a
+  rewrite. The former `Infrastructure/` split into `Core/Bridge/` (the envelope
+  contract + the host-agnostic `WebMessageRouter`), `Core/Persistence/` (SQLite + EF
+  migrations), and `Desktop/WebHost/` (the `WebView2Bridge` transport). Pure
+  structural refactor — no behavior change.
+- Test project renamed `ChordFlow.Tests` → `ChordFlow.Core.Tests` and retargeted to
+  plain `net10.0` (no longer Windows-bound).
+
+### Tests
+- 163 xUnit tests (was 106); all green.
+
 ## [0.3.0] — 2026-06-08
 
 Phase 4 — music-theory-first domain. A focused rewrite of the `Domain/` kernel so
@@ -119,6 +156,7 @@ as tablature, and plays it back with a synchronized beat cursor.
   the next phase).
 - No audio-input accuracy detection (out of scope for v1).
 
+[0.4.0]: https://github.com/reslava/chord-flow/releases/tag/v0.4.0
 [0.3.0]: https://github.com/reslava/chord-flow/releases/tag/v0.3.0
 [0.2.0]: https://github.com/reslava/chord-flow/releases/tag/v0.2.0
 [0.1.0]: https://github.com/reslava/chord-flow/releases/tag/v0.1.0

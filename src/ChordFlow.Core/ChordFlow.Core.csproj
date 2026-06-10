@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- ChordFlow.Core — the host-agnostic engine (Domain, Rendering, Features,
+       Bridge DTOs, Persistence). Constraint C1: this project carries ZERO UI/host
+       package references and no UseWindowsForms — the WinForms/WebView2 host lives
+       in ChordFlow.Desktop. A plain net10.0 target keeps it portable so a future
+       web/cross-platform host can reference it unchanged.
+       See loom/chordflow/core-host-split/core-host-split-design.md. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- SQLite persistence (constraint C2: one offline file, no server). Persistence
+         is host-agnostic, so it lives in Core — a future web host reuses it. Design is
+         build-only (PrivateAssets=all) — needed for `dotnet ef migrations`, never
+         shipped at runtime. See Persistence/ChordFlowDbContext.cs. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

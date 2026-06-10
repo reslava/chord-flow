@@ -1,4 +1,4 @@
-namespace ChordFlow.Infrastructure;
+namespace ChordFlow.Bridge;
 
 /// <summary>
 /// The C#→JS half of the WebView bridge, abstracted from the concrete host so

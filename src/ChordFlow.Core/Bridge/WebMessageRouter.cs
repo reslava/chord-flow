@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace ChordFlow.Infrastructure;
+namespace ChordFlow.Bridge;
 
 /// <summary>
 /// Parses inbound JSON envelopes from the WebView (JS→C#) and raises typed

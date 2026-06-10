@@ -3,7 +3,9 @@ using ChordFlow.Features.ExerciseLibrary;
 using ChordFlow.Features.GenerateExercise;
 using ChordFlow.Features.PracticeSession;
 using ChordFlow.Features.Progress;
-using ChordFlow.Infrastructure;
+using ChordFlow.Bridge;
+using ChordFlow.Persistence;
+using ChordFlow.Desktop.WebHost;
 using ChordFlow.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Web.WebView2.Core;
@@ -49,7 +51,7 @@ internal static class Program
                 await web.EnsureCoreWebView2Async();
                 CoreWebView2 core = web.CoreWebView2;
 
-                // wwwroot is copied next to the executable (see ChordFlow.App.csproj).
+                // wwwroot is copied next to the executable (see ChordFlow.Desktop.csproj).
                 string wwwroot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
                 core.SetVirtualHostNameToFolderMapping(
                     VirtualHost, wwwroot, CoreWebView2HostResourceAccessKind.Allow);

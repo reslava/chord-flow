@@ -1,11 +1,11 @@
 using ChordFlow.Domain;
-using ChordFlow.Infrastructure;
+using ChordFlow.Persistence;
 using ChordFlow.Rendering;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
-namespace ChordFlow.Tests;
+namespace ChordFlow.Core.Tests;
 
 public class ProgressionSeedTests
 {

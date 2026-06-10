@@ -1,6 +1,6 @@
 using ChordFlow.Domain;
 
-namespace ChordFlow.Infrastructure.Entities;
+namespace ChordFlow.Persistence.Entities;
 
 /// <summary>
 /// Persisted exercise <b>definition</b> — the fields of the Domain <see cref="Exercise"/>

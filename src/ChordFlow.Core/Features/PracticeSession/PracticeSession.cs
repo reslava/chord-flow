@@ -1,4 +1,4 @@
-using ChordFlow.Infrastructure;
+using ChordFlow.Bridge;
 
 namespace ChordFlow.Features.PracticeSession;
 

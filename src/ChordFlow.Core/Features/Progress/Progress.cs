@@ -1,5 +1,5 @@
-using ChordFlow.Infrastructure;
-using ChordFlow.Infrastructure.Entities;
+using ChordFlow.Persistence;
+using ChordFlow.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace ChordFlow.Features.Progress;

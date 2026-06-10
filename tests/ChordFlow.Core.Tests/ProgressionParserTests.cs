@@ -1,7 +1,7 @@
 using ChordFlow.Domain;
 using Xunit;
 
-namespace ChordFlow.Tests;
+namespace ChordFlow.Core.Tests;
 
 public class ProgressionParserTests
 {

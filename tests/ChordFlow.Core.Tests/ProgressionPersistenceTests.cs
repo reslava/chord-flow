@@ -1,11 +1,11 @@
 using ChordFlow.Domain;
-using ChordFlow.Infrastructure;
-using ChordFlow.Infrastructure.Entities;
+using ChordFlow.Persistence;
+using ChordFlow.Persistence.Entities;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
-namespace ChordFlow.Tests;
+namespace ChordFlow.Core.Tests;
 
 /// <summary>
 /// Persistence round-trip for the new <c>Progressions</c> table: the EF migration creates the table and

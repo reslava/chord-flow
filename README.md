@@ -5,13 +5,17 @@ guitarists practice **rhythm patterns over chord progressions**. The core is an
 exercise-generation engine (progressions × keys × rhythms × voicings), rendered as
 guitar tablature with **synchronized playback** via [alphaTab](https://www.alphatab.net/).
 
-> **Status:** v0.2.0 — adds SQLite persistence, a saved-exercise library, practice
-> tracking, and the on-screen builder controls. This MVP is the starting point for a
-> broader rhythm/lead chord-progression trainer. Windows-only for now.
+> **Status:** v0.4.0 — a music-theory-first domain kernel, **multi-chord-per-bar
+> progressions** written in a simple text DSL, and a clean **Core / Desktop** split
+> (a host-agnostic engine + the WinForms/WebView2 host). Builds on v0.2.0's SQLite
+> persistence, saved-exercise library, practice tracking, and on-screen builder. This
+> MVP is the starting point for a broader rhythm/lead chord-progression trainer.
+> Windows-only for now.
 
-## Features (v0.2.0)
+## Features (v0.4.0)
 
 - 12-bar blues, transposable to **all 12 keys** (computed movable shell voicing)
+- **Chord progressions** in a compact, key-independent **[Progression DSL](loom/refs/chordflow-dsl-reference.md)** — multiple chords per bar, with rich chord qualities
 - Rhythm patterns: beat 1 · beats 1 & 3 · quarters
 - On-screen **builder**: key picker, rhythm picker, tempo, Generate
 - Tablature rendering + audio playback with a **synchronized beat cursor** and
@@ -41,7 +45,7 @@ guitar tablature with **synchronized playback** via [alphaTab](https://www.alpha
 
 ```sh
 dotnet build
-dotnet run --project src/ChordFlow.App
+dotnet run --project src/ChordFlow.Desktop
 ```
 
 > The GM soundfont (`wwwroot/soundfont/sonivox.sf2`) is **fetched at build time** the
@@ -59,18 +63,26 @@ dotnet test
 ## Project layout
 
 ```
-src/ChordFlow.App/
+src/ChordFlow.Core/        host-agnostic engine (net10.0, zero UI refs)
   Domain/          pure music kernel (no I/O, unit-tested)
   Rendering/       AlphaTexRenderer (only alphaTex-aware code)
   Features/        GenerateExercise, PracticeSession, ExerciseLibrary, Progress
-  Infrastructure/  WebView2 host bridge, message router, SQLite (EF Core) store
-  Migrations/      EF Core migrations (SQLite schema)
+  Bridge/          C#↔JS envelope DTOs + inbound message router (host-agnostic)
+  Persistence/     SQLite (EF Core) store + migrations
+src/ChordFlow.Desktop/     WinForms + WebView2 host (net10.0-windows)
+  Program.cs       host entry point + bridge wiring
+  WebHost/         WebView2 transport bridge
   wwwroot/         index.html, app.js, alphaTab.min.js, font/, soundfont/
-tests/ChordFlow.Tests/   xUnit (Domain + Rendering)
+tests/ChordFlow.Core.Tests/   xUnit, targets ChordFlow.Core
 ```
 
 Saved exercises live in a local SQLite file at `%LOCALAPPDATA%\ChordFlow\chordflow.db`
 (no server, no network).
+
+## Documentation
+
+- **[Progression DSL guide](loom/refs/chordflow-dsl-reference.md)** — write chord progressions in ChordFlow's key-independent, Nashville-style notation (bars, chord splits, qualities, durations).
+- **[Architecture overview](loom/refs/chordflow-architecture-reference.md)** — how the engine, renderer, bridge, and desktop host fit together.
 
 ## Third-party assets & licenses
 

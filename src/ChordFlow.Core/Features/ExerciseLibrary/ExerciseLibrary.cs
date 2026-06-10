@@ -1,8 +1,8 @@
 using System.Globalization;
 using ChordFlow.Domain;
 using ChordFlow.Features.GenerateExercise;
-using ChordFlow.Infrastructure;
-using ChordFlow.Infrastructure.Entities;
+using ChordFlow.Persistence;
+using ChordFlow.Persistence.Entities;
 using ChordFlow.Rendering;
 using Microsoft.EntityFrameworkCore;
 

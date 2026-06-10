@@ -4,8 +4,8 @@ id: de_01KTHJD3QTBGRVX3BBRD29PKAW
 title: ChordFlow MVP — Design
 status: done
 created: "2026-06-07T00:00:00.000Z"
-updated: 2026-06-08
-version: 4
+updated: 2026-06-10
+version: 5
 tags: []
 parent_id: id_01KTHJ61W7749XVY7AKGZV7F9D
 requires_load: []
@@ -19,6 +19,8 @@ Translates `mvp-idea.md` into concrete component design. Architecture baseline: 
 ---
 
 ## 1. Solution layout
+
+> **⚠ Superseded by `core-host-split` (2026-06-10):** the single `ChordFlow.App` project shown below was split into **`ChordFlow.Core`** (engine — Domain + Rendering + Features + Bridge DTOs + Persistence, zero UI references) + **`ChordFlow.Desktop`** (WinForms + WebView2 host + `wwwroot`). Strict dependency direction Desktop → Core. See `loom/chordflow/core-host-split/core-host-split-design.md`. The component design in the rest of this doc is unchanged — only the project boundaries moved.
 
 Single .NET solution, one runnable host project plus a test project.
 

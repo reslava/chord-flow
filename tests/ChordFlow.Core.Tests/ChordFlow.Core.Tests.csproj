@@ -1,11 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- net10.0-windows because it references ChordFlow.App (now a WinForms host
-         targeting net10.0-windows). The Domain/Rendering types under test are
-         platform-neutral; a future cleanup could extract them into a net10.0
-         library so the tests need not be Windows-bound. -->
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- Plain net10.0: the tests target ChordFlow.Core, which is host-agnostic
+         (no WinForms/WebView2). The "future cleanup" the old comment anticipated
+         is done — the core-host-split moved Domain/Rendering/Features/Persistence
+         into ChordFlow.Core, so the tests are no longer Windows-bound. -->
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\ChordFlow.App\ChordFlow.App.csproj" />
+    <ProjectReference Include="..\..\src\ChordFlow.Core\ChordFlow.Core.csproj" />
   </ItemGroup>
 
 </Project>

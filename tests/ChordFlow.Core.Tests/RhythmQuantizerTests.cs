@@ -2,7 +2,7 @@ using ChordFlow.Domain;
 using ChordFlow.Rendering;
 using Xunit;
 
-namespace ChordFlow.Tests;
+namespace ChordFlow.Core.Tests;
 
 public class RhythmQuantizerTests
 {

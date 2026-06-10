@@ -1,8 +1,8 @@
 using ChordFlow.Domain;
-using ChordFlow.Infrastructure.Entities;
+using ChordFlow.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace ChordFlow.Infrastructure;
+namespace ChordFlow.Persistence;
 
 /// <summary>
 /// EF Core context over the local SQLite file (constraint C2: a single offline file,

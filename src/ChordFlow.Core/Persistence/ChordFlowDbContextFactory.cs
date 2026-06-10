@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
-namespace ChordFlow.Infrastructure;
+namespace ChordFlow.Persistence;
 
 /// <summary>
 /// Design-time factory so <c>dotnet ef migrations</c> can build the context without

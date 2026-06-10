@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- ChordFlow.Desktop — the Windows host (WinForms + WebView2). The ONLY project
+       that references a UI/host package; it depends on ChordFlow.Core for all engine,
+       bridge-contract, and persistence logic (strict Desktop -> Core, constraint C2).
+       See loom/chordflow/core-host-split/core-host-split-design.md. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Version>0.4.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ChordFlow.Core\ChordFlow.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Official Microsoft WebView2 host (WinForms = windowed controller, which
+         renders on this net10 + WebView2-149 stack where Photino's composition
+         controller produced a black window). See loom/refs/photino-net-desktop-host-reference.md. -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3296.44" />
+  </ItemGroup>
+
+  <!-- The WebView2 host serves the UI from disk via SetVirtualHostNameToFolderMapping
+       (no HTTP server, C2). Copy the whole wwwroot tree — index.html, app.js,
+       alphaTab.min.js, the Bravura music font, and the GM soundfont — to the output. -->
+  <ItemGroup>
+    <Content Include="wwwroot\**\*" Exclude="wwwroot\.gitkeep">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
+  <!-- The GM soundfont is fetched at build time, not committed (size + licensing —
+       see .gitignore). Downloads the Apache-2.0 Sonivox sf2 from the pinned alphaTab
+       release on first build if it isn't already present; offline builds reuse it. -->
+  <Target Name="FetchSoundfont" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <SoundfontDir>$(MSBuildProjectDirectory)\wwwroot\soundfont</SoundfontDir>
+      <SoundfontUrl>https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.3/dist/soundfont/sonivox.sf2</SoundfontUrl>
+    </PropertyGroup>
+    <DownloadFile Condition="!Exists('$(SoundfontDir)\sonivox.sf2')" SourceUrl="$(SoundfontUrl)" DestinationFolder="$(SoundfontDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

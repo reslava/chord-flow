@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace ChordFlow.App.Migrations
+namespace ChordFlow.Persistence.Migrations
 {
     /// <inheritdoc />
     public partial class AddProgressions : Migration

@@ -1,4 +1,4 @@
-namespace ChordFlow.Infrastructure;
+namespace ChordFlow.Bridge;
 
 /// <summary>
 /// Outbound bridge envelope: a one-line status/error for the WebView status area.

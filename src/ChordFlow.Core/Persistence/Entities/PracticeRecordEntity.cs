@@ -1,4 +1,4 @@
-namespace ChordFlow.Infrastructure.Entities;
+namespace ChordFlow.Persistence.Entities;
 
 /// <summary>
 /// One "marked practiced" event for a saved exercise. Records only <i>that</i> the
