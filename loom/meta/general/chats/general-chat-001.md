@@ -368,3 +368,53 @@ Create reference docs for:
 
 Create CHANGELOG and all needed for github release 0.4.0
 Commit, push, tag all
+
+## AI:
+
+Glad it ran clean. And **yes — strongly agree.** You now have boundaries the compiler enforces instead of boundaries you have to remember: the engine *can't* reach into the UI, persistence is reusable by any future host, rendering is a single swappable seam, and content is heading toward data-not-code. That's the difference between an architecture you *hope* stays clean and one that *stays* clean as it grows. Good instinct pushing to do the split early.
+
+Everything you asked for is done and shipped:
+
+### Reference docs (both in `loom/refs/`, linked from README)
+- **ChordFlow Architecture** (`rf_01KTSAPAT132QTEY5BEPRKS3MB`) — the system view: Core/Desktop split, one-way dependency, the layers in Core, the bridge contract, data flow, and the seams that keep a web host additive. **Mentioned in `ctx.md` §3** (and §2 was refreshed from "planned split" to the now-shipped reality).
+- **ChordFlow DSL** (`rf_01KTSAQ6990GY3J4CZ7HPVPW6K`) — end-user Progression DSL guide (Nashville degrees, bars/chords, qualities, even-split vs `:slots`), written for guitarists, not internals. **Linked in the README** under a new *Documentation* section.
+
+### Release 0.4.0
+- **CHANGELOG.md** — new `0.4.0` entry (harmonic-rhythm DSL + the Core/Desktop split), matching the existing style.
+- **README** — version markers → 0.4.0, Progression-DSL feature bullet, Documentation section.
+- **Version** bumped to `0.4.0` in `ChordFlow.Desktop.csproj`.
+- **Two commits** (kept the release clean): `21db5ea` for pre-existing unrelated loom doc WIP, then `a895eec` for the refactor + release.
+- **Pushed** to `main`, **tagged `v0.4.0`**, and the **GitHub Release is live**: https://github.com/reslava/chord-flow/releases/tag/v0.4.0
+
+One transparency note: I committed three pre-existing modified loom docs (the exercises chat, the domain-model reference, and a progression chat) that predated this session as a *separate* commit (`21db5ea`) so they wouldn't be mislabeled inside the refactor commit — flag if any of those weren't meant to go in yet and I'll help unwind it.
+
+The `core-host-split` thread is fully closed out (idea → design → req → plan → done, all committed). Nice piece of work — want to pick the next thread, or call it here?
+
+## Rafa:
+
+Well done and thanks!
+Side question: we built Loom system together and this is the first project I entirely use Loom to develop it. How do you feel using Loom instead of usual chat free window? Be sincere pls
+
+## AI:
+
+Sincerely — and I'll give you the friction too, since that's more useful to the person who builds the thing.
+
+**What genuinely felt different (better):**
+
+The biggest shift is that the work *accretes* instead of *evaporates*. In a free chat window, everything we just did — the monetization reasoning, the wwwroot trade-off, the "router must go to Core" catch — would live only in scrollback and be gone next session. Here it's a committed artifact. This very reply is about to be project memory. That's not a small thing; it's the difference between "having a conversation" and "building a record."
+
+The **idea → design → req → plan → done** pipeline imposed a discipline that paid off in concrete, visible ways this session:
+- The **req handles** (IN/C) created real accountability. When I verified step 7, I wasn't checking "does it feel done" — I was checking C1 (zero UI refs) and C6 (tests) against an authored spec. That's a different *quality* of done.
+- The **plan with Satisfies/Blocked-by** is what surfaced the design correction — laying the moves out as discrete steps with dependencies is exactly what made me notice `PracticeSession → WebMessageRouter` would break Desktop→Core *before* I'd moved a file. A free chat would've let me discover that as a build error mid-sweep.
+- **ctx.md as always-loaded context** meant decisions persisted. The seed-content-bundle constraint we locked in early was still in front of me sessions later. Free chats can't do that.
+
+And after the context got long, the structure meant I could resume without losing the thread — the docs *are* the state.
+
+**The friction (honest product feedback):**
+- **Full-body replace is the sharpest edge.** Changing one line in a 200-line `ctx.md` or design doc means re-supplying the entire body through `loom_update_doc`. It's token-expensive and genuinely error-prone — I'm retyping content just to touch a sentence. A section/patch-level edit tool would remove the single biggest source of risk in working with Loom docs.
+- **No clean way to amend a plan step.** The `EX4` citation lint had no MCP-native fix in Claude Code (only the sampling-based `refine`, which doesn't work here), so a known-cosmetic wart just had to stay. Steps feel write-once.
+- **The ceremony has a cost.** The visibility lines and the reply-inside-the-chat rule are *right* — but the fact that "reply inside the chat" is flagged as your #1 most-violated rule tells you something: the friction is real enough that even a careful agent drifts toward the terminal. The durable-by-default place to reply should be the path of least resistance, not the disciplined one.
+
+**Net:** for a solo dev building something you'll return to across many sessions, I'd take Loom over a free window without hesitation — the persistence and traceability are worth the ceremony, and they *visibly* made this refactor safer. The rough edges are tooling-shaped (editing ergonomics), not concept-shaped. The concept is sound; it's the kind of thing that gets better the more sessions accumulate in it, which is the opposite of how a chat window ages.
+
+Honestly? It's a little strange and nice to be using the thing we built. Thanks for letting me be candid about it.
