@@ -13,8 +13,9 @@ requires_load: [rf_01KTM41K36DYJ0CE44FE7TMCGH]
 
 ## Rafa:
 
-### UI
+### src
 
+Why you pur codebase in `src/ChordFlow.App/` instead of `src/`?
 Actually there is no UI layer in src, suggestions?
 
 ### Current Exercise implementation
