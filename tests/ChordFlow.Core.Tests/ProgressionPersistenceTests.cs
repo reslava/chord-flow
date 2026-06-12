@@ -33,7 +33,7 @@ public class ProgressionPersistenceTests
                 Id = "12bar_blues",
                 Name = "12-Bar Blues",
                 Dsl = "17 17 17 17 47 47 17 17 57 47 17 57",
-                Origin = ProgressionOrigin.BuiltIn,
+                Origin = Origin.BuiltIn,
                 CreatedUtc = new DateTime(2026, 6, 9, 0, 0, 0, DateTimeKind.Utc),
             });
             db.Progressions.Add(new ProgressionEntity
@@ -41,7 +41,7 @@ public class ProgressionPersistenceTests
                 Id = "u-1",
                 Name = "My Tune",
                 Dsl = "1 4 5 1",
-                Origin = ProgressionOrigin.UserDefined,
+                Origin = Origin.UserDefined,
                 CreatedUtc = DateTime.UtcNow,
             });
             db.SaveChanges();
@@ -52,10 +52,10 @@ public class ProgressionPersistenceTests
             ProgressionEntity blues = db.Progressions.AsNoTracking().Single(p => p.Id == "12bar_blues");
             Assert.Equal("12-Bar Blues", blues.Name);
             Assert.Equal("17 17 17 17 47 47 17 17 57 47 17 57", blues.Dsl);
-            Assert.Equal(ProgressionOrigin.BuiltIn, blues.Origin);
+            Assert.Equal(Origin.BuiltIn, blues.Origin);
 
             ProgressionEntity user = db.Progressions.AsNoTracking().Single(p => p.Id == "u-1");
-            Assert.Equal(ProgressionOrigin.UserDefined, user.Origin);
+            Assert.Equal(Origin.UserDefined, user.Origin);
         }
 
         // Origin is stored by NAME (like Difficulty), not as an integer.
@@ -63,6 +63,82 @@ public class ProgressionPersistenceTests
         {
             cmd.CommandText = "SELECT Origin FROM Progressions WHERE Id = '12bar_blues'";
             Assert.Equal("BuiltIn", (string?)cmd.ExecuteScalar());
+        }
+    }
+
+    [Fact]
+    public void PackProvenance_StoresOriginByName_AndRoundTripsPackId()
+    {
+        using var conn = new SqliteConnection("DataSource=:memory:");
+        conn.Open();
+
+        using (var db = new ChordFlowDbContext(Options(conn)))
+        {
+            db.Database.Migrate();
+            db.Progressions.Add(new ProgressionEntity
+            {
+                Id = "blues-shuffle",
+                Name = "Blues Shuffle",
+                Dsl = "17 17 47 17",
+                Origin = Origin.Pack,
+                PackId = "blues-essentials",
+                CreatedUtc = new DateTime(2026, 6, 12, 0, 0, 0, DateTimeKind.Utc),
+            });
+            db.SaveChanges();
+        }
+
+        using (var db = new ChordFlowDbContext(Options(conn)))
+        {
+            ProgressionEntity row = db.Progressions.AsNoTracking().Single(p => p.Id == "blues-shuffle");
+            Assert.Equal(Origin.Pack, row.Origin);
+            Assert.Equal("blues-essentials", row.PackId);
+        }
+
+        // Origin discriminator stored by name; PackId is null for non-pack rows (the design's "discriminator + optional PackId").
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT Origin FROM Progressions WHERE Id = 'blues-shuffle'";
+            Assert.Equal("Pack", (string?)cmd.ExecuteScalar());
+        }
+    }
+
+    [Fact]
+    public void Migration_AddsCatalogColumns_AndRoundTripsGenreSubgenreTags()
+    {
+        using var conn = new SqliteConnection("DataSource=:memory:");
+        conn.Open();
+
+        using (var db = new ChordFlowDbContext(Options(conn)))
+        {
+            db.Database.Migrate();
+            db.Progressions.Add(new ProgressionEntity
+            {
+                Id = "12bar_blues",
+                Name = "12-Bar Blues",
+                Dsl = "17 17 17 17 47 47 17 17 57 47 17 57",
+                Origin = Origin.BuiltIn,
+                Genre = "Blues",
+                Subgenre = "Shuffle",
+                Tags = CatalogHeader.SerializeTags(new[] { "12-bar", "beginner" }),
+                CreatedUtc = new DateTime(2026, 6, 12, 0, 0, 0, DateTimeKind.Utc),
+            });
+            db.SaveChanges();
+        }
+
+        using (var db = new ChordFlowDbContext(Options(conn)))
+        {
+            ProgressionEntity row = db.Progressions.AsNoTracking().Single(p => p.Id == "12bar_blues");
+            Assert.Equal("Blues", row.Genre);
+            Assert.Equal("Shuffle", row.Subgenre);
+            Assert.Equal(new[] { "12-bar", "beginner" }, CatalogHeader.DeserializeTags(row.Tags));
+        }
+
+        // Tags is a JSON-array TEXT column (C3); json_each() can index into it for SQL-side filtering.
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "SELECT COUNT(*) FROM Progressions, json_each(Progressions.Tags) WHERE json_each.value = '12-bar'";
+            Assert.Equal(1L, (long?)cmd.ExecuteScalar());
         }
     }
 }

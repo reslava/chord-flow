@@ -42,7 +42,7 @@ public class ProgressionSeedTests
         int firstRun = db.SeedBuiltInProgressions();
         Assert.Equal(SeedData.BuiltInProgressions.Count, firstRun);
         Assert.Equal(SeedData.BuiltInProgressions.Count, db.Progressions.Count());
-        Assert.All(db.Progressions.AsNoTracking(), p => Assert.Equal(ProgressionOrigin.BuiltIn, p.Origin));
+        Assert.All(db.Progressions.AsNoTracking(), p => Assert.Equal(Origin.BuiltIn, p.Origin));
 
         // Every built-in id is present.
         foreach (ProgressionDefinition def in SeedData.BuiltInProgressions)

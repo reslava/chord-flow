@@ -27,6 +27,9 @@ bld/
 *.snupkg
 **/[Pp]ackages/*
 !**/[Pp]ackages/build/
+# The Loom weave folder is named "packages" — it is project docs, not a NuGet dir; keep it tracked.
+!loom/packages/
+!loom/packages/**
 project.lock.json
 project.fragment.lock.json
 artifacts/

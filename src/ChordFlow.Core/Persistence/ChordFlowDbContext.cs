@@ -23,7 +23,7 @@ public sealed class ChordFlowDbContext : DbContext
 
     /// <summary>
     /// First-run seeding: insert any <see cref="SeedData.BuiltInProgressions"/> not already present
-    /// (matched by <c>Id</c>) with <see cref="ProgressionOrigin.BuiltIn"/>. Idempotent — re-running adds
+    /// (matched by <c>Id</c>) with <see cref="Origin.BuiltIn"/>. Idempotent — re-running adds
     /// only missing rows and never touches existing or user-defined ones. Returns the number inserted.
     /// </summary>
     public int SeedBuiltInProgressions()
@@ -38,12 +38,18 @@ public sealed class ChordFlowDbContext : DbContext
                 continue;
             }
 
+            // Denormalize any catalog header on the definition's DSL into the filter columns; the DSL
+            // stays the canonical source. Header-less built-ins yield null genre/subgenre and an empty tag set.
+            (CatalogMetadata meta, _) = CatalogHeader.Parse(def.Dsl);
             Progressions.Add(new ProgressionEntity
             {
                 Id = def.Id,
                 Name = def.Name,
                 Dsl = def.Dsl,
-                Origin = ProgressionOrigin.BuiltIn,
+                Origin = Origin.BuiltIn,
+                Genre = meta.Genre,
+                Subgenre = meta.Subgenre,
+                Tags = CatalogHeader.SerializeTags(meta.Tags),
                 CreatedUtc = DateTime.UtcNow,
             });
             added++;
@@ -96,6 +102,8 @@ public sealed class ChordFlowDbContext : DbContext
             e.HasKey(x => x.Id);
             // Store Origin by name (BuiltIn/UserDefined) — readable in the DB, matching the Difficulty convention.
             e.Property(x => x.Origin).HasConversion<string>();
+            // Tags is a JSON array (constraint C3); default to an empty array so legacy/blank rows are well-formed.
+            e.Property(x => x.Tags).HasDefaultValue("[]");
         });
     }
 }

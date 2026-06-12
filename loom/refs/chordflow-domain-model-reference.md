@@ -134,11 +134,12 @@ The old sequential `Beat(Duration, IsHit)` model was **removed**; rhythm is now 
 
 | Type | Role |
 |------|------|
-| `ProgressionOrigin` (enum) | `BuiltIn` (ships with the app) / `UserDefined` (pro tier — enforcement is a Features/licensing concern, not domain). |
-| `ProgressionEntity` | EF entity: `Id` (string PK — slug for built-ins, GUID for user), `Name`, `Dsl` (canonical Nashville string — v1 serialization), `Origin` (stored by name), `CreatedUtc`. |
-| `ChordFlowDbContext.Progressions` | `DbSet<ProgressionEntity>`; `Origin` stored `HasConversion<string>()`. |
-| `ChordFlowDbContext.SeedBuiltInProgressions()` | Idempotent first-run seeding: inserts `SeedData.BuiltInProgressions` rows missing by `Id`; never touches existing or user rows. Called from `Program.cs` after `Migrate()`. |
-| Round-trip | Load row → `ProgressionParser.Parse(Dsl)` → `Progression` → `Transposer.Realize` → `AlphaTexRenderer.Render`. `Dsl` is the only persisted form; alphaTex is never stored. |
+| `Origin` (enum) | Provenance shared by every content entity: `BuiltIn` (ships in the default/starter pack) / `UserDefined` (authored locally) / `Pack` (imported — the entity's `PackId` names the source pack). Provenance only — tier enforcement is a Features/licensing concern (EX4). Was `Domain/ProgressionOrigin`; moved to `Persistence/` (constraint C1: provenance is Entity-layer, never on pure Domain records). |
+| `CatalogMetadata` / `CatalogHeader` | Entity-layer catalog metadata (`Genre`/`Subgenre`/`Tags`): `CatalogHeader.Parse/Serialize` splits an optional `genre:`/`subgenre:`/`tags:` header off the DSL body (round-trips 1:1) and (de)serializes the JSON `Tags` column. The pure `ProgressionParser` only ever sees the stripped body (C1). |
+| `ProgressionEntity` | EF entity: `Id` (string PK — slug for built-ins, GUID for user), `Name`, `Dsl` (canonical Nashville string, optionally prefixed by a catalog header — v1 serialization), `Origin` (stored by name) + nullable `PackId`, denormalized `Genre`/`Subgenre`/`Tags` (JSON `TEXT`, C3), `CreatedUtc`. |
+| `ChordFlowDbContext.Progressions` | `DbSet<ProgressionEntity>`; `Origin` stored `HasConversion<string>()`; `Tags` defaults `'[]'`. |
+| `ChordFlowDbContext.SeedBuiltInProgressions()` | Idempotent first-run seeding: inserts `SeedData.BuiltInProgressions` rows missing by `Id` (denormalizing any catalog header into the columns); never touches existing or user rows. Called from `Program.cs` after `Migrate()`. |
+| Round-trip | Load row → strip catalog header (`CatalogHeader.Parse`) → `ProgressionParser.Parse(body)` → `Progression` → `Transposer.Realize` → `AlphaTexRenderer.Render`. `Dsl` is the only persisted form; alphaTex is never stored. |
 
 ---
 

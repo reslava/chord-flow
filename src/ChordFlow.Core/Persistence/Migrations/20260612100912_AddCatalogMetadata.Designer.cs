@@ -3,6 +3,7 @@ using System;
 using ChordFlow.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ChordFlow.Persistence.Migrations
 {
     [DbContext(typeof(ChordFlowDbContext))]
-    partial class ChordFlowDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260612100912_AddCatalogMetadata")]
+    partial class AddCatalogMetadata
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.8");
@@ -89,9 +92,6 @@ namespace ChordFlow.Persistence.Migrations
 
                     b.Property<string>("Origin")
                         .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("PackId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Subgenre")
