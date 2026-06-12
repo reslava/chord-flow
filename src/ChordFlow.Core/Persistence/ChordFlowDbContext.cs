@@ -21,6 +21,8 @@ public sealed class ChordFlowDbContext : DbContext
 
     public DbSet<ProgressionEntity> Progressions => Set<ProgressionEntity>();
 
+    public DbSet<SongEntity> Songs => Set<SongEntity>();
+
     /// <summary>
     /// First-run seeding: insert any <see cref="SeedData.BuiltInProgressions"/> not already present
     /// (matched by <c>Id</c>) with <see cref="Origin.BuiltIn"/>. Idempotent — re-running adds
@@ -42,6 +44,47 @@ public sealed class ChordFlowDbContext : DbContext
             // stays the canonical source. Header-less built-ins yield null genre/subgenre and an empty tag set.
             (CatalogMetadata meta, _) = CatalogHeader.Parse(def.Dsl);
             Progressions.Add(new ProgressionEntity
+            {
+                Id = def.Id,
+                Name = def.Name,
+                Dsl = def.Dsl,
+                Origin = Origin.BuiltIn,
+                Genre = meta.Genre,
+                Subgenre = meta.Subgenre,
+                Tags = CatalogHeader.SerializeTags(meta.Tags),
+                CreatedUtc = DateTime.UtcNow,
+            });
+            added++;
+        }
+
+        if (added > 0)
+        {
+            SaveChanges();
+        }
+
+        return added;
+    }
+
+    /// <summary>
+    /// First-run seeding of built-in songs: insert any <see cref="SeedData.BuiltInSongs"/> not already present
+    /// (matched by <c>Id</c>) with <see cref="Origin.BuiltIn"/>, denormalizing each DSL's catalog header into the
+    /// filter columns. Idempotent — re-running adds only missing rows and never touches existing or user songs.
+    /// Returns the number inserted. Mirrors <see cref="SeedBuiltInProgressions"/>.
+    /// </summary>
+    public int SeedBuiltInSongs()
+    {
+        HashSet<string> existing = Songs.Select(s => s.Id).ToHashSet();
+
+        int added = 0;
+        foreach (SongDefinition def in SeedData.BuiltInSongs)
+        {
+            if (existing.Contains(def.Id))
+            {
+                continue;
+            }
+
+            (CatalogMetadata meta, _) = CatalogHeader.Parse(def.Dsl);
+            Songs.Add(new SongEntity
             {
                 Id = def.Id,
                 Name = def.Name,
@@ -103,6 +146,14 @@ public sealed class ChordFlowDbContext : DbContext
             // Store Origin by name (BuiltIn/UserDefined) — readable in the DB, matching the Difficulty convention.
             e.Property(x => x.Origin).HasConversion<string>();
             // Tags is a JSON array (constraint C3); default to an empty array so legacy/blank rows are well-formed.
+            e.Property(x => x.Tags).HasDefaultValue("[]");
+        });
+
+        modelBuilder.Entity<SongEntity>(e =>
+        {
+            // Field-for-field parity with ProgressionEntity: string PK, Origin by name, JSON-array Tags default.
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Origin).HasConversion<string>();
             e.Property(x => x.Tags).HasDefaultValue("[]");
         });
     }

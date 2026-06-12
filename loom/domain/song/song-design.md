@@ -2,10 +2,10 @@
 type: design
 id: de_01KTVTNZPYS36K23R5Z9MYDB54
 title: Song — Design
-status: draft
+status: done
 created: "2026-06-11T00:00:00.000Z"
 updated: 2026-06-12
-version: 3
+version: 8
 tags: []
 parent_id: id_01KTVTKHDVQYNXYB33HXH0HXAS
 requires_load: []
@@ -120,7 +120,7 @@ Key properties:
 - `RealizedSection.Key` is an **output** of the fold, never an input
   (decision **E**).
 
-### Output types (`Rendering/` adjacent — see §5 on placement)
+### Output types (`Domain/Song/` — pure keyed data, no alphaTex; see §5)
 
 ```csharp
 record RealizedSection(string Label, Key Key, IReadOnlyList<RealizedBar> Bars);
@@ -223,8 +223,9 @@ inline everything; we enforce at resolution, not at the schema.)
 ## 5. Placement & dependency direction
 
 - `Song`, `Part`, `ArrangementItem`, `Modulation`, `Song.FromSections`,
-  `SongParser`, `SongExpander`, `RealizedSong`/`RealizedSection`, and
-  `IProgressionStore` all live in **`ChordFlow.Core`** (engine, zero UI/host refs).
+  `SongParser`, `SongExpander`, and `IProgressionStore` all live in
+  **`ChordFlow.Core`** (engine, zero UI/host refs); `RealizedSong` /
+  `RealizedSection` live under **`Domain/Song/`** (pure keyed data, no alphaTex — §8.2).
 - `SongEntity` + `DbContext` wiring + the concrete `IProgressionStore` live in
   `Infrastructure/` (still inside Core).
 - Dependency direction unchanged: Desktop → Core. The web/cross-platform host
@@ -244,7 +245,10 @@ record SongExercise(Song Song, RhythmPattern Rhythm, int Tempo, Difficulty Diffi
 Render path: `SongExpander.Expand` → for each `RealizedSection`, run the existing
 `Exercise`-style pipeline (`VoicingBook`/`LeadTargets` → `FeelTransform` →
 `RhythmQuantizer` → `AlphaTexRenderer`) with the section's `Key`. The renderer
-gains a section-aware entry point; the per-bar logic is untouched.
+gains a single section-aware entry point — `Render(RealizedSong, rhythm, tempo,
+difficulty, feel)`; signature and the orchestrator/renderer split are settled in
+§8.3. The per-bar logic is extracted into a shared private `RenderBars(…)` and is
+untouched.
 
 > **Scope note:** the first slice ends at `RealizedSong` + `SongExercise` *model*
 > and a single rendered example. Wiring `SongExercise` into the UI / library is a
@@ -263,13 +267,37 @@ gains a section-aware entry point; the per-bar logic is untouched.
 
 ---
 
-## 8. Open implementation questions (non-blocking, decide at plan time)
+## 8. Resolved implementation decisions (settled in `song-chat-002`)
 
-1. **Default `InitialKey`** when `key` is omitted — propose C major.
-2. **`RealizedSong` namespace** — `Rendering/` (it's a render-feed) vs a new
-   `Domain/Song/` (it's pure data). Leaning `Domain/` since it holds no alphaTex.
-3. **Section-aware renderer entry point** signature — `Render(RealizedSong, …)`
-   vs iterate `RealizedSection` from a Features-layer orchestrator.
+1. **Default `InitialKey` = C major** when the `key` line is omitted.
+2. **`RealizedSong` / `RealizedSection` live in `Domain/Song/`** — they hold no
+   alphaTex, only pure keyed bar data, so they belong in the domain, not
+   `Rendering/`. (Propagated to §2 and §5.)
+3. **Section-aware rendering is a single renderer entry point**, not a
+   concatenating Features orchestrator:
+
+   ```csharp
+   string Render(RealizedSong song, RhythmPattern rhythm, int tempo,
+                 Difficulty difficulty, Feel feel = Feel.Straight);
+   ```
+
+   The renderer owns the whole walk — one header (seeded from the first
+   section's key), then per section an inline `\ks` **only when the key
+   changes** + an optional `Label` marker + the bar body — with the stateful
+   `:N` `currentDuration` flowing **across** section seams. The per-bar loop is
+   extracted into a private `RenderBars(bars, key, rhythm, difficulty, ref
+   currentDuration)` shared by `Render(Exercise)` and `Render(RealizedSong, …)`,
+   so the per-bar logic is genuinely untouched (§6).
+
+   A Features orchestrator still exists, but **only** to run
+   `SongExpander.Expand` (it holds `IProgressionStore`; the renderer stays
+   I/O-free, **C3**) and pass the `RealizedSong` + play params in — it never
+   touches alphaTex, preserving the "`AlphaTexRenderer` is the only
+   alphaTex-aware code" invariant.
+
+   > **`\ks` is legal mid-score** — confirmed from the alphaTex docs: *"\ks key
+   > — specifies the key signature for this and subsequent bars."* So a
+   > key-changing Song renders as a single score; no per-key score splitting.
 
 ---
 

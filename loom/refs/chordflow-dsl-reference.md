@@ -10,13 +10,13 @@ parent_id: null
 child_ids: []
 requires_load: []
 slug: chordflow-dsl
-description: "End-user guide to ChordFlow's text DSLs. Currently covers the Progression DSL — a Nashville-number-style notation for writing chord progressions that work in any key (bars, chord splits, qualities, and per-chord durations)."
+description: "End-user guide to ChordFlow's text DSLs: the Progression DSL (Nashville-number notation for key-independent chord progressions — bars, chord splits, qualities, durations) and the Song DSL (arranging progressions into a full piece with definitions, repeats, and modulation)."
 ---
 # ChordFlow DSL Guide
 
 ChordFlow lets you write musical material as short, readable text. Because it uses **scale degrees instead of letter names**, anything you write works in **every key** — pick the key in the app, and ChordFlow spells the chords for you.
 
-> Today there is one DSL: the **Progression DSL**. More may follow (rhythm, voicings); they'll be documented here.
+> Two DSLs today: the **Progression DSL** (chords in any key) and the **Song DSL** (arranging progressions into a piece). More may follow (rhythm, voicings); they'll be documented here.
 
 ---
 
@@ -114,3 +114,98 @@ ChordFlow validates as it parses and tells you which token is wrong:
 - Degrees are **key-independent** — `1 4 5` is C–F–G in C, or G–C–D in G. Choose the key in the app.
 - Whitespace is flexible: extra spaces between bars are fine.
 - Time signature affects how slots add up (4/4 → 4 beats per bar); the default exercises are 4/4.
+
+---
+
+## Song DSL
+
+A **Song** arranges progressions into a full piece — intro, verses, choruses — with repeats and key changes. A Song never contains chords directly; it **references progressions** and says how to order, repeat, and modulate them. Harmony stays in the progression (the DSL above); the Song only composes.
+
+A Song has two parts: **definitions** (name your parts) and the **arrangement stream** (play them in order).
+
+### Definitions
+
+Two ways to name a part:
+
+| Form | Meaning |
+|------|---------|
+| `NAME = <progression DSL>` | **inline** — define a progression right here, using the Progression DSL above |
+| `NAME: <stored-id>` | **reference** — point at a saved progression by its id |
+
+```
+intro = 17 47 17 17        # inline: a 4-bar progression
+verse: 12bar_blues         # reference: the saved 12-bar blues
+chorus = 67 27 57 17
+```
+
+Names are yours to choose (`A`, `verse`, `chorus`). A local definition **shadows** a saved progression of the same name. `#` starts a comment to the end of the line.
+
+### The arrangement stream
+
+After the definitions, list the parts in playing order — one instruction per line:
+
+| Line | Meaning |
+|------|---------|
+| `NAME` | play that part once |
+| `NAME x<n>` | play it **n** times (`verse x2`) |
+| `key <note>` | set or reset the key (e.g. `key C`, `key Eb`, `key Am`) |
+| `mod <spec>` | **modulate** — shift the key from here onward |
+
+```
+key C
+
+intro
+verse x2
+mod V        # up a fifth — everything after this is now in G
+chorus
+verse
+```
+
+- A `key` line **before** the stream sets the **starting key** (defaults to **C major** if omitted).
+- A `key` line **inside** the stream is an absolute **reset** — the escape hatch to return home.
+- `mod` is **relative and accumulates**: two `mod V` in a row move up two fifths.
+
+### Modulation specs
+
+| Spec | Move |
+|------|------|
+| `+n` / `-n` | up / down **n** semitones (`+2`, `-3`) |
+| `V` | up a fifth (+7) |
+| `IV` | up a fourth (+5) |
+| `bIII` | up a minor third (+3) — a leading `b`/`#` lowers/raises the degree |
+| `vi` | relative minor (+9 **and** switch to minor) — a **lowercase** numeral flips the mode |
+
+### Repeats: `x` vs `@repeat`
+
+`verse x2` plays the verse **twice, as two sections** (rehearsal-style). That is different from a future progression transform `@repeat(2)`, which would make **one** progression twice as long. The Song layer uses **`x` only**; `@repeat` is reserved.
+
+### A full example
+
+```
+genre: Blues
+subgenre: Shuffle
+tags: [12-bar, demo]
+intro = 17 47 17 17
+verse: 12bar_blues
+chorus = 67 27 57 17
+
+intro
+verse x2
+mod V
+chorus
+verse
+```
+
+Intro, two verses (the 12-bar blues), then up a fifth for the chorus and a final verse — all from one reusable definition. The optional `genre:`/`subgenre:`/`tags:` header at the top is catalog metadata for filtering; it isn't part of the arrangement.
+
+### Common errors
+
+- **"plays undefined part"** — a stream line names a part you never defined (add a `NAME =` or `NAME:` line).
+- **"defines part … more than once"** — two definitions share a name.
+- **"repeat … must be a positive integer"** — `x<n>` needs n ≥ 1 (e.g. `verse x2`).
+- **"unknown note letter" / "unknown roman numeral"** — a `key` or `mod` token isn't recognized.
+
+### Notes
+
+- A Song is pure harmony + arrangement. Rhythm, tempo, difficulty, and feel are chosen at **play** time (the same way a progression becomes a practice exercise) — so one Song works across many rhythm settings.
+- Modulations never change the underlying progression; they only change the **key it's realized in** from that point onward.

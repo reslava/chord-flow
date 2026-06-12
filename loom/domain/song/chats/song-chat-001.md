@@ -2,9 +2,10 @@
 type: chat
 id: ch_01KTVR6VE608663XSSKMDJXV38
 title: song Chat
-status: active
+status: done
 created: "2026-06-11T00:00:00.000Z"
-version: 1
+updated: 2026-06-12
+version: 2
 tags: []
 parent_id: null
 requires_load: []

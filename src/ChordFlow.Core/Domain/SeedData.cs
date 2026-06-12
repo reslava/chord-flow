@@ -8,6 +8,13 @@ namespace ChordFlow.Domain;
 public sealed record ProgressionDefinition(string Id, string Name, string Dsl);
 
 /// <summary>
+/// A code-authored built-in song: its stable id, display name and canonical Song DSL (optionally
+/// catalog-header-prefixed). Seeded as <c>SongEntity</c> rows with <c>Origin = BuiltIn</c>, the direct
+/// analog of <see cref="ProgressionDefinition"/>.
+/// </summary>
+public sealed record SongDefinition(string Id, string Name, string Dsl);
+
+/// <summary>
 /// Hand-authored MVP seed data: the single supported progression (12-bar blues), the three rhythm
 /// patterns (tick-grid model), and the 12 major keys. Pure constants — no I/O.
 /// </summary>
@@ -81,4 +88,29 @@ public static class SeedData
     /// <summary>All 12 keys as major, ordered by tonic pitch class 0 (C) .. 11 (B).</summary>
     public static readonly IReadOnlyList<Key> AllMajorKeys =
         Enumerable.Range(0, 12).Select(v => new Key(new PitchClass(v), false)).ToArray();
+
+    /// <summary>
+    /// The built-in song default set, seeded on first run with <c>Origin = BuiltIn</c> (IN6). The demo
+    /// exercises the whole Song slice: an inline part (<c>intro</c>/<c>chorus</c>), a stored
+    /// <see cref="ProgressionReference"/> to <c>12bar_blues</c> (<c>verse</c>), section repeats (<c>verse x2</c>),
+    /// and a relative modulation (<c>mod V</c>). The leading catalog header is denormalized into the entity's
+    /// filter columns at seed time; the DSL stays canonical (header stripped before <see cref="SongParser"/>).
+    /// </summary>
+    public static readonly IReadOnlyList<SongDefinition> BuiltInSongs = new[]
+    {
+        new SongDefinition(
+            "blues_song_demo",
+            "Blues Song Demo",
+            "genre: Blues\n" +
+            "subgenre: Shuffle\n" +
+            "tags: [12-bar, demo]\n" +
+            "intro = 17 47 17 17\n" +
+            "verse: 12bar_blues\n" +
+            "chorus = 67 27 57 17\n" +
+            "intro\n" +
+            "verse x2\n" +
+            "mod V\n" +
+            "chorus\n" +
+            "verse"),
+    };
 }

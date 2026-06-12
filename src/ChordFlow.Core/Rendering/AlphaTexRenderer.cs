@@ -23,34 +23,31 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     public string Render(Exercise exercise)
     {
         ArgumentNullException.ThrowIfNull(exercise);
-
-        if (exercise.Key.IsMinor)
-        {
-            throw new NotSupportedException("The MVP renderer supports major keys only.");
-        }
+        EnsureMajorSupported(exercise.Key);
 
         // Spelling lives in the domain (NoteSpeller), keeping this the only alphaTex-aware code.
         string keyName = NoteSpeller.Name(exercise.Key.Tonic, exercise.Key);
-        string keySig = NoteSpeller.KeySignatureToken(exercise.Key);
 
         RhythmPattern rhythm = exercise.Rhythm;
         TimeSignature ts = rhythm.TimeSignature;
         IReadOnlyList<RealizedBar> bars = Transposer.RealizeBars(exercise.Progression, exercise.Key);
 
         var sb = new StringBuilder();
+        AppendHeader(
+            sb,
+            $"{exercise.Progression.Name} — {keyName}",
+            $"{exercise.Difficulty} — {rhythm.Name}",
+            exercise.Tempo,
+            ts,
+            NoteSpeller.KeySignatureToken(exercise.Key));
 
-        // --- Header metadata ---
-        sb.Append("\\title \"").Append(exercise.Progression.Name).Append(" — ").Append(keyName).Append("\"\n");
-        sb.Append("\\subtitle \"").Append(exercise.Difficulty).Append(" — ").Append(rhythm.Name).Append("\"\n");
-        sb.Append("\\tempo ").Append(exercise.Tempo.ToString(CultureInfo.InvariantCulture)).Append('\n');
-        sb.Append("\\ts ").Append(ts.Numerator).Append(' ').Append(ts.Denominator).Append('\n');
-        sb.Append("\\ks ").Append(keySig).Append('\n');
-        sb.Append(".\n");
-
-        // --- Bars ---
         // Duration is stateful in alphaTex: a ":N" token persists across beats and bars until changed.
         string? currentDuration = null;
         var barLines = new List<string>(bars.Count + 1);
+
+        // Apply the exercise's groove feel as a playback-time warp before quantizing (identity for
+        // Straight). The stored pattern stays straight — Feel is never baked into it (C4).
+        IReadOnlyList<RhythmEvent> feltEvents = FeelTransform.Apply(rhythm.Events, exercise.Feel, ts);
 
         // A pickup/anacrusis renders as a leading measure, voiced with the first chord of the first bar.
         if (rhythm.Pickup is { } pickup && bars.Count > 0)
@@ -60,21 +57,101 @@ public sealed class AlphaTexRenderer : IScoreRenderer
             barLines.Add(RenderBar(pickupSlots, _ => firstChord, exercise.Difficulty, ref currentDuration));
         }
 
-        // Apply the exercise's groove feel as a playback-time warp before quantizing (identity for
-        // Straight). The stored pattern stays straight — Feel is never baked into it (C4).
-        IReadOnlyList<RhythmEvent> feltEvents = FeelTransform.Apply(rhythm.Events, exercise.Feel, ts);
+        RenderBars(bars, feltEvents, ts, exercise.Difficulty, barLines, ref currentDuration);
+
+        sb.Append(string.Join("\n", barLines));
+
+        return sb.ToString();
+    }
+
+    public string Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, Feel feel = Feel.Straight)
+    {
+        ArgumentNullException.ThrowIfNull(song);
+        ArgumentNullException.ThrowIfNull(rhythm);
+        if (song.Sections.Count == 0)
+        {
+            throw new ArgumentException("Cannot render a song with no sections.", nameof(song));
+        }
+
+        TimeSignature ts = rhythm.TimeSignature;
+        IReadOnlyList<RhythmEvent> feltEvents = FeelTransform.Apply(rhythm.Events, feel, ts);
+
+        // One header, seeded from the first section's key (\ks is legal mid-score, so later key changes are
+        // emitted inline — no per-key score splitting; design §8.3).
+        RealizedSection first = song.Sections[0];
+        EnsureMajorSupported(first.Key);
+
+        var sb = new StringBuilder();
+        AppendHeader(
+            sb,
+            $"{first.Label} — {NoteSpeller.Name(first.Key.Tonic, first.Key)}",
+            $"{difficulty} — {rhythm.Name}",
+            tempo,
+            ts,
+            NoteSpeller.KeySignatureToken(first.Key));
+
+        // currentDuration is threaded across every section so a ":N" carries over section seams unchanged.
+        string? currentDuration = null;
+        var barLines = new List<string>();
+        Key? previousKey = null;
+
+        foreach (RealizedSection section in song.Sections)
+        {
+            EnsureMajorSupported(section.Key);
+
+            // Inline \ks only when the key changes; the first section's key already sits in the header.
+            if (previousKey is not null && !section.Key.Equals(previousKey))
+            {
+                barLines.Add("\\ks " + NoteSpeller.KeySignatureToken(section.Key));
+            }
+
+            RenderBars(section.Bars, feltEvents, ts, difficulty, barLines, ref currentDuration);
+            previousKey = section.Key;
+        }
+
+        sb.Append(string.Join("\n", barLines));
+
+        return sb.ToString();
+    }
+
+    private static void EnsureMajorSupported(Key key)
+    {
+        if (key.IsMinor)
+        {
+            throw new NotSupportedException("The MVP renderer supports major keys only.");
+        }
+    }
+
+    private static void AppendHeader(
+        StringBuilder sb, string title, string subtitle, int tempo, TimeSignature ts, string keySig)
+    {
+        sb.Append("\\title \"").Append(title).Append("\"\n");
+        sb.Append("\\subtitle \"").Append(subtitle).Append("\"\n");
+        sb.Append("\\tempo ").Append(tempo.ToString(CultureInfo.InvariantCulture)).Append('\n');
+        sb.Append("\\ts ").Append(ts.Numerator).Append(' ').Append(ts.Denominator).Append('\n');
+        sb.Append("\\ks ").Append(keySig).Append('\n');
+        sb.Append(".\n");
+    }
+
+    // Render a key-resolved run of bars, appending one line per bar. The per-bar logic (interior chord
+    // boundaries → quantize → RenderBar) is shared verbatim by Render(Exercise) and Render(RealizedSong);
+    // currentDuration is passed by ref so the stateful ":N" carries across both bars and section seams.
+    private static void RenderBars(
+        IReadOnlyList<RealizedBar> bars,
+        IReadOnlyList<RhythmEvent> feltEvents,
+        TimeSignature ts,
+        Difficulty difficulty,
+        List<string> barLines,
+        ref string? currentDuration)
+    {
         foreach (RealizedBar bar in bars)
         {
             // Re-attack the strum at each interior chord change; quantize this bar against its own
             // boundaries so a slot landing on a new chord starts a fresh attack.
             IReadOnlyList<int> boundaries = InteriorBoundaries(bar);
             IReadOnlyList<RhythmSlot> slots = RhythmQuantizer.Quantize(feltEvents, ts, boundaries);
-            barLines.Add(RenderBar(slots, bar.ChordCovering, exercise.Difficulty, ref currentDuration));
+            barLines.Add(RenderBar(slots, bar.ChordCovering, difficulty, ref currentDuration));
         }
-
-        sb.Append(string.Join("\n", barLines));
-
-        return sb.ToString();
     }
 
     // Bar-relative ticks where the chord changes (exclusive of 0 and the bar end). Empty for a

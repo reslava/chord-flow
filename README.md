@@ -81,7 +81,7 @@ Saved exercises live in a local SQLite file at `%LOCALAPPDATA%\ChordFlow\chordfl
 
 ## Documentation
 
-- **[Progression DSL guide](loom/refs/chordflow-dsl-reference.md)** — write chord progressions in ChordFlow's key-independent, Nashville-style notation (bars, chord splits, qualities, durations).
+- **[DSL guide](loom/refs/chordflow-dsl-reference.md)** — the **Progression DSL** (key-independent, Nashville-style chords: bars, splits, qualities, durations) and the **Song DSL** (arrange progressions into a piece: definitions, repeats, modulation).
 - **[Architecture overview](loom/refs/chordflow-architecture-reference.md)** — how the engine, renderer, bridge, and desktop host fit together.
 
 ## Third-party assets & licenses

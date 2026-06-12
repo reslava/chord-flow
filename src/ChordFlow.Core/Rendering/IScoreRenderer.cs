@@ -10,4 +10,12 @@ namespace ChordFlow.Rendering;
 public interface IScoreRenderer
 {
     string Render(Exercise exercise);
+
+    /// <summary>
+    /// Render a <see cref="RealizedSong"/> as a single score: one header (seeded from the first section's
+    /// key), then each section's bars with an inline <c>\ks</c> emitted only when its <see cref="RealizedSection.Key"/>
+    /// changes. The stateful <c>:N</c> duration flows across section seams. The play params come from a
+    /// <see cref="SongExercise"/> (the Song itself carries no rhythm/tempo/feel — decision D).
+    /// </summary>
+    string Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, Feel feel = Feel.Straight);
 }
