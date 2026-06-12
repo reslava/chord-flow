@@ -2,9 +2,10 @@
 type: idea
 id: id_01KTP0SG7G3YR8CRQKZA3YPK6G
 title: Multi-chord-per-bar progressions with harmonic-rhythm layer
-status: draft
-created: 2026-06-09
-version: 1
+status: done
+created: "2026-06-09T00:00:00.000Z"
+updated: 2026-06-12
+version: 2
 tags: []
 parent_id: null
 requires_load: []

@@ -2,9 +2,10 @@
 type: chat
 id: ch_01KTQWTHWQ83ZXAB0SZRZANXTS
 title: progression Chat
-status: active
-created: 2026-06-10
-version: 1
+status: done
+created: "2026-06-10T00:00:00.000Z"
+updated: 2026-06-12
+version: 2
 tags: []
 parent_id: null
 requires_load: []

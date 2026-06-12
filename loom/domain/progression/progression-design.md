@@ -2,10 +2,10 @@
 type: design
 id: de_01KTP11T7JCSDK6PN2FEXDR5CW
 title: Multi-chord-per-bar progressions — Design
-status: draft
+status: done
 created: "2026-06-09T00:00:00.000Z"
-updated: 2026-06-09
-version: 3
+updated: 2026-06-12
+version: 4
 tags: []
 parent_id: id_01KTP0SG7G3YR8CRQKZA3YPK6G
 requires_load: []
