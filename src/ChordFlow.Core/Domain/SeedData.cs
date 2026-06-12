@@ -15,6 +15,15 @@ public sealed record ProgressionDefinition(string Id, string Name, string Dsl);
 public sealed record SongDefinition(string Id, string Name, string Dsl);
 
 /// <summary>
+/// A code-authored built-in rhythm pattern: its stable id, display name and canonical Rhythm DSL.
+/// Seeded as <c>RhythmPatternEntity</c> rows with <c>Origin = BuiltIn</c> — the rhythmic analog of
+/// <see cref="ProgressionDefinition"/>. The <see cref="Dsl"/> is the single source of truth: the live
+/// <see cref="SeedData.Beat1"/>/<see cref="SeedData.Beat1And3"/>/<see cref="SeedData.Quarters"/>
+/// patterns are parsed from these strings, so the DB rows and the in-memory constants never diverge.
+/// </summary>
+public sealed record RhythmPatternDefinition(string Id, string Name, string Dsl);
+
+/// <summary>
 /// Hand-authored MVP seed data: the single supported progression (12-bar blues), the three rhythm
 /// patterns (tick-grid model), and the 12 major keys. Pure constants — no I/O.
 /// </summary>
@@ -37,42 +46,44 @@ public static class SeedData
             new(5, Quality.Dominant7), new(4, Quality.Dominant7), new(1, Quality.Dominant7), new(5, Quality.Dominant7),
         });
 
-    // Rhythm patterns on the tick grid (48 PPQ): a quarter = 48, the 4/4 bar = 192. Each hit is one
-    // quarter; the quantizer fills the gaps with quarter rests.
+    // Rhythm patterns on the 48-PPQ tick grid. The DSL string is the single source of truth (IN6/C5):
+    // each pattern is parsed from the same sustain-literal DSL that seeds its DB row, so the in-memory
+    // constant and the persisted definition can never drift. A struck note rings to the next attack/rest
+    // or the bar end (the sustain rule) — guitar rings, it is not staccato — and the quantizer coalesces
+    // those beat-aligned rings into whole/half notes (Beat 1 → a whole note, Beats 1 & 3 → two halves).
+    private const string Beat1Dsl = "X...............";    // one whole-bar ring
+    private const string Beat1And3Dsl = "X.......X......."; // two half notes
+    private const string QuartersDsl = "X...X...X...X...";  // four quarters
 
-    /// <summary>Hit on beat 1 only.</summary>
-    public static readonly RhythmPattern Beat1 = RhythmPattern.SingleBar(
-        "beat_1",
-        "Beat 1",
-        new[] { RhythmEvent.Hit(0, TickGrid.Ppq) },
-        TimeSignature.FourFour);
+    /// <summary>Strike on beat 1, ringing the whole bar.</summary>
+    public static readonly RhythmPattern Beat1 =
+        RhythmPatternParser.Parse("beat_1", "Beat 1", Beat1Dsl, TimeSignature.FourFour);
 
-    /// <summary>Hits on beats 1 and 3.</summary>
-    public static readonly RhythmPattern Beat1And3 = RhythmPattern.SingleBar(
-        "beat_1_3",
-        "Beats 1 & 3",
-        new[]
-        {
-            RhythmEvent.Hit(0, TickGrid.Ppq),
-            RhythmEvent.Hit(2 * TickGrid.Ppq, TickGrid.Ppq),
-        },
-        TimeSignature.FourFour);
+    /// <summary>Strike on beats 1 and 3 — two half notes.</summary>
+    public static readonly RhythmPattern Beat1And3 =
+        RhythmPatternParser.Parse("beat_1_3", "Beats 1 & 3", Beat1And3Dsl, TimeSignature.FourFour);
 
-    /// <summary>Hits on every quarter beat.</summary>
-    public static readonly RhythmPattern Quarters = RhythmPattern.SingleBar(
-        "quarters",
-        "Quarters",
-        new[]
-        {
-            RhythmEvent.Hit(0, TickGrid.Ppq),
-            RhythmEvent.Hit(TickGrid.Ppq, TickGrid.Ppq),
-            RhythmEvent.Hit(2 * TickGrid.Ppq, TickGrid.Ppq),
-            RhythmEvent.Hit(3 * TickGrid.Ppq, TickGrid.Ppq),
-        },
-        TimeSignature.FourFour);
+    /// <summary>Strike on every quarter beat.</summary>
+    public static readonly RhythmPattern Quarters =
+        RhythmPatternParser.Parse("quarters", "Quarters", QuartersDsl, TimeSignature.FourFour);
 
     /// <summary>The three MVP rhythm patterns, in UI order.</summary>
     public static readonly IReadOnlyList<RhythmPattern> RhythmPatterns = new[] { Beat1, Beat1And3, Quarters };
+
+    /// <summary>
+    /// The built-in rhythm-pattern default set, seeded on first run with <c>Origin = BuiltIn</c> (IN3/IN4).
+    /// Each <see cref="RhythmPatternDefinition.Dsl"/> is the <b>sustain-literal</b> spelling of the
+    /// corresponding pattern: a single attack rings until the next attack/rest or the bar end. So Beat 1
+    /// rings the whole bar and Beats 1 &amp; 3 are two half notes (Quarters is unchanged — each quarter
+    /// already rings to the next). These strings are the single source of truth the live
+    /// <see cref="Beat1"/>/<see cref="Beat1And3"/>/<see cref="Quarters"/> constants derive from.
+    /// </summary>
+    public static readonly IReadOnlyList<RhythmPatternDefinition> BuiltInRhythmPatterns = new[]
+    {
+        new RhythmPatternDefinition("beat_1", "Beat 1", Beat1Dsl),
+        new RhythmPatternDefinition("beat_1_3", "Beats 1 & 3", Beat1And3Dsl),
+        new RhythmPatternDefinition("quarters", "Quarters", QuartersDsl),
+    };
 
     /// <summary>
     /// The built-in progression default set, seeded on first run with <c>Origin = BuiltIn</c> (IN11). The

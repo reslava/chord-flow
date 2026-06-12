@@ -168,7 +168,31 @@ public static class RhythmQuantizer
 
         while (p < end)
         {
-            int chunkEnd = Math.Min(((p / beatTicks) + 1) * beatTicks, end);
+            int beat = p / beatTicks;
+            bool triplet = tripletBeats[beat];
+
+            // A rest, or any content on a triplet beat, is chunked one beat at a time: triplet content is
+            // sub-beat, and rests split per beat and never tie. A straight NOTE instead extends across
+            // beat lines so a beat-aligned ring coalesces into a single note value (a whole note across
+            // the bar, a half note on beat 1/3) rather than tied quarters — stopping only at the span
+            // end, the next triplet beat, or a chord boundary (which re-attacks).
+            int chunkEnd;
+            if (isRest || triplet)
+            {
+                chunkEnd = Math.Min((beat + 1) * beatTicks, end);
+            }
+            else
+            {
+                chunkEnd = end;
+                for (int bt = beat + 1; bt * beatTicks < end; bt++)
+                {
+                    if (tripletBeats[bt])
+                    {
+                        chunkEnd = bt * beatTicks;
+                        break;
+                    }
+                }
+            }
 
             // For a note, stop at the nearest interior chord boundary so the next slot re-attacks.
             if (!isRest && boundaries is not null)
@@ -182,17 +206,18 @@ public static class RhythmQuantizer
                 }
             }
 
-            // Every chunk lives within one beat, so a single grid (straight or triplet) covers it.
-            bool triplet = tripletBeats[p / beatTicks];
-
             int q = p;
             while (q < chunkEnd)
             {
                 int remaining = chunkEnd - q;
-                (int dTicks, int noteValue) = triplet ? LargestFitTuplet(remaining) : LargestFit(remaining);
+                (int dTicks, int noteValue) = triplet
+                    ? LargestFitTuplet(remaining)
+                    : isRest ? LargestFit(remaining) : LargestAlignedFit(q, remaining);
 
-                // Tied only when this is a note continuation split by a beat line — never on the span's
-                // first slot and never at a chord boundary (those re-attack).
+                // Tied only when a note continuation can't stand alone — never on the span's first slot
+                // and never at a chord boundary (those re-attack). Coalescing now makes beat-aligned rings
+                // a single slot, so a tie survives only for genuinely syncopated/dotted spans (still
+                // unsupported downstream — C4).
                 bool tied = !isRest
                     && !firstSlotOfSpan
                     && (boundaries is null || !boundaries.Contains(q));
@@ -219,6 +244,26 @@ public static class RhythmQuantizer
         throw new NotSupportedException(
             $"Cannot quantize a {remaining}-tick remainder to a representable note value at PPQ {TickGrid.Ppq} " +
             "(tuplets/32nds are out of v1 scope).");
+    }
+
+    // Largest representable note value for a straight NOTE at bar-relative tick <paramref name="startTick"/>:
+    // the value must both fit the remaining ticks AND be metrically aligned (startTick % its ticks == 0), so
+    // a whole note only forms at the bar start, a half note only on beat 1/3, etc. This coalesces a
+    // beat-aligned ring into one note instead of tied quarters; a non-aligned (syncopated) remainder falls to
+    // a smaller value and the continuation ties (still unsupported downstream — C4). Straight content always
+    // sits on the 12-tick grid, so the 16th always satisfies alignment and the loop terminates.
+    private static (int Ticks, int NoteValue) LargestAlignedFit(int startTick, int remaining)
+    {
+        foreach ((int ticks, int noteValue) in DurationTable)
+        {
+            if (ticks <= remaining && startTick % ticks == 0)
+            {
+                return (ticks, noteValue);
+            }
+        }
+
+        throw new NotSupportedException(
+            $"Cannot quantize a {remaining}-tick note at tick {startTick} to an aligned note value at PPQ {TickGrid.Ppq}.");
     }
 
     // Largest representable note value for a triplet-grid span: scale the remaining ticks by 3/2 into

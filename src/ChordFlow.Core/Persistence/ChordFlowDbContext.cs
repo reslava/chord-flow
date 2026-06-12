@@ -23,6 +23,8 @@ public sealed class ChordFlowDbContext : DbContext
 
     public DbSet<SongEntity> Songs => Set<SongEntity>();
 
+    public DbSet<RhythmPatternEntity> RhythmPatterns => Set<RhythmPatternEntity>();
+
     /// <summary>
     /// First-run seeding: insert any <see cref="SeedData.BuiltInProgressions"/> not already present
     /// (matched by <c>Id</c>) with <see cref="Origin.BuiltIn"/>. Idempotent — re-running adds
@@ -107,6 +109,44 @@ public sealed class ChordFlowDbContext : DbContext
     }
 
     /// <summary>
+    /// First-run seeding of built-in rhythm patterns: insert any <see cref="SeedData.BuiltInRhythmPatterns"/>
+    /// not already present (matched by <c>Id</c>) with <see cref="Origin.BuiltIn"/>. No catalog header to
+    /// denormalize (rhythm patterns carry none). Idempotent — re-running adds only missing rows and never
+    /// touches existing or user rows (constraint C3). Returns the number inserted. Mirrors
+    /// <see cref="SeedBuiltInProgressions"/>.
+    /// </summary>
+    public int SeedBuiltInRhythmPatterns()
+    {
+        HashSet<string> existing = RhythmPatterns.Select(p => p.Id).ToHashSet();
+
+        int added = 0;
+        foreach (RhythmPatternDefinition def in SeedData.BuiltInRhythmPatterns)
+        {
+            if (existing.Contains(def.Id))
+            {
+                continue;
+            }
+
+            RhythmPatterns.Add(new RhythmPatternEntity
+            {
+                Id = def.Id,
+                Name = def.Name,
+                Dsl = def.Dsl,
+                Origin = Origin.BuiltIn,
+                CreatedUtc = DateTime.UtcNow,
+            });
+            added++;
+        }
+
+        if (added > 0)
+        {
+            SaveChanges();
+        }
+
+        return added;
+    }
+
+    /// <summary>
     /// Default on-disk database path: <c>%LOCALAPPDATA%\ChordFlow\chordflow.db</c>.
     /// Lives in the user profile (survives rebuilds), not next to the executable.
     /// Ensures the directory exists.
@@ -155,6 +195,14 @@ public sealed class ChordFlowDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Origin).HasConversion<string>();
             e.Property(x => x.Tags).HasDefaultValue("[]");
+        });
+
+        modelBuilder.Entity<RhythmPatternEntity>(e =>
+        {
+            // String PK (slug for built-ins, GUID for user) + Origin by name. No catalog columns (EX3) —
+            // rhythm patterns aren't genre-filtered; the TsNumerator/TsDenominator pair stores the meter.
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Origin).HasConversion<string>();
         });
     }
 }

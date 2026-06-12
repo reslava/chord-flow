@@ -11,7 +11,8 @@ public class AlphaTexRendererTests
     [Fact]
     public void Render_KnownExercise_ProducesExpectedAlphaTex()
     {
-        // One-bar "I" progression in Bb, beat-1 rhythm (hit, rest, rest, rest), tempo 80.
+        // One-bar "I" progression in Bb, Beat 1 rhythm — a single strike ringing the whole bar (a whole
+        // note, sustain-literal), tempo 80.
         var progression = new Progression("test", "Test Blues", new RomanDegree[] { new(1, Quality.Dominant7) });
         var exercise = new Exercise(
             new Key(new PitchClass(10), false), // Bb major
@@ -29,7 +30,7 @@ public class AlphaTexRendererTests
             "\\ts 4 4",
             "\\ks bb",
             ".",
-            ":4 (1.5 0.4 1.3) r r r |");
+            ":1 (1.5 0.4 1.3) |");
 
         Assert.Equal(expected, tex);
     }
@@ -54,8 +55,8 @@ public class AlphaTexRendererTests
         // 12 bars => 12 pipe separators.
         Assert.Equal(12, tex.Count(c => c == '|'));
 
-        // Stateful duration: ":4" appears exactly once for the whole piece.
-        Assert.Equal(1, CountOccurrences(tex, ":4"));
+        // Beats 1 & 3 ring as two half notes, so the stateful duration is ":2", emitted exactly once.
+        Assert.Equal(1, CountOccurrences(tex, ":2"));
 
         // I = Bb7, IV = Eb7, V = F7 voicings all present.
         Assert.Contains("(1.5 0.4 1.3)", tex); // Bb7
@@ -112,9 +113,9 @@ public class AlphaTexRendererTests
         string tex = Renderer.Render(exercise);
 
         // Pickup bar + the single progression bar = 2 pipes. The pickup carries the ":4"; the main
-        // bar's first slot inherits the stateful duration, so no second ":4".
+        // bar is Beat 1 ringing the whole bar → a whole note (":1").
         Assert.Equal(2, tex.Count(c => c == '|'));
-        Assert.EndsWith(":4 (1.5 0.4 1.3) |\n(1.5 0.4 1.3) r r r |", tex);
+        Assert.EndsWith(":4 (1.5 0.4 1.3) |\n:1 (1.5 0.4 1.3) |", tex);
     }
 
     [Fact]

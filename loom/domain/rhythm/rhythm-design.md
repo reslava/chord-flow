@@ -5,7 +5,7 @@ title: Rhythm DSL — Design
 status: done
 created: "2026-06-11T00:00:00.000Z"
 updated: 2026-06-12
-version: 13
+version: 14
 tags: []
 parent_id: id_01KTVVS1K2KZH08E63QQB3PQ4V
 requires_load: []
@@ -220,24 +220,41 @@ parsers.
 
 ## 6. Persistence parity (mirrors `ProgressionEntity`)
 
-> **Ships in slice 2** (follow-up). Slice 1 is domain + parser + triplet
-> rendering only; this persistence layer depends solely on the stabilised
-> `RhythmPattern` type and is purely additive (decision in §10).
+> **Delivered in slice 2** (`rhythm-plan-002`, req rq_01KTXTFZFJ…). This
+> persistence layer depends solely on the stabilised `RhythmPattern` type and is
+> purely additive. As-built, two refinements to the original sketch:
 
 ```csharp
-record RhythmPatternEntity(string Id, string Name, string Dsl, Origin Origin,
-                           string? Genre, string? Subgenre, string Tags, DateTime CreatedUtc);
+// As built (Persistence/Entities/RhythmPatternEntity.cs):
+class RhythmPatternEntity : IOriginated   // Id, Name, Dsl,
+{   int TsNumerator; int TsDenominator;   // meter, 4/4 today (additive for non-4/4)
+    Origin Origin; string? PackId; DateTime CreatedUtc; }
 ```
 
 - `Dsl` (the canonical grid string) is the **only** persisted form; re-parsed on
-  load. **Adopts the catalog-metadata + provenance model from the `packages`
-  thread** — `Origin` extends `ProgressionOrigin` with `Pack{PackId}`;
-  `Genre`/`Subgenre`/`Tags` denormalized from the DSL header for filtering.
-  `DbSet` + `HasConversion<string>()`.
+  load with the row's meter (`RhythmPatternStore.Find`). `DbSet` + `Origin`
+  `HasConversion<string>()`.
+- **No catalog metadata** (`Genre`/`Subgenre`/`Tags`) — unlike `ProgressionEntity`,
+  rhythm patterns aren't genre-filtered (req EX3). The meter is stored instead as
+  the `TsNumerator`/`TsDenominator` pair.
 - The C# seeds (`Beat1` `X...............`, `Beat1And3` `X.......X.......`,
-  `Quarters` `X...X...X...X...`) re-expressed as DSL, seeded `BuiltIn` by `Id`,
+  `Quarters` `X...X...X...X...`) are now **DSL-derived** (`SeedData` parses these
+  same strings — single source of truth) and seeded `BuiltIn` by `Id`,
   idempotently — same as `SeedBuiltInProgressions()`.
-- Round-trip: row → `RhythmPatternParser.Parse(Dsl)` → `RhythmPattern` → pipeline.
+- Round-trip: row → `RhythmPatternParser.Parse(Dsl, ts)` → `RhythmPattern` → pipeline.
+
+### 6.1 Quantizer note-coalescing (slice-2 decision — settled `rhythm-chat-003`)
+
+The seed migration exposed a gap: the sustain-literal seeds ring across beats
+(Beat 1 = a whole bar), but the quantizer split **every** note at beat lines into
+*tied* continuations, and the renderer throws on ties (C4) — so the rings wouldn't
+render. **Decision (Option A):** the quantizer now **coalesces a beat-aligned
+straight note into a single note value** (`RhythmQuantizer.LargestAlignedFit`:
+the largest value whose ticks divide the onset tick) — a whole note across the
+bar, a half note on beat 1/3 — instead of tied quarters. Rests and triplet beats
+still chunk per beat. A genuinely syncopated/dotted ring (e.g. a note from beat
+2→4) still tie-splits and remains unsupported (ties/dotted stay deferred — C4); no
+built-in seed hits that. Beat 1 → `:1`, Beats 1 & 3 → `:2 :2`, Quarters unchanged.
 
 ---
 

@@ -52,15 +52,17 @@ public class RhythmSeedDslTests
     }
 
     [Fact]
-    public void SustainLiteralSeeds_DivergeFromTheStaccatoLiveSeeds_UntilSlice2()
+    public void LiveSeeds_AreNowDslDerived_SingleSourceOfTruth()
     {
-        // Documents WHY the seed migration is deferred: Beat 1 / Beats 1 & 3 currently store staccato
-        // quarter hits, whereas their DSL rings. Swapping the live seeds to the DSL changes rendering,
-        // so it is out of slice 1 (EX2). When this assertion starts failing, the seeds have been migrated.
+        // Slice 2 (IN6) migrated the live seeds to the sustain-literal DSL, so each constant now equals
+        // its DSL parse exactly — Beat 1 rings the whole bar, Beats 1 & 3 are two halves. (The inverse of
+        // the slice-1 guard, which asserted they diverged.)
         var beat1Live = SeedData.Beat1.Bars[0].Events.Select(e => (e.Position, e.Length));
         var beat13Live = SeedData.Beat1And3.Bars[0].Events.Select(e => (e.Position, e.Length));
+        var quartersLive = SeedData.Quarters.Bars[0].Events.Select(e => (e.Position, e.Length));
 
-        Assert.NotEqual(beat1Live, Parse(Beat1Dsl));
-        Assert.NotEqual(beat13Live, Parse(Beat1And3Dsl));
+        Assert.Equal(Parse(Beat1Dsl), beat1Live);
+        Assert.Equal(Parse(Beat1And3Dsl), beat13Live);
+        Assert.Equal(Parse(QuartersDsl), quartersLive);
     }
 }

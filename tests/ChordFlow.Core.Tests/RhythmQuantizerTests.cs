@@ -18,22 +18,22 @@ public class RhythmQuantizerTests
     }
 
     [Fact]
-    public void Quantize_Beat1_IsQuarterHitThenThreeQuarterRests()
+    public void Quantize_Beat1_RingsAsAWholeNote()
     {
+        // Sustain-literal Beat 1 rings the whole bar → a single whole note (coalesced, no rests/ties).
         var slots = RhythmQuantizer.Quantize(SeedData.Beat1.Bars[0].Events, TimeSignature.FourFour);
 
-        Assert.Equal(
-            new (int, bool, bool)[] { (4, false, false), (4, true, false), (4, true, false), (4, true, false) },
-            slots.Select(S));
+        Assert.Equal(new (int, bool, bool)[] { (1, false, false) }, slots.Select(S));
     }
 
     [Fact]
-    public void Quantize_Beat1And3_IsHitRestHitRest()
+    public void Quantize_Beat1And3_IsTwoHalfNotes()
     {
+        // Sustain-literal Beats 1 & 3 ring to the next strike → two half notes (coalesced, no rests/ties).
         var slots = RhythmQuantizer.Quantize(SeedData.Beat1And3.Bars[0].Events, TimeSignature.FourFour);
 
         Assert.Equal(
-            new (int, bool, bool)[] { (4, false, false), (4, true, false), (4, false, false), (4, true, false) },
+            new (int, bool, bool)[] { (2, false, false), (2, false, false) },
             slots.Select(S));
     }
 
@@ -49,16 +49,38 @@ public class RhythmQuantizerTests
     }
 
     [Fact]
-    public void Quantize_NoteSpanningTwoBeats_SplitsIntoTiedQuarters()
+    public void Quantize_HalfNoteOnBeat1_CoalescesToASingleHalfNote()
     {
-        // A half note from beat 1: two quarters, the second tied to the first.
+        // A beat-aligned half note from beat 1 is one ":2" slot — NOT two tied quarters (coalescing).
         var events = new[] { RhythmEvent.Hit(0, 96) };
 
         var slots = RhythmQuantizer.Quantize(events, TimeSignature.FourFour);
 
-        Assert.Equal((4, false, false), S(slots[0]));
-        Assert.Equal((4, false, true), S(slots[1])); // tied continuation
-        Assert.Equal(2, slots.Count(s => !s.IsRest));
+        Assert.Equal((2, false, false), S(slots[0]));        // a single half note, untied
+        Assert.Equal(1, slots.Count(s => !s.IsRest));
+        Assert.Equal(2, slots.Count(s => s.IsRest));         // beats 3 & 4 fill with quarter rests
+    }
+
+    [Fact]
+    public void Quantize_WholeNote_CoalescesToASingleWholeNote()
+    {
+        var slots = RhythmQuantizer.Quantize(new[] { RhythmEvent.Hit(0, 192) }, TimeSignature.FourFour);
+
+        Assert.Single(slots);
+        Assert.Equal((1, false, false), S(slots[0])); // one ":1", no ties
+    }
+
+    [Fact]
+    public void Quantize_SyncopatedHalfNoteOnBeat2_StillTieSplits()
+    {
+        // A half note starting on beat 2 is not metrically alignable as one value, so it stays two
+        // quarters with a tied continuation (ties remain unsupported downstream — C4).
+        var events = new[] { RhythmEvent.Hit(48, 96) };
+
+        var slots = RhythmQuantizer.Quantize(events, TimeSignature.FourFour);
+
+        Assert.Equal((4, false, false), S(slots[1])); // beat-2 quarter (slot 0 is the beat-1 rest)
+        Assert.Equal((4, false, true), S(slots[2]));  // tied continuation into beat 3
     }
 
     [Fact]
@@ -141,15 +163,15 @@ public class RhythmQuantizerTests
     }
 
     [Fact]
-    public void Quantize_NoteAcrossBeatLineWithinSameChord_StillTies()
+    public void Quantize_HalfNoteWithinSameChord_CoalescesNoTie()
     {
-        // Same half note but no chord boundary — the beat-line split still ties (existing behaviour).
+        // Same beat-aligned half note, no chord boundary — coalesces to one ":2", no tie.
         var events = new[] { RhythmEvent.Hit(0, 96) };
 
         var slots = RhythmQuantizer.Quantize(events, TimeSignature.FourFour, Array.Empty<int>());
 
-        Assert.Equal((4, false, false), S(slots[0]));
-        Assert.Equal((4, false, true), S(slots[1])); // tied continuation
+        Assert.Equal((2, false, false), S(slots[0]));
+        Assert.DoesNotContain(slots, s => s.TiedToPrevious);
     }
 
     [Fact]
@@ -170,9 +192,10 @@ public class RhythmQuantizerTests
     [Fact]
     public void Quantize_RestAcrossChordBoundary_StaysRest_NoPhantomAttack()
     {
-        // Beat-1 hit then a rest that spans a chord boundary at 96: the boundary must NOT turn the
-        // rest into a strike — the chord changes silently and is first heard at the next attack.
-        var slots = RhythmQuantizer.Quantize(SeedData.Beat1.Bars[0].Events, TimeSignature.FourFour, new[] { 96 });
+        // A staccato beat-1 quarter then a rest that spans a chord boundary at 96: the boundary must NOT
+        // turn the rest into a strike — the chord changes silently and is first heard at the next attack.
+        var events = new[] { RhythmEvent.Hit(0, 48) }; // explicit staccato hit (Beat 1 now rings)
+        var slots = RhythmQuantizer.Quantize(events, TimeSignature.FourFour, new[] { 96 });
 
         Assert.False(slots[0].IsRest);                 // the beat-1 hit
         Assert.Equal(1, slots.Count(s => !s.IsRest));  // exactly one attack in the bar

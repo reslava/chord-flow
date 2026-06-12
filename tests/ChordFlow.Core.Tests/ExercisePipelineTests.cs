@@ -35,9 +35,9 @@ public class ExercisePipelineTests
         Assert.Contains("\\ks bb", tex);
         Assert.Contains(".", lines);
 
-        // 12 bars, each terminated by a pipe; stateful ":4" appears exactly once.
+        // 12 bars, each terminated by a pipe; Beats 1 & 3 ring as two half notes, so ":2" appears once.
         Assert.Equal(12, tex.Count(c => c == '|'));
-        Assert.Equal(1, tex.Split(":4").Length - 1);
+        Assert.Equal(1, tex.Split(":2").Length - 1);
 
         // I = Bb7, IV = Eb7, V = F7 shell voicings all present through the VoicingBook strategy.
         Assert.Contains("(1.5 0.4 1.3)", tex); // Bb7
