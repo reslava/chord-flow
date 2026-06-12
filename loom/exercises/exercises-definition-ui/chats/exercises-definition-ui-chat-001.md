@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: [rf_01KTM41K36DYJ0CE44FE7TMCGH]
-last_ai_block: 28
+last_ai_block: 32
 ---
 # exercises-definition-ui Chat
 
@@ -470,3 +470,24 @@ For each thread:
 6. I ask you `implement plan`
 
 If all is correct, do (A)
+
+
+## AI:
+
+(A) done — committed `af573a8` on `main`: **19 files, +3802/−49**.
+
+Contents:
+- **New threads**: `domain/song`, `domain/rhythm`, `domain/voicings`, `domain/intervals` (stub), `domain/multi-bar` (idea), `domain/transforms` (idea), `packages/content-catalog`, and `exercises-definition-ui` idea+design.
+- **Catalog/provenance adoption** patched into the song, rhythm and exercises designs.
+- **Progression** idea/design/chats finalized (`status: done`).
+
+Not pushed yet — say the word if you want me to `git push` to `origin/main`, or I'll leave it local.
+
+Workflow is set up exactly as you described — the ball's in your court for **thread 1 (`packages/content-catalog` — the catalog/provenance model)**:
+1. open a new chat in the thread,
+2. verify/resolve its open questions (design §6: `Origin` precedence · tags JSON-column vs join-table · `kind` per-pack vs per-definition),
+3. mark idea & design done,
+4. `Generate requirements` via the extension,
+5. then ping me with `create plan`.
+
+I'll pick it up at `create plan`. `close` if you want to stop here for now.
