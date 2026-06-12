@@ -2,10 +2,10 @@
 type: idea
 id: id_01KTVVS1K2KZH08E63QQB3PQ4V
 title: Rhythm DSL — authoring strum patterns as a tick grid
-status: draft
+status: done
 created: "2026-06-11T00:00:00.000Z"
-updated: 2026-06-11
-version: 4
+updated: 2026-06-12
+version: 5
 tags: []
 parent_id: null
 requires_load: []

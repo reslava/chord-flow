@@ -4,8 +4,8 @@ id: loom-ctx
 title: Loom — Global Context
 status: active
 created: "2026-06-07T00:00:00.000Z"
-updated: 2026-06-10
-version: 7
+updated: 2026-06-12
+version: 8
 tags: [ctx, summary]
 parent_id: null
 requires_load: []
@@ -33,6 +33,8 @@ source_hash: 61c479f6d5a2f19917ec21349afc4694cf705f66
 - **MVP scope:** 12-bar blues × 12 keys × {beat-1, beat-1+3, quarters} × beginner shell voicings + render/play with cursor + SQLite save. No accuracy detection in v1.
 
 ## 3. Reference docs (load when designing/implementing features, the domain, the renderer, or the WebView layer)
+
+> **Always-load / always-update (see the contract's "Reference-doc sync (required)").** Before reasoning about a **core DSL**, the **domain/kernel**, or the **app architecture**, LOAD the matching ref first — it is the authoritative map: DSL → `chordflow-dsl-reference` · domain/renderer → `chordflow-domain-model-reference` · architecture/boundaries → `chordflow-architecture-reference`. And whenever you change one of those areas, UPDATE its ref in the same unit of work.
 
 - **ChordFlow architecture** — `loom/refs/chordflow-architecture-reference.md` (id `rf_01KTSAPAT132QTEY5BEPRKS3MB`). The *system* view: the Core/Desktop split, one-way dependency direction, the layers inside Core, the C#↔JS bridge contract, data flow, and the seams that keep a future web host additive. **Load when reasoning about project boundaries or where new code belongs.**
 - **ChordFlow domain model** — `loom/refs/chordflow-domain-model-reference.md` (id `rf_01KTM41K36DYJ0CE44FE7TMCGH`). The *music-theory* view of the kernel: harmony, the 48-PPQ tick rhythm grid, voicings, feel/accent/stroke overlays, lead targets, the quantizer/render seam, and the `Exercise` pipeline. **Load when designing/implementing features or touching the domain.**

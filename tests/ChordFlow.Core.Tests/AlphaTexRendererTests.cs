@@ -104,7 +104,7 @@ public class AlphaTexRendererTests
     {
         // A one-beat pickup voiced with the first chord adds a leading bar (=> an extra pipe).
         var pickup = new PickupMeasure(new[] { RhythmEvent.Hit(0, 48) }, LengthTicks: 48);
-        var rhythm = new RhythmPattern("p", "Pickup", SeedData.Beat1.Events, TimeSignature.FourFour, pickup);
+        var rhythm = RhythmPattern.SingleBar("p", "Pickup", SeedData.Beat1.Bars[0].Events, TimeSignature.FourFour, pickup);
         var progression = new Progression("test", "Test", new RomanDegree[] { new(1, Quality.Dominant7) });
         var exercise = new Exercise(
             new Key(new PitchClass(10), false), progression, rhythm, 80, Difficulty.Beginner);
@@ -115,6 +115,36 @@ public class AlphaTexRendererTests
         // bar's first slot inherits the stateful duration, so no second ":4".
         Assert.Equal(2, tex.Count(c => c == '|'));
         Assert.EndsWith(":4 (1.5 0.4 1.3) |\n(1.5 0.4 1.3) r r r |", tex);
+    }
+
+    [Fact]
+    public void Render_EighthTriplets_EmitsTuTokenOnEverySlot()
+    {
+        var rhythm = RhythmPatternParser.Parse("trip", "Triplets", ":3 XXX XXX XXX XXX", TimeSignature.FourFour);
+        var prog = new Progression("test", "Test", new RomanDegree[] { new(1, Quality.Dominant7) });
+        var exercise = new Exercise(new Key(new PitchClass(10), false), prog, rhythm, 90, Difficulty.Beginner);
+
+        string tex = Renderer.Render(exercise);
+
+        // Twelve tupled eighths, stateful ":8" once, "{tu 3}" on each slot (it does not persist).
+        string inner = string.Join(" ", Enumerable.Repeat("(1.5 0.4 1.3){tu 3}", 12));
+        Assert.EndsWith(":8 " + inner + " |", tex);
+        Assert.Equal(12, CountOccurrences(tex, "{tu 3}"));
+    }
+
+    [Fact]
+    public void Render_PerBeatMixedGrid_InterleavesStraightAndTupletTokens()
+    {
+        var rhythm = RhythmPatternParser.Parse("mix", "Mixed", "XXX:3 X... X.X:3 X...", TimeSignature.FourFour);
+        var prog = new Progression("test", "Test", new RomanDegree[] { new(1, Quality.Dominant7) });
+        var exercise = new Exercise(new Key(new PitchClass(10), false), prog, rhythm, 90, Difficulty.Beginner);
+
+        string tex = Renderer.Render(exercise);
+
+        Assert.EndsWith(
+            ":8 (1.5 0.4 1.3){tu 3} (1.5 0.4 1.3){tu 3} (1.5 0.4 1.3){tu 3} " +
+            ":4 (1.5 0.4 1.3) (1.5 0.4 1.3){tu 3} :8 (1.5 0.4 1.3){tu 3} :4 (1.5 0.4 1.3) |",
+            tex);
     }
 
     [Fact]

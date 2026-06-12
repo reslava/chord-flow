@@ -453,8 +453,8 @@ Agree.
 (A) First: commit all ideas, design, chats
 
 Threads
-1. catalog/provenance MODEL   (packages §1–2)  ← foundation, before song's persistence
-2. song        
+1. ✅catalog/provenance MODEL   (packages §1–2)  ← foundation, before song's persistence
+2. ✅song        
 3. rhythm        
 4. voicings
 5. packages TOOLING (§3+: bundle/import/default-pack)  ← needs entities to pack

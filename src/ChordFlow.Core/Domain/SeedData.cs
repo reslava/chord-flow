@@ -41,14 +41,14 @@ public static class SeedData
     // quarter; the quantizer fills the gaps with quarter rests.
 
     /// <summary>Hit on beat 1 only.</summary>
-    public static readonly RhythmPattern Beat1 = new(
+    public static readonly RhythmPattern Beat1 = RhythmPattern.SingleBar(
         "beat_1",
         "Beat 1",
         new[] { RhythmEvent.Hit(0, TickGrid.Ppq) },
         TimeSignature.FourFour);
 
     /// <summary>Hits on beats 1 and 3.</summary>
-    public static readonly RhythmPattern Beat1And3 = new(
+    public static readonly RhythmPattern Beat1And3 = RhythmPattern.SingleBar(
         "beat_1_3",
         "Beats 1 & 3",
         new[]
@@ -59,7 +59,7 @@ public static class SeedData
         TimeSignature.FourFour);
 
     /// <summary>Hits on every quarter beat.</summary>
-    public static readonly RhythmPattern Quarters = new(
+    public static readonly RhythmPattern Quarters = RhythmPattern.SingleBar(
         "quarters",
         "Quarters",
         new[]

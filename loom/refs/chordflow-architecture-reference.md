@@ -1,17 +1,19 @@
 ---
 type: reference
 id: rf_01KTSAPAT132QTEY5BEPRKS3MB
-title: "ChordFlow Architecture"
+title: ChordFlow Architecture
 status: active
-created: 2026-06-10
-version: 1
+created: "2026-06-10T00:00:00.000Z"
+updated: 2026-06-12
+version: 2
 tags: []
 parent_id: null
-child_ids: []
 requires_load: []
 slug: chordflow-architecture
 description: "Map of ChordFlow's architecture: the Core/Desktop project split, vertical slices over the Domain kernel, the rendering seam, the C#↔JS bridge contract, persistence, the desktop host, and the seams that keep a future web/cross-platform host additive."
 ---
+# ChordFlow Architecture
+
 Stable map of **how ChordFlow is structured and why**. Load when reasoning about project boundaries, where new code belongs, or how a future host plugs in. Complements the deeper kernel map in `chordflow-domain-model-reference.md` (this doc is the *system* view; that one is the *music-theory* view).
 
 ---
@@ -55,7 +57,7 @@ ChordFlow.Desktop ──► ChordFlow.Core ◄── ChordFlow.Core.Tests
 ## 3. Layers inside Core
 
 ### Domain/ — the music kernel
-Pure, immutable, fully unit-tested, **no I/O**. Harmony (PitchClass, interval-backed Quality, Chord, Scale + diatonic generation, NoteSpeller, Transposer), voicings (Voicing + strategy, VoicingBook, Fretboard), a **48-PPQ tick-grid rhythm model** (RhythmPattern/RhythmEvent/TimeSignature) with feel/accent/stroke overlays, harmonic bars/spans for multi-chord-per-bar progressions, the Nashville-style `ProgressionParser`, and lead TargetZones. Full map: `chordflow-domain-model-reference.md`.
+Pure, immutable, fully unit-tested, **no I/O**. Harmony (PitchClass, interval-backed Quality, Chord, Scale + diatonic generation, NoteSpeller, Transposer), voicings (Voicing + strategy, VoicingBook, Fretboard), a **48-PPQ tick-grid rhythm model** (multi-bar RhythmPattern/PatternBar/RhythmEvent/TimeSignature) with feel/accent/stroke overlays, harmonic bars/spans for multi-chord-per-bar progressions, a **parser family** (`ProgressionParser`, `SongParser`, and the Rhythm-DSL `RhythmPatternParser`), and lead TargetZones. Full map: `chordflow-domain-model-reference.md`.
 
 ### Rendering/ — the only alphaTex-aware code
 `AlphaTexRenderer : IScoreRenderer` maps an `Exercise → string` (alphaTex). The `RhythmQuantizer` collapses the tick grid into `:N` duration slots. This isolation is the **exporter seam**: a future MIDI/GuitarPro/MusicXML exporter is a new `IScoreRenderer`, not a rewrite.

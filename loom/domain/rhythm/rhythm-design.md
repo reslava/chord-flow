@@ -2,10 +2,10 @@
 type: design
 id: de_01KTVVTS9HG5X2C39TC1X1KP94
 title: Rhythm DSL — Design
-status: draft
+status: done
 created: "2026-06-11T00:00:00.000Z"
 updated: 2026-06-12
-version: 4
+version: 13
 tags: []
 parent_id: id_01KTVVS1K2KZH08E63QQB3PQ4V
 requires_load: []
@@ -93,18 +93,24 @@ A leading `:n` sets the whole row's subdivision:
    X...X...X...X...    # default :4 (16 cells)
 ```
 
-### 2.2 Per-beat mixed subdivision (common in lead)
+### 2.2 Subdivision runs & per-beat mixed subdivision (model B — settled `rhythm-chat-002`)
 
-A bar is a sequence of **beat groups** separated by spaces; each group may carry
-its own `:n` suffix (default 4), so straight and triplet beats mix in one bar:
+A bar is a sequence of **subdivision-runs** separated by spaces. A run's cells
+split into consecutive beats **by count**, so a same-`n` run may omit inner
+spaces (`X...X...X...X...` = four beats). A space is only needed to **switch
+subdivision** or attach a per-beat `:n` — so straight and triplet beats mix in
+one bar:
 
 ```text
 XXX:3 X... X.X:3 X...
 ```
 
 = beat 1 triplet (0/16/32), beat 2 straight 16ths (48…), beat 3 triplet
-(96/112/128), beat 4 straight. Each group must contain exactly `n` cells.
-Validation: `Σ groups = beats`, each group's cell count == its `n`.
+(96/112/128), beat 4 straight. Validation: each run's cell count is a **whole
+multiple** of its `n`, and `Σ (cells ÷ n) = beats`. (Model A — one space-
+delimited group per beat — was rejected: it contradicted every example. The
+"`XXX:3X...` ambiguity" is avoided by requiring a space before a subdivision
+change, not by forbidding inner spaces in a same-`n` run.)
 
 ### 2.3 Glyphs & the sustain rule
 
@@ -147,10 +153,16 @@ seam:
   RhythmSlot(int NoteValue, bool IsRest, bool TiedToPrevious, int StartTick, Tuplet? Tuplet = null);
   readonly record struct Tuplet(int Numerator, int Denominator);   // e.g. (3,2) for an eighth triplet
   ```
-- **`RhythmQuantizer`** recognises a beat group on the triplet grid and emits its
-  cells as `NoteValue = 8` slots tagged `Tuplet(3,2)` (and 16th-triplet → `:16`
-  tagged `(3,2)`, etc.). Straight beats are unchanged. The split-at-beat-line and
-  span-boundary logic is untouched.
+- **`RhythmQuantizer`** classifies each beat by its events' edge ticks (the
+  subdivision is gone by quantize time — events carry only absolute ticks): a beat
+  whose interior edges all fall on the triplet grid (multiples of 8t/16t) but off
+  the straight 16th grid (12t) is a **triplet beat**. A triplet beat decomposes
+  against the straight duration table scaled by 3/2 and tags each slot
+  `Tuplet(3,2)`: a one-cell eighth-triplet → `:8`, a one-cell 16th-triplet →
+  `:16`, and a **sustained** multi-cell triplet note → the next-larger tuplet
+  value (e.g. a 2-cell eighth-triplet note `X.X` → `:4{tu 3}`, 32t) rather than
+  tied cells — so the no-tie constraint (C4) never trips inside a triplet. Straight
+  beats and the split-at-beat-line / span-boundary logic are unchanged.
 - **`AlphaTexRenderer`** emits the verified alphaTex tuplet token **`{tu N}`** on
   each tuplet slot. (Ties remain unsupported and still throw — unchanged; only
   tuplets graduate from "unverified" to supported, per Rafa's alphaTex check.)
@@ -164,16 +176,20 @@ seam:
 ## 4. Pickup — `PICKUP:` block
 
 ```text
-PICKUP:
-............X           # last 16th  (12 cells; LengthTicks = 12·12 = 144? — see note)
-
-A:
-X...X...X...X...
+PICKUP: ...........X | X...X...X...X...
+#       └ 11 sustains + a final attack = 12 cells (LengthTicks = 12·12 = 144);
+#         the note opens on the last cell → Hit(132, 12)
+#       └ a required `|` separates the pickup from the first bar
 ```
 
+- The leading `PICKUP:` keyword owns the grid up to the **first `|`**; that `|`
+  is required (it is the same bar separator used between bars). Newlines are
+  insignificant — they collapse to spaces, so the pickup and its bars may be
+  laid out over multiple lines as long as the `|` is present.
 - The pickup grid may be **shorter than a bar** (1..cellsPerBar cells of its
   subdivision); `PickupMeasure.LengthTicks = cellCount · cellTicks`. A 4-cell
-  `:4` pickup = the last beat (48 ticks).
+  `:4` pickup = the last beat (48 ticks). Unlike a bar, a pickup need **not**
+  hold whole beats (e.g. `...X..X` = 7 sixteenths = 84 ticks is legal).
 - Same glyph/subdivision/walk rules; maps to the existing
   `PickupMeasure(Events, LengthTicks)` → `RhythmPattern.Pickup`.
 
@@ -189,9 +205,10 @@ Pure static, no I/O, peer of `ProgressionParser` / `SongParser`. Steps:
 
 1. Split optional `PICKUP:` block from the body.
 2. Split the body on `|` → bar segments.
-3. Per bar: split on spaces → beat groups; read each group's `:n` (default 4);
-   validate cell counts (`group == n`, `Σ groups == beats`); reject glyphs ∉
-   `{X, ., -, *}`.
+3. Per bar: split on spaces → subdivision runs; read each run's `:n` (default
+   4); validate cell counts (model B: a run's cells are a whole multiple of `n`,
+   `cells % n == 0`, splitting into `cells / n` beats; `Σ beats == barBeats`);
+   reject glyphs ∉ `{X, ., -}` (`*` is deferred sugar, EX8).
 4. Walk → `RhythmEvent`s per group; assemble `PatternBar`s.
 5. Build `RhythmPattern(id, name, bars, ts, pickup?)`.
 
@@ -202,6 +219,10 @@ parsers.
 ---
 
 ## 6. Persistence parity (mirrors `ProgressionEntity`)
+
+> **Ships in slice 2** (follow-up). Slice 1 is domain + parser + triplet
+> rendering only; this persistence layer depends solely on the stabilised
+> `RhythmPattern` type and is purely additive (decision in §10).
 
 ```csharp
 record RhythmPatternEntity(string Id, string Name, string Dsl, Origin Origin,
@@ -254,16 +275,34 @@ are additive on top of this default, not a redefinition.
 - **Multi-lane / percussion guide track.**
 - **Arbitrary nested tuplets, polyrhythm, sub-`÷48` divisions** — rare; still
   expressible as positional events if ever needed.
+- **`*` extend-sugar** — redundant with `.` under the sustain rule; reserved in
+  §2.4, deferred here (decision in §10). Additive whenever wanted.
 
 ---
 
-## 10. Open implementation questions (non-blocking, decide at plan time)
+## 10. Resolved implementation decisions (settled in `rhythm-chat-002`)
 
-1. **`*` sugar** — ship in this slice or defer (dotted already works via sustain)?
-2. **Whitespace inside a beat group** — spaces are the group separator, so
-   intra-group readability spacing isn't available; is that acceptable? (Leaning
-   yes — groups are short.)
-3. **`RhythmPatternEntity` timing** — same slice as the parser, or a follow-up?
+1. **`*` sugar — deferred.** Redundant with `.` under the sustain rule (`X..`
+   already yields a dotted eighth) and adds no capability, so it stays reserved
+   (§2.4) and moves to the icebox (§9). Adding it later is purely additive — zero
+   breaking risk.
+2. **Grammar = model B (space separates subdivision-runs).** A space-delimited
+   token is a maximal same-`n` run whose cells split into beats by count; spaces
+   are needed only to switch subdivision or attach a per-beat `:n` (§2.2). So
+   `X...X...X...X...` (one run) and `X... X... X... X...` (four runs) are
+   equivalent. Intra-run readability spacing is still unavailable (a space starts
+   a new run), but that's the only limitation — accepted, since runs are short.
+   The `*` glyph stays deferred (EX8).
+3. **`RhythmPatternEntity` → follow-up slice (slice 2).** Persistence (entity,
+   migration, DSL-re-expressed seeds, Origin provenance) depends only on the
+   stabilised `RhythmPattern` type and ships as a clean additive follow-up. Slice
+   1 still includes a parser unit test that the three seed DSLs parse to the
+   expected events, for end-to-end round-trip validation without the EF layer.
+
+**Slice split:** **slice 1** = multi-bar `RhythmPattern` type refactor (ripple
+through `FeelTransform`/`RhythmQuantizer`/`AlphaTexRenderer`/`Exercise`) + parser
++ triplet rendering + seed-DSL parse tests; **slice 2** = `RhythmPatternEntity` +
+migration + seeding + provenance.
 
 ---
 

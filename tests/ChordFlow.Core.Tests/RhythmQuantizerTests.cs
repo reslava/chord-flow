@@ -20,7 +20,7 @@ public class RhythmQuantizerTests
     [Fact]
     public void Quantize_Beat1_IsQuarterHitThenThreeQuarterRests()
     {
-        var slots = RhythmQuantizer.Quantize(SeedData.Beat1.Events, TimeSignature.FourFour);
+        var slots = RhythmQuantizer.Quantize(SeedData.Beat1.Bars[0].Events, TimeSignature.FourFour);
 
         Assert.Equal(
             new (int, bool, bool)[] { (4, false, false), (4, true, false), (4, true, false), (4, true, false) },
@@ -30,7 +30,7 @@ public class RhythmQuantizerTests
     [Fact]
     public void Quantize_Beat1And3_IsHitRestHitRest()
     {
-        var slots = RhythmQuantizer.Quantize(SeedData.Beat1And3.Events, TimeSignature.FourFour);
+        var slots = RhythmQuantizer.Quantize(SeedData.Beat1And3.Bars[0].Events, TimeSignature.FourFour);
 
         Assert.Equal(
             new (int, bool, bool)[] { (4, false, false), (4, true, false), (4, false, false), (4, true, false) },
@@ -40,7 +40,7 @@ public class RhythmQuantizerTests
     [Fact]
     public void Quantize_Quarters_IsFourQuarterHits()
     {
-        var slots = RhythmQuantizer.Quantize(SeedData.Quarters.Events, TimeSignature.FourFour);
+        var slots = RhythmQuantizer.Quantize(SeedData.Quarters.Bars[0].Events, TimeSignature.FourFour);
 
         Assert.Equal(
             new (int, bool, bool)[] { (4, false, false), (4, false, false), (4, false, false), (4, false, false) },
@@ -118,7 +118,7 @@ public class RhythmQuantizerTests
     [Fact]
     public void Quantize_PopulatesStartTick_AtEachSlotOnset()
     {
-        var slots = RhythmQuantizer.Quantize(SeedData.Quarters.Events, TimeSignature.FourFour);
+        var slots = RhythmQuantizer.Quantize(SeedData.Quarters.Bars[0].Events, TimeSignature.FourFour);
 
         Assert.Equal(new[] { 0, 48, 96, 144 }, slots.Select(s => s.StartTick));
     }
@@ -172,10 +172,92 @@ public class RhythmQuantizerTests
     {
         // Beat-1 hit then a rest that spans a chord boundary at 96: the boundary must NOT turn the
         // rest into a strike — the chord changes silently and is first heard at the next attack.
-        var slots = RhythmQuantizer.Quantize(SeedData.Beat1.Events, TimeSignature.FourFour, new[] { 96 });
+        var slots = RhythmQuantizer.Quantize(SeedData.Beat1.Bars[0].Events, TimeSignature.FourFour, new[] { 96 });
 
         Assert.False(slots[0].IsRest);                 // the beat-1 hit
         Assert.Equal(1, slots.Count(s => !s.IsRest));  // exactly one attack in the bar
         Assert.All(slots.Skip(1), s => Assert.True(s.IsRest));
+    }
+
+    // ---- Triplet grid (IN7) -------------------------------------------------
+
+    private static IReadOnlyList<RhythmEvent> Bar(string dsl) =>
+        RhythmPatternParser.Parse("p", "P", dsl, TimeSignature.FourFour).Bars[0].Events;
+
+    [Fact]
+    public void Quantize_EighthTriplets_EmitsTwelveTupledEighths()
+    {
+        // ":3 XXX×4" = twelve eighth-triplets — every slot :8 tagged (3,2), none straight, none tied.
+        var slots = RhythmQuantizer.Quantize(Bar(":3 XXX XXX XXX XXX"), TimeSignature.FourFour);
+
+        Assert.Equal(12, slots.Count);
+        Assert.All(slots, s =>
+        {
+            Assert.Equal(8, s.NoteValue);
+            Assert.Equal(new Tuplet(3, 2), s.Tuplet);
+            Assert.False(s.IsRest);
+            Assert.False(s.TiedToPrevious);
+        });
+        Assert.Equal(Enumerable.Range(0, 12).Select(i => i * 16), slots.Select(s => s.StartTick));
+    }
+
+    [Fact]
+    public void Quantize_SixteenthTriplets_EmitTupledSixteenths()
+    {
+        // ":6 XXXXXX×4" = twenty-four 16th-triplets — every slot :16 tagged (3,2).
+        var slots = RhythmQuantizer.Quantize(Bar(":6 XXXXXX XXXXXX XXXXXX XXXXXX"), TimeSignature.FourFour);
+
+        Assert.Equal(24, slots.Count);
+        Assert.All(slots, s =>
+        {
+            Assert.Equal(16, s.NoteValue);
+            Assert.Equal(new Tuplet(3, 2), s.Tuplet);
+        });
+    }
+
+    [Fact]
+    public void Quantize_StraightBeats_CarryNoTupletMarker()
+    {
+        var slots = RhythmQuantizer.Quantize(Bar("X...X...X...X..."), TimeSignature.FourFour);
+
+        Assert.All(slots, s => Assert.Null(s.Tuplet));
+    }
+
+    [Fact]
+    public void Quantize_SustainedTripletNote_RendersAsLargerTupletValue_NoTie()
+    {
+        // "X.X:3" on beat 1 = a 2-cell note (32t) then a 1-cell note (16t). The 32t note is a quarter
+        // under (3,2) — a single slot, NOT two tied eighths — so the tie rule never fires.
+        var slots = RhythmQuantizer.Quantize(Bar("X.X:3 X... X... X..."), TimeSignature.FourFour);
+
+        Assert.Equal(4, slots[0].NoteValue);            // :4 = the 32-tick triplet note
+        Assert.Equal(new Tuplet(3, 2), slots[0].Tuplet);
+        Assert.False(slots[0].TiedToPrevious);
+        Assert.Equal(8, slots[1].NoteValue);            // :8 = the final 16-tick triplet cell
+        Assert.Equal(new Tuplet(3, 2), slots[1].Tuplet);
+        Assert.Equal(0, slots[0].StartTick);
+        Assert.Equal(32, slots[1].StartTick);
+    }
+
+    [Fact]
+    public void Quantize_PerBeatMixedGrid_TagsOnlyTheTripletBeats()
+    {
+        // beat 1 triplet · beat 2 straight quarter · beat 3 triplet (sustain) · beat 4 straight quarter.
+        var slots = RhythmQuantizer.Quantize(Bar("XXX:3 X... X.X:3 X..."), TimeSignature.FourFour);
+
+        Assert.Equal(new int?[] { 3, 3, 3, null, 3, 3, null }, slots.Select(s => s.Tuplet?.Numerator));
+        Assert.Equal(new[] { 8, 8, 8, 4, 4, 8, 4 }, slots.Select(s => s.NoteValue));
+        Assert.Equal(new[] { 0, 16, 32, 48, 96, 128, 144 }, slots.Select(s => s.StartTick));
+    }
+
+    [Fact]
+    public void Quantize_TripletBeatWithLeadingRest_TagsTheRestToo()
+    {
+        // "-XX:3" = a triplet rest cell then two attacks; the rest is tupled so it holds 1/3 of the beat.
+        var slots = RhythmQuantizer.Quantize(Bar("-XX:3 X... X... X..."), TimeSignature.FourFour);
+
+        Assert.True(slots[0].IsRest);
+        Assert.Equal(8, slots[0].NoteValue);
+        Assert.Equal(new Tuplet(3, 2), slots[0].Tuplet);
     }
 }

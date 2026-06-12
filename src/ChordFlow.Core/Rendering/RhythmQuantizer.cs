@@ -16,6 +16,15 @@ public static class RhythmQuantizer
 {
     private static readonly IReadOnlyList<int> NoBoundaries = Array.Empty<int>();
 
+    // Grid cell ticks at PPQ 48 used to classify a beat (see ClassifyBeats).
+    private const int SixteenthTicks = TickGrid.Ppq / 4;          // 12 — straight 16th
+    private const int EighthTripletTicks = TickGrid.Ppq / 3;      // 16 — eighth-triplet cell
+    private const int SixteenthTripletTicks = TickGrid.Ppq / 6;   // 8  — 16th-triplet cell
+
+    // A triplet packs 3 notes into the time of 2: a slot's straight note value spans length·3/2 ticks,
+    // so we decompose against the straight DurationTable scaled by 3/2 and tag the result Tuplet(3,2).
+    private static readonly Tuplet TripletMarker = new(3, 2);
+
     // Representable note values, largest first: ticks -> alphaTex :N number.
     private static readonly (int Ticks, int NoteValue)[] DurationTable =
     {
@@ -61,6 +70,7 @@ public static class RhythmQuantizer
         if (beatTicks <= 0) throw new ArgumentOutOfRangeException(nameof(beatTicks));
 
         var boundaries = chordBoundaries.Count == 0 ? null : new HashSet<int>(chordBoundaries);
+        bool[] tripletBeats = ClassifyBeats(events, barTicks, beatTicks);
 
         var slots = new List<RhythmSlot>();
         int cursor = 0;
@@ -85,19 +95,64 @@ public static class RhythmQuantizer
 
             if (e.Position > cursor)
             {
-                EmitSpan(slots, cursor, e.Position, isRest: true, beatTicks, boundaries);
+                EmitSpan(slots, cursor, e.Position, isRest: true, beatTicks, boundaries, tripletBeats);
             }
 
-            EmitSpan(slots, e.Position, end, isRest: false, beatTicks, boundaries);
+            EmitSpan(slots, e.Position, end, isRest: false, beatTicks, boundaries, tripletBeats);
             cursor = end;
         }
 
         if (cursor < barTicks)
         {
-            EmitSpan(slots, cursor, barTicks, isRest: true, beatTicks, boundaries);
+            EmitSpan(slots, cursor, barTicks, isRest: true, beatTicks, boundaries, tripletBeats);
         }
 
         return slots;
+    }
+
+    // Classify each beat as straight or triplet from the events' edge ticks (the subdivision is gone by
+    // now — events carry only absolute ticks). A beat is TRIPLET when every interior edge falls on the
+    // triplet grid (a multiple of EighthTripletTicks=16 or SixteenthTripletTicks=8) and at least one
+    // edge is off the straight 16th grid (not a multiple of SixteenthTicks=12). A beat with no interior
+    // edge — a sustained note or rest filling it — is straight (a plain quarter). Mixed/finer grids
+    // (e.g. a 32nd at 6t) stay "straight" and surface later as a LargestFit failure (out of v1 scope).
+    private static bool[] ClassifyBeats(IReadOnlyList<RhythmEvent> events, int barTicks, int beatTicks)
+    {
+        int beatCount = (barTicks + beatTicks - 1) / beatTicks;
+        var triplet = new bool[beatCount];
+        var anyOffStraight = new bool[beatCount];
+        var allOnTriplet = new bool[beatCount];
+        Array.Fill(allOnTriplet, true);
+
+        foreach (RhythmEvent e in events)
+        {
+            foreach (int edge in stackalloc[] { e.Position, e.Position + e.Length })
+            {
+                int beat = edge / beatTicks;
+                int rel = edge - (beat * beatTicks);
+                if (beat >= beatCount || rel == 0)
+                {
+                    continue; // a beat line, not an interior edge
+                }
+
+                if (rel % SixteenthTicks != 0)
+                {
+                    anyOffStraight[beat] = true;
+                }
+
+                if (rel % SixteenthTripletTicks != 0)
+                {
+                    allOnTriplet[beat] = false;
+                }
+            }
+        }
+
+        for (int b = 0; b < beatCount; b++)
+        {
+            triplet[b] = anyOffStraight[b] && allOnTriplet[b];
+        }
+
+        return triplet;
     }
 
     // Emit one note/rest span [start,end), breaking at beat lines and decomposing each chunk into
@@ -105,7 +160,8 @@ public static class RhythmQuantizer
     // there (not tied); other note continuation slots are tied. Rests are never tied and ignore chord
     // boundaries (a rest has no attack to re-trigger — the chord changes silently).
     private static void EmitSpan(
-        List<RhythmSlot> slots, int start, int end, bool isRest, int beatTicks, HashSet<int>? boundaries)
+        List<RhythmSlot> slots, int start, int end, bool isRest, int beatTicks,
+        HashSet<int>? boundaries, bool[] tripletBeats)
     {
         int p = start;
         bool firstSlotOfSpan = true;
@@ -126,11 +182,14 @@ public static class RhythmQuantizer
                 }
             }
 
+            // Every chunk lives within one beat, so a single grid (straight or triplet) covers it.
+            bool triplet = tripletBeats[p / beatTicks];
+
             int q = p;
             while (q < chunkEnd)
             {
                 int remaining = chunkEnd - q;
-                (int dTicks, int noteValue) = LargestFit(remaining);
+                (int dTicks, int noteValue) = triplet ? LargestFitTuplet(remaining) : LargestFit(remaining);
 
                 // Tied only when this is a note continuation split by a beat line — never on the span's
                 // first slot and never at a chord boundary (those re-attack).
@@ -138,7 +197,7 @@ public static class RhythmQuantizer
                     && !firstSlotOfSpan
                     && (boundaries is null || !boundaries.Contains(q));
 
-                slots.Add(new RhythmSlot(noteValue, isRest, tied, q));
+                slots.Add(new RhythmSlot(noteValue, isRest, tied, q, triplet ? TripletMarker : null));
                 firstSlotOfSpan = false;
                 q += dTicks;
             }
@@ -160,5 +219,25 @@ public static class RhythmQuantizer
         throw new NotSupportedException(
             $"Cannot quantize a {remaining}-tick remainder to a representable note value at PPQ {TickGrid.Ppq} " +
             "(tuplets/32nds are out of v1 scope).");
+    }
+
+    // Largest representable note value for a triplet-grid span: scale the remaining ticks by 3/2 into
+    // straight-duration space, pick the largest straight value that fits, and report the actual tick
+    // advance (its straight ticks scaled back by 2/3). A triplet cell of 16t → :8 (24t straight); 32t →
+    // :4 (48t straight); 8t → :16 (12t straight). A remainder needing a dotted value (e.g. 24t → 36t
+    // straight) decomposes into multiple slots and ties — which still throw (C4), unchanged.
+    private static (int Ticks, int NoteValue) LargestFitTuplet(int remaining)
+    {
+        int scaled = remaining * TripletMarker.Numerator / TripletMarker.Denominator;
+        foreach ((int ticks, int noteValue) in DurationTable)
+        {
+            if (ticks <= scaled)
+            {
+                return (ticks * TripletMarker.Denominator / TripletMarker.Numerator, noteValue);
+            }
+        }
+
+        throw new NotSupportedException(
+            $"Cannot quantize a {remaining}-tick triplet remainder to a representable note value at PPQ {TickGrid.Ppq}.");
     }
 }

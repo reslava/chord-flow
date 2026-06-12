@@ -1,22 +1,22 @@
 ---
 type: reference
 id: rf_01KTSAQ6990GY3J4CZ7HPVPW6K
-title: "ChordFlow DSL"
+title: ChordFlow DSL
 status: active
-created: 2026-06-10
-version: 1
+created: "2026-06-10T00:00:00.000Z"
+updated: 2026-06-12
+version: 3
 tags: []
 parent_id: null
-child_ids: []
 requires_load: []
 slug: chordflow-dsl
 description: "End-user guide to ChordFlow's text DSLs: the Progression DSL (Nashville-number notation for key-independent chord progressions — bars, chord splits, qualities, durations) and the Song DSL (arranging progressions into a full piece with definitions, repeats, and modulation)."
 ---
-# ChordFlow DSL Guide
+# ChordFlow DSL
 
 ChordFlow lets you write musical material as short, readable text. Because it uses **scale degrees instead of letter names**, anything you write works in **every key** — pick the key in the app, and ChordFlow spells the chords for you.
 
-> Two DSLs today: the **Progression DSL** (chords in any key) and the **Song DSL** (arranging progressions into a piece). More may follow (rhythm, voicings); they'll be documented here.
+> Three DSLs today: the **Progression DSL** (chords in any key), the **Song DSL** (arranging progressions into a piece), and the **Rhythm DSL** (strum/timing patterns on a tick grid — *engine-internal today*; see the last section). Voicings may follow; they'll be documented here.
 
 ---
 
@@ -209,3 +209,78 @@ Intro, two verses (the 12-bar blues), then up a fifth for the chorus and a final
 
 - A Song is pure harmony + arrangement. Rhythm, tempo, difficulty, and feel are chosen at **play** time (the same way a progression becomes a practice exercise) — so one Song works across many rhythm settings.
 - Modulations never change the underlying progression; they only change the **key it's realized in** from that point onward.
+
+---
+
+## Rhythm DSL
+
+> **Engine-internal today** — the Rhythm DSL is how strum/timing patterns are authored in code and tests; there is no end-user rhythm editor yet. It's documented here because it's a core DSL and the built-in seed patterns are expressed in it.
+
+A **rhythm pattern** is a bar (or several) of pure **timing** — when you strike and how long each strum rings. It carries no chords, no up/down stroke, and no accent; those are layered on at play time. You write a bar as a row of **cells**, each one **subdivision** of a beat.
+
+### Glyphs
+
+| Glyph | Meaning |
+|-------|---------|
+| `X` | **attack** — strike here (start a new note) |
+| `.` | **sustain** — let the current note (or rest) keep ringing through this cell |
+| `-` | **rest / mute** — stop the note; silence from here |
+
+**The sustain rule:** a struck note rings until the **next `X` or `-`, or the bar end** — guitar strums ring; they are never automatically staccato. So `X...............` (one strike, then sustains) is a **whole-bar** note, and `X...X...X...X...` is **four quarter notes** (each rings to the next strike).
+
+```text
+X...X...X...X...   # four quarters
+X.......X.......   # two half notes (beats 1 and 3)
+X...-...X...-...   # quarter, cut to silence, quarter, silence
+```
+
+### Subdivision — `:n`
+
+`n` = **cells per beat** (default **4** = sixteenths); it must divide a beat evenly. Cell length = one beat ÷ n.
+
+| `:n` | Subdivision | Cells / 4-4 bar |
+|-----:|-------------|----------------:|
+| `:1` | quarters | 4 |
+| `:2` | eighths | 8 |
+| `:3` | eighth-triplets | 12 |
+| `:4` | sixteenths (default) | 16 |
+| `:6` | 16th-triplets | 24 |
+
+A **leading** `:n` sets the whole row's subdivision:
+
+```text
+:3 XXX XXX XXX XXX   # twelve eighth-note triplets
+```
+
+### Subdivision runs (mixing straight and triplet beats)
+
+A bar is a sequence of **runs** separated by spaces. A run's cells split into consecutive beats **by count**, so a same-`n` run may omit inner spaces — `X...X...X...X...` and `X... X... X... X...` are identical. A space is only needed to **switch subdivision** or attach a per-run `:n` suffix — which lets straight and triplet beats live in one bar:
+
+```text
+XXX:3 X... X.X:3 X...
+#  └ beat 1 triplet · beat 2 straight 16ths · beat 3 triplet (with a sustain) · beat 4 straight
+```
+
+Each run's cell count must be a whole multiple of its `n`, and the per-beat counts must sum to a full bar.
+
+### Bars and pickups
+
+- `|` separates **bars**: `X...X...X...X... | X.......X.......` is a two-bar pattern.
+- A leading `PICKUP: <grid> |` is a short **anacrusis** (lead-in) before the first bar — it may be **shorter than a bar** and need not fill whole beats:
+
+```text
+PICKUP: ...........X | X...X...X...X...
+#       └ the last sixteenth rings into bar 1
+```
+
+Newlines are insignificant (they collapse to spaces), so a multi-bar pattern can be laid out over several lines as long as the `|`s are present.
+
+### Triplets
+
+Triplet beats (`:3`, `:6`) render as proper tuplets — the notation shows the `3` bracket. A sustained triplet note is written with `.` like any other (`X.X:3` = a note held across two of the three triplet cells) and renders as a single longer tuplet note, not as tied cells.
+
+### What you can't do yet
+
+- **No accent or stroke** inside the grid — those are overlays applied at play time (a pattern is timing only).
+- **`*`** (a "hold/extend" sugar glyph) is reserved but not implemented — use `.` sustains.
+- **Ties and dotted-note tokens** beyond what the sustain rule yields are not emitted; a pattern that would require an explicit tie is rejected.

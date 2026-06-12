@@ -4,8 +4,8 @@ id: rf_01KTM41K36DYJ0CE44FE7TMCGH
 title: ChordFlow Domain Model
 status: active
 created: "2026-06-08T00:00:00.000Z"
-updated: 2026-06-10
-version: 2
+updated: 2026-06-12
+version: 5
 tags: []
 parent_id: null
 requires_load: []
@@ -93,8 +93,10 @@ The old sequential `Beat(Duration, IsHit)` model was **removed**; rhythm is now 
 | `RhythmEvent(int Position, int Length, Stroke, Accent)` | A positional note/strum (ticks). `Hit(pos, len)` = plain down-stroke. Expresses syncopation/ties/accents. |
 | `Stroke` (enum) | Down / Up / Either. |
 | `Accent` (enum) | Normal / Accented. |
-| `RhythmPattern(Id, Name, Events, TimeSignature, Pickup?)` | **One bar of timing only.** No chords/voicings/feel baked in. |
+| `PatternBar(IReadOnlyList<RhythmEvent> Events)` | **slice-1.** One bar's ordered timing events — the unit a multi-bar pattern is built from. |
+| `RhythmPattern(Id, Name, IReadOnlyList<PatternBar> Bars, TimeSignature, Pickup?)` | **slice-1 (was a single flat event list).** A **multi-bar** pattern of timing only — no chords/voicings/feel. `SingleBar(id, name, events, ts, pickup?)` factory covers the common one-bar case. Multi-bar patterns **tile cyclically** onto the progression (progression bar *i* → pattern bar *i % m*). |
 | `PickupMeasure(Events, LengthTicks)` | Anacrusis as its own short **leading measure**, not a negative position. |
+| `RhythmPatternParser` | **slice-1.** Pure static `Parse(id, name, dsl, ts) → RhythmPattern` — the rhythmic peer of `ProgressionParser`/`SongParser`. Glyphs `X` (attack) / `.` (sustain) / `-` (rest) with the **sustain rule** (a note rings to the next `X`/`-` or bar end), `:n` subdivisions (per-row default + per-run override, **model-B run-splitting**: a run's cells split into beats by count), `\|` bars, and a `PICKUP:` block. Authors **timing only** (no stroke/accent, C2). Throws `FormatException` naming the bad run/cell. End-user view: `chordflow-dsl-reference.md` § Rhythm DSL. |
 | **Seed patterns** (`SeedData`) | `Beat1`, `Beat1And3`, `Quarters` (ids `beat_1`/`beat_1_3`/`quarters`). `BuiltInProgressions` — `IReadOnlyList<ProgressionDefinition>` with `Id`, `Name`, `Dsl`; includes `12-Bar Blues` and `Jazz-Blues Turnaround`. Seeded as `BuiltIn` rows on first run. |
 
 ### Composable overlays (never mutate the base; return new event lists)
@@ -121,12 +123,13 @@ The old sequential `Beat(Duration, IsHit)` model was **removed**; rhythm is now 
 
 | Type | Role |
 |------|------|
-| `RhythmSlot(int NoteValue, bool IsRest, bool TiedToPrevious, int StartTick)` | One quantized note/rest cell. `NoteValue` = alphaTex `:N` (1/2/4/8/16). **`StartTick`** (v0.4.0) = bar-relative tick of the slot's onset; used by the renderer to look up which `ChordSpan` covers this slot. |
-| `RhythmQuantizer` | tick grid → sequential slots. Walks events in order, fills gaps with rests, **splits spans at beat lines and at `ChordSpan` boundaries** (v0.4.0). At a chord boundary: a sounding note **re-attacks** (`TiedToPrevious = false`); a rest stays a rest (no phantom strum). `Quantize(events, ts, spanBoundaries)`. |
-| `AlphaTexRenderer` | `Render(exercise)` → alphaTex. Per realized bar, quantizes with that bar's span boundaries, then for each slot picks the chord via `HarmonicBar.SpanCovering(slot.StartTick)` (v0.4.0). Header (`\title \subtitle \tempo \ts \ks .`) then bars of stateful `:N` + `( )` chord groups / `r`. Calls `NoteSpeller` + `RhythmQuantizer`; applies `Feel` pre-quantize. |
+| `RhythmSlot(int NoteValue, bool IsRest, bool TiedToPrevious, int StartTick, Tuplet? Tuplet = null)` | One quantized note/rest cell. `NoteValue` = alphaTex `:N` (1/2/4/8/16). **`StartTick`** (v0.4.0) = bar-relative onset tick; the renderer uses it to look up which `ChordSpan` covers the slot. **`Tuplet`** (slice-1) is set on triplet-grid slots, null on straight beats. |
+| `Tuplet(int Numerator, int Denominator)` | **slice-1.** A tuplet marker — `(3, 2)` = "3 in the time of 2." Rendered as alphaTex `{tu N}` (N = Numerator). Both eighth-triplet (`:8`) and 16th-triplet (`:16`) carry `(3, 2)`; the note value distinguishes them. |
+| `RhythmQuantizer` | tick grid → sequential slots. Walks events in order, fills gaps with rests, **splits spans at beat lines and at `ChordSpan` boundaries** (v0.4.0). At a chord boundary a sounding note **re-attacks** (`TiedToPrevious = false`); a rest stays a rest (no phantom strum). **slice-1:** `ClassifyBeats` detects triplet beats from event **edge ticks** (all interior edges on the 8t/16t triplet grid, off the straight-12t grid); a triplet beat decomposes against the straight duration table scaled by 3/2 and tags each slot `Tuplet(3,2)`, so a sustained multi-cell triplet note becomes one larger tuplet value (e.g. `X.X` → `:4{tu 3}`) instead of tied cells. `Quantize(events, ts, spanBoundaries)`. |
+| `AlphaTexRenderer` | `Render(exercise)` → alphaTex. Per realized bar, quantizes with that bar's span boundaries, then for each slot picks the chord via `HarmonicBar.SpanCovering(slot.StartTick)` (v0.4.0). Header (`\title \subtitle \tempo \ts \ks .`) then bars of stateful `:N` + `( )` chord groups / `r`, with `{tu N}` appended on each tupled slot (slice-1; `{tu}` does not persist like `:N`). **slice-1:** warps each pattern bar once and **tiles multi-bar patterns cyclically** onto the progression. Calls `NoteSpeller` + `RhythmQuantizer`; applies `Feel` pre-quantize. |
 | `IScoreRenderer` | Seam for future MIDI / GuitarPro / MusicXML exporters. |
 
-> ⚠️ **Ties/dotted alphaTex tokens are unverified** (see `alphatex-syntax-reference.md`). The quantizer models ties as slot metadata but the MVP patterns never produce them; the renderer **throws** if a tie slot ever reaches it rather than emit an unverified token.
+> ⚠️ **Ties/dotted alphaTex tokens are unverified** (see `alphatex-syntax-reference.md`). The quantizer models ties as slot metadata but the MVP patterns never produce them; the renderer **throws** if a tie slot ever reaches it rather than emit an unverified token. **Tuplets, by contrast, are verified** (`{tu N}`) and supported as of slice-1 — sustained triplet notes use a larger tuplet value precisely so the no-tie rule never trips inside a triplet.
 
 ---
 
@@ -165,6 +168,6 @@ Exercise
 - **Timing/harmony separation:** `RomanDegree` is always timing-free. Chord-change timing lives exclusively on `ChordSpan.DurationTicks` on the 48-PPQ grid.
 - **Two degree frames:** `RomanDegree`/`ScaleDegree` (key-relative) vs `ChordTone` (chord-relative). Don't conflate.
 - **v1 render constraint:** only quarter-aligned span boundaries (durations ∈ {48, 96, 144, 192} in 4/4). Sub-quarter and off-beat (syncopated) boundaries are domain-legal but deferred.
-- **4/4 only** for v1; no tuplets; no sub-quarter equal divisions; no accuracy detection; no lead-training UI.
+- **4/4 only** for v1. Rhythm patterns now support sub-quarter grids and **triplet tuplets render** (`:3`/`:6` → `{tu N}`); 32nds, ties, and dotted tokens still do not. No accuracy detection; no lead-training UI.
 
 Related: [[alphatex-syntax-reference]], [[alphatab-js-api-reference]].

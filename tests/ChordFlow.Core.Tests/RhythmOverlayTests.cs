@@ -52,15 +52,15 @@ public class RhythmOverlayTests
     public void Feel_DoesNotAffectQuarterGridPatterns()
     {
         // The MVP quarter patterns have no off-beat events, so swing is a no-op on them.
-        var warped = FeelTransform.Apply(SeedData.Quarters.Events, Feel.Swing, TimeSignature.FourFour);
+        var warped = FeelTransform.Apply(SeedData.Quarters.Bars[0].Events, Feel.Swing, TimeSignature.FourFour);
 
-        Assert.Equal(SeedData.Quarters.Events, warped);
+        Assert.Equal(SeedData.Quarters.Bars[0].Events, warped);
     }
 
     [Fact]
     public void AccentPattern_Backbeat_AccentsBeats2And4()
     {
-        var accented = AccentPattern.Backbeat.Apply(SeedData.Quarters.Events, TimeSignature.FourFour);
+        var accented = AccentPattern.Backbeat.Apply(SeedData.Quarters.Bars[0].Events, TimeSignature.FourFour);
 
         Assert.Equal(Accent.Normal, accented[0].Accent);   // beat 1
         Assert.Equal(Accent.Accented, accented[1].Accent); // beat 2
@@ -71,7 +71,7 @@ public class RhythmOverlayTests
     [Fact]
     public void StrokeOverlay_AlternateDownUp_AssignsByOrder()
     {
-        var stroked = StrokeOverlay.AlternateDownUp(SeedData.Quarters.Events);
+        var stroked = StrokeOverlay.AlternateDownUp(SeedData.Quarters.Bars[0].Events);
 
         Assert.Equal(new[] { Stroke.Down, Stroke.Up, Stroke.Down, Stroke.Up }, stroked.Select(e => e.Stroke));
     }
@@ -80,10 +80,10 @@ public class RhythmOverlayTests
     public void Compose_AccentThenFeel_YieldsExpectedTimingAndAccentsWithoutMutatingBase()
     {
         var basePattern = SeedData.Beat1And3; // hits on beats 1 & 3 (quarters)
-        var originalEvents = basePattern.Events.ToArray(); // snapshot for the no-mutation check
+        var originalEvents = basePattern.Bars[0].Events.ToArray(); // snapshot for the no-mutation check
 
         // Compose overlays: accent the backbeat, then apply swing feel.
-        var accented = AccentPattern.Backbeat.Apply(basePattern.Events, basePattern.TimeSignature);
+        var accented = AccentPattern.Backbeat.Apply(basePattern.Bars[0].Events, basePattern.TimeSignature);
         var composed = FeelTransform.Apply(accented, Feel.Swing, basePattern.TimeSignature);
 
         // Beat 1 hit (offset 0, quarter) and beat 3 hit (offset 0, quarter) — neither is an off-beat
@@ -93,8 +93,8 @@ public class RhythmOverlayTests
         Assert.All(composed, e => Assert.Equal(Accent.Normal, e.Accent));
 
         // The base pattern's events were not mutated by either overlay.
-        Assert.Equal(originalEvents, basePattern.Events);
-        Assert.NotSame(basePattern.Events, composed);
+        Assert.Equal(originalEvents, basePattern.Bars[0].Events);
+        Assert.NotSame(basePattern.Bars[0].Events, composed);
     }
 
     [Fact]
