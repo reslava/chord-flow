@@ -1,5 +1,6 @@
 using System.Linq;
 using ChordFlow.Domain;
+using ChordFlow.Features.Packs;
 using ChordFlow.Persistence;
 using ChordFlow.Persistence.Entities;
 using ChordFlow.Rendering;
@@ -30,9 +31,9 @@ public class SongPersistenceTests
         using (var db = new ChordFlowDbContext(Options(conn)))
         {
             db.Database.Migrate();
-            db.SeedBuiltInProgressions();   // the demo song references the stored 12bar_blues
-            int added = db.SeedBuiltInSongs();
-            Assert.True(added >= 1);
+            // Default-pack import brings in the progressions (incl. 12bar_blues, which the demo song references) + the demo song.
+            int imported = DefaultPack.ImportInto(db);
+            Assert.True(imported >= 1);
         }
 
         using (var db = new ChordFlowDbContext(Options(conn)))
@@ -61,7 +62,7 @@ public class SongPersistenceTests
     }
 
     [Fact]
-    public void SeedBuiltInSongs_IsIdempotent()
+    public void DefaultPackImport_Songs_IsIdempotent()
     {
         using var conn = new SqliteConnection("DataSource=:memory:");
         conn.Open();
@@ -69,12 +70,12 @@ public class SongPersistenceTests
         using var db = new ChordFlowDbContext(Options(conn));
         db.Database.Migrate();
 
-        int first = db.SeedBuiltInSongs();
-        int second = db.SeedBuiltInSongs();
+        DefaultPack.ImportInto(db);
+        int songsAfterFirst = db.Songs.Count();
+        DefaultPack.ImportInto(db);
 
-        Assert.True(first >= 1);
-        Assert.Equal(0, second);
-        Assert.Equal(SeedData.BuiltInSongs.Count, db.Songs.Count());
+        Assert.True(songsAfterFirst >= 1);
+        Assert.Equal(songsAfterFirst, db.Songs.Count());
     }
 
     [Fact]
@@ -86,7 +87,7 @@ public class SongPersistenceTests
         using (var db = new ChordFlowDbContext(Options(conn)))
         {
             db.Database.Migrate();
-            db.SeedBuiltInSongs();
+            DefaultPack.ImportInto(db);
         }
 
         using var cmd = conn.CreateCommand();
@@ -102,7 +103,7 @@ public class SongPersistenceTests
 
         using var db = new ChordFlowDbContext(Options(conn));
         db.Database.Migrate();
-        db.SeedBuiltInProgressions();
+        DefaultPack.ImportInto(db);
 
         var store = new ProgressionStore(db, Ts);
 

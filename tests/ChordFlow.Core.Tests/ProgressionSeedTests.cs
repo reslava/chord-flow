@@ -1,4 +1,5 @@
 using ChordFlow.Domain;
+using ChordFlow.Features.Packs;
 using ChordFlow.Persistence;
 using ChordFlow.Rendering;
 using Microsoft.Data.Sqlite;
@@ -7,19 +8,27 @@ using Xunit;
 
 namespace ChordFlow.Core.Tests;
 
+/// <summary>
+/// The built-in progressions now ship in the on-disk default pack (<c>Content/default-pack/</c>) and are
+/// imported as <see cref="Origin.BuiltIn"/> on first run (IN6). Each parses → realizes → renders, and the
+/// import is idempotent.
+/// </summary>
 public class ProgressionSeedTests
 {
     private static readonly AlphaTexRenderer Renderer = new();
 
     public static IEnumerable<object[]> BuiltIns() =>
-        SeedData.BuiltInProgressions.Select(p => new object[] { p });
+        DefaultPack.Load().Definitions
+            .Where(d => d.Kind == ContentKind.Progression)
+            .Select(d => new object[] { d });
 
     [Theory]
     [MemberData(nameof(BuiltIns))]
-    public void EverySeededProgression_RoundTripsDslToModelToRender(ProgressionDefinition def)
+    public void EveryDefaultProgression_RoundTripsDslToModelToRender(PackDefinition def)
     {
         // DSL → parser → transposer → renderer must succeed for each built-in (in a major key).
-        Progression prog = ProgressionParser.Parse(def.Id, def.Name, def.Dsl, TimeSignature.FourFour);
+        (_, string body) = CatalogHeader.Parse(def.Dsl);
+        Progression prog = ProgressionParser.Parse(def.Id, def.Name, body, TimeSignature.FourFour);
         var exercise = new Exercise(
             new Key(new PitchClass(10), false), prog, SeedData.Quarters, 90, Difficulty.Beginner);
 
@@ -30,7 +39,7 @@ public class ProgressionSeedTests
     }
 
     [Fact]
-    public void SeedBuiltInProgressions_SeedsOnce_AndIsIdempotent()
+    public void DefaultPackImport_SeedsProgressionsAsBuiltIn_AndIsIdempotent()
     {
         using var conn = new SqliteConnection("DataSource=:memory:");
         conn.Open();
@@ -39,20 +48,15 @@ public class ProgressionSeedTests
         using var db = new ChordFlowDbContext(options);
         db.Database.Migrate();
 
-        int firstRun = db.SeedBuiltInProgressions();
-        Assert.Equal(SeedData.BuiltInProgressions.Count, firstRun);
-        Assert.Equal(SeedData.BuiltInProgressions.Count, db.Progressions.Count());
+        int progCount = DefaultPack.Load().Definitions.Count(d => d.Kind == ContentKind.Progression);
+
+        DefaultPack.ImportInto(db);
+        Assert.Equal(progCount, db.Progressions.Count());
         Assert.All(db.Progressions.AsNoTracking(), p => Assert.Equal(Origin.BuiltIn, p.Origin));
+        Assert.All(db.Progressions.AsNoTracking(), p => Assert.Null(p.PackId));   // BuiltIn rows carry no PackId
 
-        // Every built-in id is present.
-        foreach (ProgressionDefinition def in SeedData.BuiltInProgressions)
-        {
-            Assert.True(db.Progressions.Any(p => p.Id == def.Id));
-        }
-
-        // Second run adds nothing and leaves the row count unchanged.
-        int secondRun = db.SeedBuiltInProgressions();
-        Assert.Equal(0, secondRun);
-        Assert.Equal(SeedData.BuiltInProgressions.Count, db.Progressions.Count());
+        // Re-import changes nothing — idempotent upsert by (Id, Origin).
+        DefaultPack.ImportInto(db);
+        Assert.Equal(progCount, db.Progressions.Count());
     }
 }

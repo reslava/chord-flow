@@ -4,8 +4,8 @@ id: de_01KTXEQWS29T4T2S0GKP7C23AB
 title: Content packages & catalog — open-core content distribution
 status: done
 created: "2026-06-12T00:00:00.000Z"
-updated: 2026-06-12
-version: 4
+updated: 2026-06-13
+version: 6
 tags: []
 parent_id: id_01KTXEPV11EAA4DDY2A8MWTCB4
 requires_load: []
@@ -78,10 +78,22 @@ my-pack/
 }
 ```
 
+- **Per-file identity (settled — see §6.4):** the **filename stem is the
+  definition `Id`** (`progressions/12bar_blues.dsl`), and an optional leading
+  `name:` header line carries the display name (falls back to a title-cased Id).
+  `genre:`/`subgenre:`/`tags:` ride the existing `CatalogHeader`; the entity
+  grammar is the body. **One definition per file**, uniform across all four kinds.
 - **Import = idempotent by Id.** Re-importing upserts by definition Id; no
   duplicates. Same mechanism as today's seeding.
 - **Default pack** = today's `SeedData` generalized into the first bundle (the
-  free starter set), imported at first run.
+  free starter set), imported at first run. **Boundary:** *this* thread
+  (content-catalog) owns the **mechanism** — the pack format, the idempotent
+  importer, and the default-pack **import path** (generalizing the existing
+  `SeedData` structure into a bundle the importer ingests). The curated
+  **content** of that bundle — the actual `.dsl` files, including the meaty
+  authored CAGED voicings — is the separate **`packages/default-pack`** thread.
+  *content-catalog = how packs work; default-pack = the curated bundle that flows
+  through it.*
 - **Referential integrity:** a pack's Songs may reference its Progressions;
   resolve-time **fail-loud** if a referenced definition is missing (same rule as
   Song→Progression refs).
@@ -123,5 +135,14 @@ my-pack/
    its folder (`progressions/`, `songs/`, `rhythms/`, `voicings/`), not a
    redundant per-file field. This supports **mixed packs** — one bundle carrying
    progressions + songs + rhythms together, the way a real genre pack ships.
+4. **Per-file identity — filename = `Id`, `name:` header = display name (Option
+   A).** A pack `.dsl` file carries its identity by **filename stem** (the `Id` —
+   human-navigable, matching today's slug ids, so a song's `verse: 12bar_blues`
+   points at a visible file) plus an optional leading **`name:`** header line
+   (display name; falls back to a title-cased Id). Catalog metadata
+   (`genre`/`subgenre`/`tags`) continues via the shared `CatalogHeader`; the
+   entity grammar is the body. One definition per file. (Rejected: id+name both
+   inside the header with a cosmetic filename — needless id-drift / collision
+   arbitration for no gain at this scale.)
 
-Related: [[chordflow-architecture-reference]], [[design-philosophy-durable-over-minimal]], the `voicings` / `song` / `rhythm` threads.
+Related: [[chordflow-architecture-reference]], [[design-philosophy-durable-over-minimal]], the `voicings` / `song` / `rhythm` threads, the `packages/default-pack` thread (the curated content this mechanism carries).

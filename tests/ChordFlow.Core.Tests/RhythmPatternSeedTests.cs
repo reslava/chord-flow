@@ -1,4 +1,5 @@
 using ChordFlow.Domain;
+using ChordFlow.Features.Packs;
 using ChordFlow.Persistence;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -6,16 +7,22 @@ using Xunit;
 
 namespace ChordFlow.Core.Tests;
 
+/// <summary>
+/// The built-in rhythm patterns now ship in the on-disk default pack and are imported as
+/// <see cref="Origin.BuiltIn"/> on first run. Each parses into a one-bar pattern, and the import is idempotent.
+/// </summary>
 public class RhythmPatternSeedTests
 {
     public static IEnumerable<object[]> BuiltIns() =>
-        SeedData.BuiltInRhythmPatterns.Select(p => new object[] { p });
+        DefaultPack.Load().Definitions
+            .Where(d => d.Kind == ContentKind.Rhythm)
+            .Select(d => new object[] { d });
 
     [Theory]
     [MemberData(nameof(BuiltIns))]
-    public void EverySeededPattern_ParsesToAFullBar(RhythmPatternDefinition def)
+    public void EveryDefaultPattern_ParsesToAFullBar(PackDefinition def)
     {
-        // Each built-in DSL must parse cleanly into a one-bar pattern (the seed round-trip).
+        // Rhythm files carry no catalog header (EX3), so the DSL is the bare grammar.
         RhythmPattern pattern = RhythmPatternParser.Parse(def.Id, def.Name, def.Dsl, TimeSignature.FourFour);
 
         Assert.Single(pattern.Bars);
@@ -23,7 +30,7 @@ public class RhythmPatternSeedTests
     }
 
     [Fact]
-    public void SeedBuiltInRhythmPatterns_SeedsOnce_AndIsIdempotent()
+    public void DefaultPackImport_SeedsRhythmsAsBuiltIn4_4_AndIsIdempotent()
     {
         using var conn = new SqliteConnection("DataSource=:memory:");
         conn.Open();
@@ -32,20 +39,19 @@ public class RhythmPatternSeedTests
         using var db = new ChordFlowDbContext(options);
         db.Database.Migrate();
 
-        int firstRun = db.SeedBuiltInRhythmPatterns();
-        Assert.Equal(SeedData.BuiltInRhythmPatterns.Count, firstRun);
-        Assert.Equal(SeedData.BuiltInRhythmPatterns.Count, db.RhythmPatterns.Count());
-        Assert.All(db.RhythmPatterns.AsNoTracking(), p => Assert.Equal(Origin.BuiltIn, p.Origin));
+        int rhythmCount = DefaultPack.Load().Definitions.Count(d => d.Kind == ContentKind.Rhythm);
 
-        // Every built-in id is present, stored 4/4.
-        foreach (RhythmPatternDefinition def in SeedData.BuiltInRhythmPatterns)
+        DefaultPack.ImportInto(db);
+        Assert.Equal(rhythmCount, db.RhythmPatterns.Count());
+        Assert.All(db.RhythmPatterns.AsNoTracking(), p =>
         {
-            Assert.True(db.RhythmPatterns.Any(p => p.Id == def.Id && p.TsNumerator == 4 && p.TsDenominator == 4));
-        }
+            Assert.Equal(Origin.BuiltIn, p.Origin);
+            Assert.Equal(4, p.TsNumerator);
+            Assert.Equal(4, p.TsDenominator);
+        });
 
-        // Second run adds nothing and leaves the row count unchanged (idempotent — C3).
-        int secondRun = db.SeedBuiltInRhythmPatterns();
-        Assert.Equal(0, secondRun);
-        Assert.Equal(SeedData.BuiltInRhythmPatterns.Count, db.RhythmPatterns.Count());
+        // Second import adds nothing (idempotent — C3).
+        DefaultPack.ImportInto(db);
+        Assert.Equal(rhythmCount, db.RhythmPatterns.Count());
     }
 }

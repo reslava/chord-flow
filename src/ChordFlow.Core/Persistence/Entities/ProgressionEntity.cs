@@ -9,7 +9,7 @@ namespace ChordFlow.Persistence.Entities;
 /// strip header → <c>ProgressionParser.Parse(body)</c> → realize → render; alphaTex is never stored.
 /// Mirrors the <see cref="ExerciseEntity"/> "store the definition, regenerate on load" pattern.
 /// </summary>
-public sealed class ProgressionEntity : IOriginated
+public sealed class ProgressionEntity : ICatalogEntity
 {
     /// <summary>Stable id and primary key. Human slug for built-ins (e.g. <c>12bar_blues</c>), GUID for user progressions.</summary>
     public string Id { get; set; } = "";

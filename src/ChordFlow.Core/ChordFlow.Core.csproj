@@ -24,4 +24,11 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The default content pack (IN6) ships as data, not code: the bundle is copied next to the engine
+         assembly and imported on first run via PackReader/PackImporter (see Features/Packs/DefaultPack.cs).
+         CopyToOutputDirectory flows transitively to the Desktop host and the test project. -->
+    <Content Include="Content\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

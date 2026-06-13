@@ -25,7 +25,10 @@ public sealed class RhythmPatternStore
     /// <summary>Find a stored pattern by id and parse it into a <see cref="RhythmPattern"/>, or null if absent.</summary>
     public RhythmPattern? Find(string id)
     {
-        Entities.RhythmPatternEntity? row = _db.RhythmPatterns.AsNoTracking().FirstOrDefault(p => p.Id == id);
+        // Composite (Id, Origin) PK: resolve the highest tier per id (UserDefined > Pack > BuiltIn), so a
+        // locally-edited or pack pattern shadows the built-in without deleting it (IN3).
+        List<Entities.RhythmPatternEntity> rows = _db.RhythmPatterns.AsNoTracking().Where(p => p.Id == id).ToList();
+        Entities.RhythmPatternEntity? row = OriginResolver.ResolveOne(rows, id);
         if (row is null)
         {
             return null;

@@ -9,7 +9,7 @@ namespace ChordFlow.Persistence.Entities;
 /// the other content pillars. The stored <see cref="Dsl"/> is always the canonical-C form (any authoring
 /// anchor is normalized before save — IN2), so the same shape never appears twice under different roots.
 /// </summary>
-public sealed class VoicingEntity : IOriginated
+public sealed class VoicingEntity : ICatalogEntity
 {
     /// <summary>Stable id and primary key. Human slug for built-ins, GUID for user voicings.</summary>
     public string Id { get; set; } = "";

@@ -4,8 +4,8 @@ id: rf_01KTSAPAT132QTEY5BEPRKS3MB
 title: ChordFlow Architecture
 status: active
 created: "2026-06-10T00:00:00.000Z"
-updated: 2026-06-12
-version: 2
+updated: 2026-06-13
+version: 4
 tags: []
 parent_id: null
 requires_load: []
@@ -63,7 +63,7 @@ Pure, immutable, fully unit-tested, **no I/O**. Harmony (PitchClass, interval-ba
 `AlphaTexRenderer : IScoreRenderer` maps an `Exercise → string` (alphaTex). The `RhythmQuantizer` collapses the tick grid into `:N` duration slots. This isolation is the **exporter seam**: a future MIDI/GuitarPro/MusicXML exporter is a new `IScoreRenderer`, not a rewrite.
 
 ### Features/ — vertical slices
-Each is a class with a method composing Domain + Rendering + Persistence — **no mediator, no ceremonial layering**. `GenerateExercise` (definition → alphaTex), `PracticeSession` (play/stop/tempo + position echoes), `ExerciseLibrary` (save/list/reload — regenerating alphaTex on load, never storing it), `Progress` (mark-practiced records).
+Each is a class with a method composing Domain + Rendering + Persistence — **no mediator, no ceremonial layering**. `GenerateExercise` (definition → alphaTex), `PracticeSession` (play/stop/tempo + position echoes), `ExerciseLibrary` (save/list/reload — regenerating alphaTex on load, never storing it), `Progress` (mark-practiced records), `Packs` (the open-core content layer: `PackReader` loads a `manifest.json` + per-kind `.dsl` folder bundle from disk; `PackImporter` upserts it idempotently by the composite `(Id, Origin)` key, caller-declaring the tier — BuiltIn for the default pack, Pack for third-party. A pack is data-only; importing one needs zero engine change).
 
 ### Bridge/ — the host-agnostic contract
 The JSON envelope DTOs (e.g. `StatusEnvelope`, `LoadScoreEnvelope`, `PracticeRecordedEnvelope` — the outbound ones live with their feature) and `IBridge` (the C#→JS send abstraction features depend on), plus `WebMessageRouter`, which parses inbound JSON and raises typed events. The router is host-agnostic on purpose: any host reuses it; only the *transport* differs.
@@ -106,7 +106,7 @@ Saving persists the **definition** only; reloading regenerates the alphaTex.
 
 - **Compile-enforced UI-agnostic engine** → a web/cross-platform host is an *additive* `ChordFlow.Web` project (serve the same `wwwroot` + one JSON endpoint wrapping Core), not a rewrite. `wwwroot` extracts to a shared Razor Class Library only when that second host is real.
 - **Rendering is a single seam** → new export formats are new `IScoreRenderer`s.
-- **Content is data, not code** → seed/library content is meant to load from importable definition bundles (never hardcoded), keeping curated content packs an additive data drop. See `loom/ctx.md`.
+- **Content is data, not code** → built-in/library content loads from importable definition bundles, not hardcoded seed. The free starter set ships as the on-disk **default pack** (`Content/default-pack/`) imported on first run via `PackReader`/`PackImporter`; curated/paid packs are the same shape, an additive data drop. See `loom/ctx.md` and the `Packs` Features slice (§3).
 - **Slices are independent** → a new feature (new progression, syncopation, difficulty auto-advance, audio-in accuracy) is a new class + data, touching one seam.
 
 ---

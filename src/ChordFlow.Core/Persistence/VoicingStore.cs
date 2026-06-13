@@ -20,19 +20,32 @@ public sealed class VoicingStore
         _db = db;
     }
 
-    /// <summary>Every stored voicing parsed into a <see cref="VoicingShape"/> — the authored library for a <see cref="VoicingBook"/>.</summary>
-    public IReadOnlyList<VoicingShape> LoadShapes() =>
-        _db.Voicings.AsNoTracking()
-            .OrderBy(v => v.Id)
-            .Select(v => v.Dsl)
-            .AsEnumerable()
-            .Select(VoicingDslParser.Parse)
+    /// <summary>
+    /// Every stored voicing parsed into a <see cref="VoicingShape"/> — the authored library for a
+    /// <see cref="VoicingBook"/>. Under the composite (Id, Origin) PK each id may have tiered rows; the
+    /// highest tier per id wins (UserDefined > Pack > BuiltIn, IN3), so one shape per id reaches the book.
+    /// </summary>
+    public IReadOnlyList<VoicingShape> LoadShapes()
+    {
+        List<Entities.VoicingEntity> rows = _db.Voicings.AsNoTracking().OrderBy(v => v.Id).ToList();
+        return OriginResolver.Resolve(rows)
+            .Select(v => VoicingDslParser.Parse(StripHeader(v.Dsl)))
             .ToList();
+    }
 
-    /// <summary>Find a stored voicing by id and parse it into a <see cref="VoicingShape"/>, or null if absent.</summary>
+    /// <summary>Find a stored voicing by id (resolving the highest tier) and parse it into a <see cref="VoicingShape"/>, or null if absent.</summary>
     public VoicingShape? Find(string id)
     {
-        Entities.VoicingEntity? row = _db.Voicings.AsNoTracking().FirstOrDefault(v => v.Id == id);
-        return row is null ? null : VoicingDslParser.Parse(row.Dsl);
+        List<Entities.VoicingEntity> rows = _db.Voicings.AsNoTracking().Where(v => v.Id == id).ToList();
+        Entities.VoicingEntity? row = OriginResolver.ResolveOne(rows, id);
+        return row is null ? null : VoicingDslParser.Parse(StripHeader(row.Dsl));
+    }
+
+    // A voicing row's DSL may carry a leading catalog header (genre/subgenre/tags); the VoicingDslParser only
+    // ever sees the voicing grammar, matching the progression/song load path (constraint C1).
+    private static string StripHeader(string dsl)
+    {
+        (_, string body) = CatalogHeader.Parse(dsl);
+        return body;
     }
 }

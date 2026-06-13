@@ -1,4 +1,3 @@
-using ChordFlow.Domain;
 using ChordFlow.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,127 +25,6 @@ public sealed class ChordFlowDbContext : DbContext
     public DbSet<RhythmPatternEntity> RhythmPatterns => Set<RhythmPatternEntity>();
 
     public DbSet<VoicingEntity> Voicings => Set<VoicingEntity>();
-
-    /// <summary>
-    /// First-run seeding: insert any <see cref="SeedData.BuiltInProgressions"/> not already present
-    /// (matched by <c>Id</c>) with <see cref="Origin.BuiltIn"/>. Idempotent — re-running adds
-    /// only missing rows and never touches existing or user-defined ones. Returns the number inserted.
-    /// </summary>
-    public int SeedBuiltInProgressions()
-    {
-        HashSet<string> existing = Progressions.Select(p => p.Id).ToHashSet();
-
-        int added = 0;
-        foreach (ProgressionDefinition def in SeedData.BuiltInProgressions)
-        {
-            if (existing.Contains(def.Id))
-            {
-                continue;
-            }
-
-            // Denormalize any catalog header on the definition's DSL into the filter columns; the DSL
-            // stays the canonical source. Header-less built-ins yield null genre/subgenre and an empty tag set.
-            (CatalogMetadata meta, _) = CatalogHeader.Parse(def.Dsl);
-            Progressions.Add(new ProgressionEntity
-            {
-                Id = def.Id,
-                Name = def.Name,
-                Dsl = def.Dsl,
-                Origin = Origin.BuiltIn,
-                Genre = meta.Genre,
-                Subgenre = meta.Subgenre,
-                Tags = CatalogHeader.SerializeTags(meta.Tags),
-                CreatedUtc = DateTime.UtcNow,
-            });
-            added++;
-        }
-
-        if (added > 0)
-        {
-            SaveChanges();
-        }
-
-        return added;
-    }
-
-    /// <summary>
-    /// First-run seeding of built-in songs: insert any <see cref="SeedData.BuiltInSongs"/> not already present
-    /// (matched by <c>Id</c>) with <see cref="Origin.BuiltIn"/>, denormalizing each DSL's catalog header into the
-    /// filter columns. Idempotent — re-running adds only missing rows and never touches existing or user songs.
-    /// Returns the number inserted. Mirrors <see cref="SeedBuiltInProgressions"/>.
-    /// </summary>
-    public int SeedBuiltInSongs()
-    {
-        HashSet<string> existing = Songs.Select(s => s.Id).ToHashSet();
-
-        int added = 0;
-        foreach (SongDefinition def in SeedData.BuiltInSongs)
-        {
-            if (existing.Contains(def.Id))
-            {
-                continue;
-            }
-
-            (CatalogMetadata meta, _) = CatalogHeader.Parse(def.Dsl);
-            Songs.Add(new SongEntity
-            {
-                Id = def.Id,
-                Name = def.Name,
-                Dsl = def.Dsl,
-                Origin = Origin.BuiltIn,
-                Genre = meta.Genre,
-                Subgenre = meta.Subgenre,
-                Tags = CatalogHeader.SerializeTags(meta.Tags),
-                CreatedUtc = DateTime.UtcNow,
-            });
-            added++;
-        }
-
-        if (added > 0)
-        {
-            SaveChanges();
-        }
-
-        return added;
-    }
-
-    /// <summary>
-    /// First-run seeding of built-in rhythm patterns: insert any <see cref="SeedData.BuiltInRhythmPatterns"/>
-    /// not already present (matched by <c>Id</c>) with <see cref="Origin.BuiltIn"/>. No catalog header to
-    /// denormalize (rhythm patterns carry none). Idempotent — re-running adds only missing rows and never
-    /// touches existing or user rows (constraint C3). Returns the number inserted. Mirrors
-    /// <see cref="SeedBuiltInProgressions"/>.
-    /// </summary>
-    public int SeedBuiltInRhythmPatterns()
-    {
-        HashSet<string> existing = RhythmPatterns.Select(p => p.Id).ToHashSet();
-
-        int added = 0;
-        foreach (RhythmPatternDefinition def in SeedData.BuiltInRhythmPatterns)
-        {
-            if (existing.Contains(def.Id))
-            {
-                continue;
-            }
-
-            RhythmPatterns.Add(new RhythmPatternEntity
-            {
-                Id = def.Id,
-                Name = def.Name,
-                Dsl = def.Dsl,
-                Origin = Origin.BuiltIn,
-                CreatedUtc = DateTime.UtcNow,
-            });
-            added++;
-        }
-
-        if (added > 0)
-        {
-            SaveChanges();
-        }
-
-        return added;
-    }
 
     /// <summary>
     /// Default on-disk database path: <c>%LOCALAPPDATA%\ChordFlow\chordflow.db</c>.
@@ -181,11 +59,15 @@ public sealed class ChordFlowDbContext : DbContext
             e.HasKey(x => x.Id);
         });
 
+        // Composite PK (Id, Origin) on every content entity: a definition's BuiltIn / Pack / UserDefined
+        // copies physically coexist as separate rows (design §6.1 / D2). Lookups resolve the highest tier
+        // per Id via OriginResolver, so shadowing is non-destructive — deleting a local copy lets the next
+        // tier down win on the next resolve (IN3). "No duplicates" (IN5) means no two rows of the same
+        // (Id, Origin): a re-import upserts the same-tier row.
         modelBuilder.Entity<ProgressionEntity>(e =>
         {
-            // Stable string id (slug for built-ins, GUID for user progressions) is the PK.
-            e.HasKey(x => x.Id);
-            // Store Origin by name (BuiltIn/UserDefined) — readable in the DB, matching the Difficulty convention.
+            e.HasKey(x => new { x.Id, x.Origin });
+            // Store Origin by name (BuiltIn/UserDefined/Pack) — readable in the DB, matching the Difficulty convention.
             e.Property(x => x.Origin).HasConversion<string>();
             // Tags is a JSON array (constraint C3); default to an empty array so legacy/blank rows are well-formed.
             e.Property(x => x.Tags).HasDefaultValue("[]");
@@ -193,24 +75,24 @@ public sealed class ChordFlowDbContext : DbContext
 
         modelBuilder.Entity<SongEntity>(e =>
         {
-            // Field-for-field parity with ProgressionEntity: string PK, Origin by name, JSON-array Tags default.
-            e.HasKey(x => x.Id);
+            // Field-for-field parity with ProgressionEntity: composite (Id, Origin) PK, Origin by name, JSON-array Tags default.
+            e.HasKey(x => new { x.Id, x.Origin });
             e.Property(x => x.Origin).HasConversion<string>();
             e.Property(x => x.Tags).HasDefaultValue("[]");
         });
 
         modelBuilder.Entity<RhythmPatternEntity>(e =>
         {
-            // String PK (slug for built-ins, GUID for user) + Origin by name. No catalog columns (EX3) —
-            // rhythm patterns aren't genre-filtered; the TsNumerator/TsDenominator pair stores the meter.
-            e.HasKey(x => x.Id);
+            // Composite (Id, Origin) PK + Origin by name. No catalog columns (EX3) — rhythm patterns aren't
+            // genre-filtered; the TsNumerator/TsDenominator pair stores the meter.
+            e.HasKey(x => new { x.Id, x.Origin });
             e.Property(x => x.Origin).HasConversion<string>();
         });
 
         modelBuilder.Entity<VoicingEntity>(e =>
         {
-            // Field-for-field parity with ProgressionEntity: string PK, Origin by name, JSON-array Tags default.
-            e.HasKey(x => x.Id);
+            // Field-for-field parity with ProgressionEntity: composite (Id, Origin) PK, Origin by name, JSON-array Tags default.
+            e.HasKey(x => new { x.Id, x.Origin });
             e.Property(x => x.Origin).HasConversion<string>();
             e.Property(x => x.Tags).HasDefaultValue("[]");
         });

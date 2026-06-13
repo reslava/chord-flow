@@ -1,4 +1,5 @@
 using ChordFlow.Domain;
+using ChordFlow.Features.Packs;
 using ChordFlow.Persistence;
 using ChordFlow.Persistence.Entities;
 using Microsoft.Data.Sqlite;
@@ -27,7 +28,7 @@ public class RhythmPatternPersistenceTests
 
         using var db = new ChordFlowDbContext(Options(conn));
         db.Database.Migrate();
-        db.SeedBuiltInRhythmPatterns();
+        DefaultPack.ImportInto(db);
 
         RhythmPattern? beat1 = new RhythmPatternStore(db).Find("beat_1");
 

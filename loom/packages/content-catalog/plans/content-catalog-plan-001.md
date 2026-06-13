@@ -2,9 +2,9 @@
 type: plan
 id: pl_01KTXKNDWB6S0EV90YGPMA8VMZ
 title: Content packages & catalog — model then tooling
-status: implementing
+status: done
 created: "2026-06-12T00:00:00.000Z"
-updated: 2026-06-12
+updated: 2026-06-13
 version: 1
 design_version: 1
 req_version: 1
@@ -36,22 +36,22 @@ steps:
     satisfies: [IN3]
   - id: pack-bundle-manifest-format
     order: 4
-    status: pending
+    status: done
     description: Pack bundle format — manifest.json (id/name/version/kind/provenance/requires) + per-kind folders of .dsl; manifest kind = coarse pack-type, each definition's kind derives from its folder (mixed packs)
     files_touched: [ChordFlow.Core/Features/]
     blocked_by: [1, 2]
     satisfies: [IN4, C4, C5]
   - id: idempotent-pack-import
     order: 5
-    status: pending
+    status: done
     description: Idempotent import-by-Id — upsert by definition Id (no duplicates), reusing the seed importer; resolve-time fail-loud when a referenced definition is missing
     files_touched: [ChordFlow.Core/Features/]
     blocked_by: [origin-precedence-resolver, pack-bundle-manifest-format]
     satisfies: [IN5, IN8, C2]
   - id: default-pack-from-generalized-seed
     order: 6
-    status: pending
-    description: Default pack = today's SeedData generalized into the first bundle (free starter set), imported at first run via the same idempotent importer
+    status: done
+    description: Default-pack import path — generalize today's SeedData structure into the first bundle (manifest + per-kind .dsl files) and import it at first run via the same idempotent importer; curated content (incl. authored voicings) is the packages/default-pack thread
     files_touched: [ChordFlow.Core/Features/, default content bundle]
     blocked_by: [idempotent-pack-import]
     satisfies: [IN6]
@@ -71,9 +71,9 @@ Implement the cross-cutting catalog-metadata + provenance model and the pack bun
 | ✅ | 1 | Catalog-metadata DSL header (genre/subgenre/tags) — parse into denormalized entity columns; canonical header stays source of truth and round-trips 1:1, across all four content entities | ChordFlow.Core/Persistence/, ChordFlow.Core/Domain/ProgressionParser (header parse), EF migration | — | IN1, C1, C3 |
 | ✅ | 2 | Origin provenance model (BuiltIn / UserDefined / Pack{PackId}) stored as an entity column — discriminator + optional PackId | ChordFlow.Core/Persistence/, EF migration | — | IN2, C1 |
 | ✅ | 3 | Id-keyed Origin resolver with precedence UserDefined > Pack > BuiltIn, shadowing non-destructively (lower tiers remain as fallback) | ChordFlow.Core/Persistence/ | 2 | IN3 |
-| 🔳 | 4 | Pack bundle format — manifest.json (id/name/version/kind/provenance/requires) + per-kind folders of .dsl; manifest kind = coarse pack-type, each definition's kind derives from its folder (mixed packs) | ChordFlow.Core/Features/ | 1, 2 | IN4, C4, C5 |
-| 🔳 | 5 | Idempotent import-by-Id — upsert by definition Id (no duplicates), reusing the seed importer; resolve-time fail-loud when a referenced definition is missing | ChordFlow.Core/Features/ | origin-precedence-resolver, pack-bundle-manifest-format | IN5, IN8, C2 |
-| 🔳 | 6 | Default pack = today's SeedData generalized into the first bundle (free starter set), imported at first run via the same idempotent importer | ChordFlow.Core/Features/, default content bundle | idempotent-pack-import | IN6 |
+| ✅ | 4 | Pack bundle format — manifest.json (id/name/version/kind/provenance/requires) + per-kind folders of .dsl; manifest kind = coarse pack-type, each definition's kind derives from its folder (mixed packs) | ChordFlow.Core/Features/ | 1, 2 | IN4, C4, C5 |
+| ✅ | 5 | Idempotent import-by-Id — upsert by definition Id (no duplicates), reusing the seed importer; resolve-time fail-loud when a referenced definition is missing | ChordFlow.Core/Features/ | origin-precedence-resolver, pack-bundle-manifest-format | IN5, IN8, C2 |
+| ✅ | 6 | Default-pack import path — generalize today's SeedData structure into the first bundle (manifest + per-kind .dsl files) and import it at first run via the same idempotent importer; curated content (incl. authored voicings) is the packages/default-pack thread | ChordFlow.Core/Features/, default content bundle | idempotent-pack-import | IN6 |
 ---
 
 ### Legend

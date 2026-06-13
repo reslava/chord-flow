@@ -24,7 +24,10 @@ public sealed class ProgressionStore : IProgressionStore
 
     public Progression? Find(string id)
     {
-        Entities.ProgressionEntity? row = _db.Progressions.AsNoTracking().FirstOrDefault(p => p.Id == id);
+        // Under the composite (Id, Origin) PK a definition may have several tiered rows; resolve the
+        // highest tier (UserDefined > Pack > BuiltIn) so locals shadow imported shadow built-in (IN3).
+        List<Entities.ProgressionEntity> rows = _db.Progressions.AsNoTracking().Where(p => p.Id == id).ToList();
+        Entities.ProgressionEntity? row = OriginResolver.ResolveOne(rows, id);
         if (row is null)
         {
             return null;

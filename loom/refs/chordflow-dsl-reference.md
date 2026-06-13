@@ -5,7 +5,7 @@ title: ChordFlow DSL
 status: active
 created: "2026-06-10T00:00:00.000Z"
 updated: 2026-06-13
-version: 5
+version: 6
 tags: []
 parent_id: null
 requires_load: []
@@ -333,3 +333,96 @@ Whatever anchor you type, the voicing is stored **normalized to C** (its lowest 
 - **"unknown quality suffix"** — the suffix after the note name isn't a known quality.
 - **"invalid shape"** — `shape:` must be one of `C A G E D`.
 - **"root string … outside 1..6"** — `root:` is a string number 1–6.
+
+---
+
+## Content packs
+
+> **Engine-internal today** — there is no in-app pack authoring/import UI yet. A
+> pack is a **folder of plain text** you (or, later, a content seller) drop in;
+> the engine imports it at startup. Documented here because the file format is a
+> stable public contract.
+
+A **content pack** is the unit ChordFlow ships and (later) sells content in — the
+open-core model: the engine + a free **default pack** are open; curated genre /
+song / voicing packs are the optional paid layer. A pack is **data only** — it
+adds rows, never code; importing one needs zero engine change.
+
+### Bundle layout
+
+```
+my-pack/
+  manifest.json
+  progressions/*.dsl     # one Progression DSL definition per file
+  songs/*.dsl            # one Song DSL definition per file
+  rhythms/*.dsl          # one Rhythm DSL definition per file
+  voicings/*.dsl         # one Voicing DSL definition per file
+```
+
+Each kind folder is optional — a pack carries any mix (a real genre pack ships
+progressions + songs + rhythms + voicings together). A **definition's kind comes
+from the folder it sits in**, not from anything inside the file.
+
+### `manifest.json`
+
+```json
+{
+  "id": "blues-essentials",
+  "name": "Blues Essentials",
+  "version": "1.0.0",
+  "kind": "content",
+  "provenance": "ChordFlow",
+  "requires": []
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `id` | stable pack id — stamped onto every imported definition as its source pack |
+| `name` | display name |
+| `version` | pack version (semver string; dependency resolution is not enforced yet) |
+| `kind` | coarse **pack-type** discriminator — `content` today (future: `soundfont`, `theme`, …) |
+| `provenance` | free-text author/source label (e.g. `ChordFlow`) |
+| `requires` | other pack ids this one depends on — recorded, not yet resolved |
+
+### How each `.dsl` file carries its identity
+
+Every definition needs a stable **Id** and a display **Name**. In a pack:
+
+- **The filename stem is the `Id`** — `progressions/12bar_blues.dsl` → id
+  `12bar_blues`. Human-navigable, and it makes cross-references readable: a
+  song's `verse: 12bar_blues` points at a file you can find on disk.
+- **An optional leading `name:` line** is the display name. Omit it and the Id is
+  title-cased into one (`12bar_blues` → "12bar Blues").
+- `genre:` / `subgenre:` / `tags:` follow as usual (the catalog header); then the
+  entity's own grammar is the body. Rhythm files carry no catalog metadata.
+
+```
+progressions/12bar_blues.dsl
+─────────────────────────────
+name: 12-Bar Blues
+genre: Blues
+tags: [12-bar]
+17 17 17 17 47 47 17 17 57 47 17 57
+```
+
+### Import
+
+- **Idempotent by Id.** Importing a pack upserts each definition **by its Id** —
+  re-importing the same pack changes nothing; an updated definition replaces the
+  prior row of the same Id. The same mechanism that seeds the built-in defaults.
+- **Provenance + shadowing.** Imported definitions are stamped `Pack` with the
+  manifest's id. A locally-edited copy of the same Id still wins
+  (`UserDefined > Pack > BuiltIn`), non-destructively — remove your local edit and
+  the pack copy takes over again.
+- **Fail-loud references.** A pack's song may reference a progression (by id) from
+  the same pack, another pack, or the built-ins. A reference to a definition that
+  exists nowhere fails loudly when the song is realized — never a silently dropped
+  section.
+
+### The default pack
+
+The free starter content ships as the **default pack** and is imported on first
+run through this same path — no special-case seeding code. Its curated content
+(the starter progressions, songs, rhythms, and authored voicings) is maintained
+as a normal bundle.

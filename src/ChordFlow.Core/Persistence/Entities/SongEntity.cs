@@ -8,7 +8,7 @@ namespace ChordFlow.Persistence.Entities;
 /// → <c>SongParser.Parse(body)</c> → <c>SongExpander.Expand</c> (resolving stored references against the
 /// <c>Progressions</c> table) → render. Mirrors <see cref="ProgressionEntity"/> field-for-field.
 /// </summary>
-public sealed class SongEntity : IOriginated
+public sealed class SongEntity : ICatalogEntity
 {
     /// <summary>Stable id and primary key. Human slug for built-ins (e.g. <c>blues_song_demo</c>), GUID for user songs.</summary>
     public string Id { get; set; } = "";

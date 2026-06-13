@@ -2,9 +2,10 @@
 type: chat
 id: ch_01KTXHQJRAYM1ZN80SF5YBVK9N
 title: catalog-provenance
-status: active
+status: done
 created: "2026-06-12T00:00:00.000Z"
-version: 1
+updated: 2026-06-13
+version: 2
 tags: []
 parent_id: null
 requires_load: []

@@ -1,6 +1,7 @@
 using ChordFlow.Domain;
 using ChordFlow.Features.ExerciseLibrary;
 using ChordFlow.Features.GenerateExercise;
+using ChordFlow.Features.Packs;
 using ChordFlow.Features.PracticeSession;
 using ChordFlow.Features.Progress;
 using ChordFlow.Bridge;
@@ -66,10 +67,9 @@ internal static class Program
                 using (var db = new ChordFlowDbContext(dbOptions))
                 {
                     db.Database.Migrate();
-                    // Seed the built-in defaults on first run (idempotent by Id).
-                    db.SeedBuiltInProgressions();
-                    db.SeedBuiltInSongs();
-                    db.SeedBuiltInRhythmPatterns();
+                    // Import the free starter content on first run from the on-disk default pack
+                    // (idempotent by (Id, Origin); content is data, not code — IN6).
+                    DefaultPack.ImportInto(db);
                     // Authored-voicing library, loaded once at startup; stored voicings shadow the generated
                     // shapes when rendering. (Voicings authored later take effect on the next launch — slice 1.)
                     voicingLibrary = new VoicingStore(db).LoadShapes();
