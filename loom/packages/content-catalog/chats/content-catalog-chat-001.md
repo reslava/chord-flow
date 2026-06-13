@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 12
+last_ai_block: 13
 ---
 # catalog-provenance
 
@@ -212,3 +212,9 @@ What landed (all in `ChordFlow.Core/Persistence/`, Entity layer — `Domain/` st
 Per your note, **next we move to the `song` thread** (where IN7 gets satisfied). Nothing committed yet — say the word if you want Phase 1 committed to `main` first.
 
 STOP — Phase 1 done, awaiting direction (song thread, or commit first).
+
+## AI:
+
+📌 **Pointer (from the `domain/voicings` thread, 2026-06-13):** Phase 2 of `content-catalog-plan-001` (steps 4–6: pack bundle format → idempotent import → default pack) is now **unblocked**. It was implicitly waiting on the **voicings** content entity, which shipped today (voicings slice 1 — DSL, `VoicingEntity` + `Voicings` table, stored-first `VoicingBook`, all 313 tests green). Every content entity now exists, so step 6 ("default pack = SeedData generalized into the first bundle") can finally bundle **all four** kinds.
+
+Related: the curated content itself now has its own home — the new **`packages/default-pack`** thread (the bundle that rides this thread's import machinery; **no per-entity `SeedBuiltInVoicings`** — built-in voicings flow through the pack importer). Suggested sequence: resume content-catalog Phase 2 → author/package `default-pack` content → surface in the `ui` weave.
