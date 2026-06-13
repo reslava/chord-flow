@@ -3,8 +3,9 @@ type: design
 id: de_01KTXERD54E8GFPPNE19GMCPB1
 title: Voicings — the fourth content pillar (authored, stored, movable)
 status: draft
-created: 2026-06-12
-version: 1
+created: "2026-06-12T00:00:00.000Z"
+updated: 2026-06-13
+version: 10
 tags: []
 parent_id: id_01KTXEQ5F1R316J3RCF5CMBDTW
 requires_load: []
@@ -25,17 +26,20 @@ Design for the authored-voicing content pillar: the DSL, `VoicingEntity`, the
 ## 1. DSL
 
 ```
-voicing <Chord>  shape:<C|A|G|E|D|…>  root:<6..1>  frets: <s6 s5 s4 s3 s2 s1>  [fixed]
+voicing <Chord>  shape:<C|A|G|E|D|…>  root:<6..1>  frets: <s6 s5 s4 s3 s2 s1>
 ```
 
-- `<Chord>` = a canonical-anchor chord (convention: **C**), e.g. `Cmaj`, `Cmin`,
-  `Cmaj7`, `C7`. The **quality** is what `Lookup` matches; the root pitch (C) is
-  the transpose anchor.
+- `<Chord>` = the anchor chord (authoring convention: **C**), e.g. `Cmaj`, `Cmin`,
+  `Cmaj7`, `C7` — any anchor is accepted and normalized to C on save. The
+  **quality** is what `Lookup` matches; the root pitch is the transpose anchor.
 - `frets` = absolute frets at the anchor, strings 6→1; `x` = muted, `0` = open.
 - `shape:` = the CAGED family (metadata: diagram labelling + author legibility).
 - `root:` = the string sounding the root — for chord-diagram root marking + the
   octave-window heuristic.
-- `fixed` = authored position only; never transposed (open/ringing voicings).
+- **Stored canonical-C:** whatever anchor is declared, the parser normalizes the
+  voicing to its lowest non-negative **C** placement before save (dedup key =
+  `(quality, shape)`); `Realize` transposes on demand. "Open" is just where a
+  shape lands — no `fixed` concept.
 
 Parses onto the existing
 `Voicing(IReadOnlyList<FretPosition> Positions, int? BarreFret, int? FirstFret, IReadOnlySet<int> MutedStrings)`.
@@ -54,21 +58,26 @@ Voicing? Realize(VoicingShape entry, PitchClass targetRoot)
 ```
 
 - **0–15 fret guard**; octave-fold to find a placement; return null if none.
-- `fixed` entries skip transpose — returned only when `targetRoot == AnchorRoot`.
+- **Normalize-on-save** is the mirror of this: store at the *lowest non-negative
+  C placement* (some shapes — e.g. the D-shape — sit below the nut at C and must
+  octave-fold up), so each `(quality, shape)` has one canonical record.
 
 ## 3. `VoicingBook.Lookup(chord, difficulty)` — stored-first
 
 ```
 1. stored entries whose quality == chord.Quality
      → Realize(entry, chord.Root) for each
-     → keep playable (fit 0–15), order by position
-     → return up to 2 (lowest fit + next region/octave)
+     → keep playable (fit 0–15)
+     → return the full ranked list (sort: neck position; tiebreak: CAGED
+       familiarity rank E A G C D, pack-overridable metadata)
 2. else strategy fallback (BeginnerShellStrategy) — as today.
 ```
 
 Stored authored voicings **shadow** generated ones for the same chord (same rule
-as song's locals-shadow-stored). Difficulty narrows the candidate set / position
-band (refinement deferred).
+as song's locals-shadow-stored). Matching is **exact-quality** — `maj7` never
+silently returns `maj` (simplification is the separate opt-in `QualitySimplifier`,
+§7). The engine returns the ranked list; the consumer (exercise / UI / difficulty
+band) takes N — "up to 2" is an edge-side filter, not an engine cap.
 
 ## 4. Persistence — `VoicingEntity`
 
@@ -82,9 +91,10 @@ record VoicingEntity(
     DateTime CreatedUtc);
 ```
 
-DSL-only (frets regenerated from DSL on load) — mirrors `ProgressionEntity`.
-Adopts catalog metadata + `Origin` from the `packages` thread. New `Voicings`
-table + EF migration.
+DSL-only (frets regenerated from DSL on load) — mirrors `ProgressionEntity`. The
+stored DSL is the **canonical-C** form (normalized on save; dedup key
+`(quality, shape)`), so `Dmaj`/`Emaj`/… never appear in the table. Adopts catalog
+metadata + `Origin` from the `packages` thread. New `Voicings` table + EF migration.
 
 ## 5. UI
 
@@ -101,19 +111,32 @@ parse-error surface.
 
 ## 7. Explicitly deferred (additive)
 
-- Difficulty-band selection heuristics beyond "lowest fit + next".
+- Difficulty-band heuristics over the ranked shape list (which / how many to surface).
+- `QualitySimplifier` — opt-in `maj13→maj7→maj` reduction applied to the *chord*
+  upstream of `Lookup` (the "level / simplify chords" feature); keeps `Lookup`
+  exact and makes simplification a reusable, intentional transform. Reserved seam.
+- Open drone/pedal voicings (open strings holding pitch under transpose) — overlaps
+  alternate tunings.
 - Alternate tunings (fixed-tuning `Fretboard` in v1).
 - Pitched target-note voicings (`domain/intervals` + LeadTargets).
 - Movable-shape *abstraction* refinement once `domain/intervals` lands (intervals
   could re-express shapes as interval stacks).
 
-## 8. Open implementation questions (decide at plan time)
+## 8. Resolved decisions (voicings-chat-001)
 
-1. Canonical anchor — hard-fix to C, or allow any declared anchor chord (engine
-   normalizes)? Leaning **allow any**, C as convention.
-2. "Up to 2" position selection — lowest + octave, or two distinct CAGED
-   families? Leaning lowest fit + next playable region.
-3. Quality matching granularity (does `maj7` fall back to `maj`?) — leaning
-   exact-quality, strategy covers the gap.
+1. **Canonical anchor — any anchor accepted, normalized to C on save.** Authoring
+   convention is C; the engine normalizes whatever anchor is declared to the
+   lowest non-negative C placement and dedups on `(quality, shape)`. No duplicate
+   `Dmaj`/`Emaj` records — `Realize` transposes at render.
+2. **No `fixed` flag — every voicing is movable.** "Open" is just where a shape
+   lands (open ↔ barre under transpose), not a separate form. Open drone/pedal
+   tones (the one true non-movable case) are deferred (§7).
+3. **Selection returns the full ranked list, not a hard cap.** Sort by neck
+   position; tiebreak by CAGED familiarity rank (E A G C D, pack-overridable
+   metadata). "Up to N" is a consumer-side filter; difficulty bands narrow the
+   list (deferred).
+4. **Quality matching is exact.** `maj7` never silently returns `maj`;
+   simplification is the separate opt-in `QualitySimplifier` (§7), not baked into
+   `Lookup`.
 
 Related: [[chordflow-domain-model-reference]], [[design-philosophy-durable-over-minimal]], the `packages` thread, `domain/intervals`.

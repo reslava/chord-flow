@@ -62,19 +62,24 @@ internal static class Program
                     new DbContextOptionsBuilder<ChordFlowDbContext>()
                         .UseSqlite($"Data Source={ChordFlowDbContext.DefaultDbPath()}")
                         .Options;
+                IReadOnlyList<VoicingShape> voicingLibrary;
                 using (var db = new ChordFlowDbContext(dbOptions))
                 {
                     db.Database.Migrate();
                     // Seed the built-in defaults on first run (idempotent by Id).
                     db.SeedBuiltInProgressions();
+                    db.SeedBuiltInSongs();
                     db.SeedBuiltInRhythmPatterns();
+                    // Authored-voicing library, loaded once at startup; stored voicings shadow the generated
+                    // shapes when rendering. (Voicings authored later take effect on the next launch — slice 1.)
+                    voicingLibrary = new VoicingStore(db).LoadShapes();
                 }
 
                 // Bridge wiring — same envelope contract, WebView2 transport. Build it
                 // before navigating so the JS "ready" ping is never missed.
                 var router = new WebMessageRouter();
                 var bridge = new WebView2Bridge(core, router);
-                var renderer = new AlphaTexRenderer();
+                var renderer = new AlphaTexRenderer(new VoicingBook(voicingLibrary));
                 var generate = new GenerateExerciseHandler(renderer);
                 var library = new ExerciseLibraryHandler(dbOptions, renderer);
                 var progress = new ProgressHandler(dbOptions);

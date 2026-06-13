@@ -4,8 +4,8 @@ id: rf_01KTSAQ6990GY3J4CZ7HPVPW6K
 title: ChordFlow DSL
 status: active
 created: "2026-06-10T00:00:00.000Z"
-updated: 2026-06-12
-version: 3
+updated: 2026-06-13
+version: 5
 tags: []
 parent_id: null
 requires_load: []
@@ -16,7 +16,7 @@ description: "End-user guide to ChordFlow's text DSLs: the Progression DSL (Nash
 
 ChordFlow lets you write musical material as short, readable text. Because it uses **scale degrees instead of letter names**, anything you write works in **every key** — pick the key in the app, and ChordFlow spells the chords for you.
 
-> Three DSLs today: the **Progression DSL** (chords in any key), the **Song DSL** (arranging progressions into a piece), and the **Rhythm DSL** (strum/timing patterns on a tick grid — *engine-internal today*; see the last section). Voicings may follow; they'll be documented here.
+> Four DSLs today: the **Progression DSL** (chords in any key), the **Song DSL** (arranging progressions into a piece), the **Rhythm DSL** (strum/timing patterns on a tick grid), and the **Voicing DSL** (authored, movable chord shapes). The last two are *engine-internal today* — no end-user editor yet; see the final sections.
 
 ---
 
@@ -284,3 +284,52 @@ Triplet beats (`:3`, `:6`) render as proper tuplets — the notation shows the `
 - **No accent or stroke** inside the grid — those are overlays applied at play time (a pattern is timing only).
 - **`*`** (a "hold/extend" sugar glyph) is reserved but not implemented — use `.` sustains.
 - **Ties and dotted-note tokens** beyond what the sustain rule yields are not emitted; a pattern that would require an explicit tie is rejected.
+
+---
+
+## Voicing DSL
+
+> **Engine-internal today** — like the Rhythm DSL, the Voicing DSL is how chord shapes are authored in code and content packs; the end-user voicing editor is still to come. Documented here because it's a core DSL.
+
+A **voicing** is one authored fingering of a chord. You write it **once at a canonical anchor** (convention: **C**) and ChordFlow makes it **movable** — sliding the shape to any of the 12 roots for you. There's no separate "open" vs "barre" form: open strings simply become a barre when a shape moves up the neck (and a barre opens up moving down).
+
+### The line
+
+```text
+voicing <Chord>  shape:<C|A|G|E|D>  root:<6..1>  frets: <s6 s5 s4 s3 s2 s1>
+```
+
+| Field | Meaning |
+|-------|---------|
+| `<Chord>` | the **anchor chord** — a note name + quality suffix (`Cmaj`, `C7`, `Ebm7`, …). Convention is C; any anchor is accepted and normalized to C. The **quality** is what the app matches; the root pitch is the transpose anchor. |
+| `shape:` | the **CAGED family** (`C`, `A`, `G`, `E`, `D`) — diagram label + the order shapes are offered. |
+| `root:` | the string (6 = low E … 1 = high E) that sounds the root. |
+| `frets:` | six fret numbers, **low-E → high-E** (strings 6 → 1): `x` = muted, `0` = open, a number = that fret. |
+
+Quality suffixes are the same as the Progression DSL (`maj`/`m`/`7`/`m7`/`maj7`/`m7b5`/`dim`/`aug`, …). A trailing `# comment` is ignored.
+
+### Examples
+
+| Voicing | DSL |
+|---------|-----|
+| Open C (C-shape) | `voicing Cmaj shape:C root:5 frets: x 3 2 0 1 0` |
+| E-shape C major | `voicing Cmaj shape:E root:6 frets: 8 10 10 9 8 8` |
+| G-shape C major | `voicing Cmaj shape:G root:6 frets: 8 7 5 5 5 8` |
+| A-shape C minor | `voicing Cmin shape:A root:5 frets: x 3 1 0 1 3` |
+
+Because shapes are movable, the open-C line above also gives D major (a barre) at the 2nd fret, E major at the 4th, and so on — you author one shape, not twelve.
+
+### How it's used
+
+ChordFlow keeps a **library** of authored voicings. When it needs a chord it offers the stored shapes of that quality, **ranked** by neck position (lowest first) then by how common the CAGED shape is, and falls back to a built-in generated shape if you haven't authored one. Authored voicings **shadow** the generated default.
+
+### Canonical storage
+
+Whatever anchor you type, the voicing is stored **normalized to C** (its lowest non-negative placement), so the same shape written as `Gmaj` or `Dmaj` collapses to one canonical record — no duplicate rows per key.
+
+### Common errors
+
+- **"missing the 'frets:' clause"** / **"needs 6 fret values"** — `frets:` must list exactly six entries, low-E→high-E.
+- **"unknown quality suffix"** — the suffix after the note name isn't a known quality.
+- **"invalid shape"** — `shape:` must be one of `C A G E D`.
+- **"root string … outside 1..6"** — `root:` is a string number 1–6.

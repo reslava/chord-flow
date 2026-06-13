@@ -20,6 +20,22 @@ namespace ChordFlow.Rendering;
 /// </summary>
 public sealed class AlphaTexRenderer : IScoreRenderer
 {
+    // The voicing source for rendered chords. Stored authored voicings shadow the generated strategy
+    // shapes; an empty-library book resolves every chord through the strategy fallback.
+    private readonly VoicingBook _book;
+
+    /// <summary>Render using <paramref name="book"/> as the voicing source (stored voicings shadow generated shapes).</summary>
+    public AlphaTexRenderer(VoicingBook book)
+    {
+        ArgumentNullException.ThrowIfNull(book);
+        _book = book;
+    }
+
+    /// <summary>Render with no authored library — every chord resolves through the generated strategy shapes.</summary>
+    public AlphaTexRenderer() : this(new VoicingBook(Array.Empty<VoicingShape>()))
+    {
+    }
+
     public string Render(Exercise exercise)
     {
         ArgumentNullException.ThrowIfNull(exercise);
@@ -146,7 +162,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     // An m-bar pattern tiles cyclically: progression bar i uses pattern bar i % m (design §7 default; the
     // richer section-anchored alignment is owned by domain/multi-bar). Single-bar patterns (m=1) reduce to
     // the original "same bar everywhere" output.
-    private static void RenderBars(
+    private void RenderBars(
         IReadOnlyList<RealizedBar> bars,
         IReadOnlyList<IReadOnlyList<RhythmEvent>> feltBars,
         TimeSignature ts,
@@ -187,7 +203,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         return boundaries;
     }
 
-    private static string RenderBar(
+    private string RenderBar(
         IReadOnlyList<RhythmSlot> slots,
         Func<int, Chord> chordForTick,
         Difficulty difficulty,
@@ -229,9 +245,9 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         return string.Join(" ", tokens) + " |";
     }
 
-    private static string FormatChord(Chord chord, Difficulty difficulty)
+    private string FormatChord(Chord chord, Difficulty difficulty)
     {
-        Voicing voicing = VoicingBook.Lookup(chord, difficulty);
+        Voicing voicing = _book.Lookup(chord, difficulty);
         IEnumerable<string> notes = voicing.Positions.Select(p => $"{p.Fret}.{p.String}");
         return "(" + string.Join(" ", notes) + ")";
     }

@@ -9,7 +9,7 @@ version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 7
+last_ai_block: 11
 ---
 # rhythm Chat
 
@@ -197,3 +197,48 @@ Nice, I wanted to be sure
 ### TODO
 
 commit push
+
+## AI:
+
+### TODO — committed + pushed
+
+- **`f6e338a`** — *feat(rhythm): slice 2 — rhythm-pattern persistence + sustain-literal seed migration*
+- **22 files**, +1072/−111 — entity/migration/store/seeding, the seed migration + Option A coalescing, the loom docs (plan-002, done, req, design, chat-003), and the synced domain-model-ref.
+- **Pushed:** `452d8ab..f6e338a  main -> main`. 272 Core tests green at commit. No attribution. (Left the slice-1 dangling citations + architecture-ref as-is, per your call.)
+
+### reqs prefix idea — agree it's worth solving, but I'd aim at the root
+
+The prefix (`S2-IN1` vs `S1-IN1`) **would** fix the collision — it namespaces handles so a multi-slice thread's reqs and plan citations never clash. So yes, worth it. But I'd frame the underlying principle a level up, because a prefix is one implementation of it:
+
+**Handles should be append-only and immutable once cited.** Refining a req for a new slice should *append* new handles (continue at `IN7`, `IN8`, …) and mark superseded ones, **never renumber or drop** a handle a plan already cites. Our whole mess came from the refine *reusing* `IN1–IN6` and *dropping* `IN7/IN8/C6`. If refine had appended (`IN7+`) and kept the old ones, **both plans would still resolve and verify would be clean — with no format change at all.** A slice prefix is just a way to *enforce* that namespacing visually; plain non-reused numbering achieves the same.
+
+So my ranking of fixes:
+1. **Cheapest, highest value — `loom_verify_req` ignores `done`/`closed` plans** (or scopes to plans at the current req version). A closed plan is a historical record, not a live obligation; checking its citations against a later req is the actual false-positive source. This kills the noise with **zero** authoring burden and no req-format change.
+2. **Convention — append-only, immutable handles** in `loom_refine_req` (warn/refuse on renumber-or-drop of a cited handle).
+3. **Prefix (`S<n>-IN<k>`)** — nice as *explicit* provenance/readability sugar on top of #2, but not strictly needed if #1+#2 are in place.
+
+If I were prioritizing Loom work: do **#1** first (it's the one that actually bit us), adopt **#2** as the rule, and treat the prefix as optional polish. Happy to spec any of these out as a Loom thread when you want.
+
+Slice 2 is shipped — anything else here, or close this chat?
+
+## Rafa:
+
+About fix 1, I do not like becuase if some IN was defer in slice 1 and the we go slice 2 that defer IN will disappear.
+Doing just 2 is best option I think
+3 is just sugar as you mentioned, no need
+
+## AI:
+
+You're right, and that's a better objection than my #1. The whole point of `verify` is to **keep deferred/uncovered requirements visible** — making it skip `done` plans would suppress exactly that signal (a slice-1 IN that was deferred would silently fall off, and an IN *delivered* by a done plan would resurface as falsely "uncovered"). #1 hides the symptom at the cost of the tool's core value. Scrap it.
+
+**#2 alone is the right fix, and it's self-sufficient** — make `loom_refine_req` **append-only / immutable**:
+
+- New slice → **append** fresh handles (`IN7`, `IN8`, …); **never renumber, reuse, or delete** a handle.
+- A deferred slice-1 IN **stays in the req** as an uncovered Included item → `verify` keeps surfacing it until some plan covers it. (Deferral tracking preserved — your concern.)
+- A superseded/abandoned requirement gets a **status marker** (e.g. struck-through or a `~deferred`/`~dropped` tag), not removal — so citations to it still resolve.
+
+With that, `verify` checks **every** plan against the cumulative req and it's correct by construction: no dangling citations, no collisions, and nothing disappears. No prefix needed (#3 = sugar, agreed) and no plan-skipping needed (#1 = dropped).
+
+**Net:** the fix is a guard in `loom_refine_req` (refuse/warn on renumber-or-delete of an existing handle; only allow append + status changes). The current `domain/rhythm` thread stays as the pre-fix scar — history, as you said. Going forward, append-only keeps it clean.
+
+Want me to spec this as a Loom thread (the `refine_req` append-only guard + how `verify` reads handle status), or park it for now? Either way — slice 2 is shipped and pushed; I think we're done here unless you want to `close`.

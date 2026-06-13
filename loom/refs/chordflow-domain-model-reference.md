@@ -4,8 +4,8 @@ id: rf_01KTM41K36DYJ0CE44FE7TMCGH
 title: ChordFlow Domain Model
 status: active
 created: "2026-06-08T00:00:00.000Z"
-updated: 2026-06-12
-version: 8
+updated: 2026-06-13
+version: 11
 tags: []
 parent_id: null
 requires_load: []
@@ -77,7 +77,11 @@ Even split: `17_67` → I7 half · VI7 half. Explicit slots: `17:2_67:1_27:1` �
 | `Voicing(Positions, BarreFret?, FirstFret?, MutedStrings?)` | A list of fret positions + optional **diagram metadata** (presentation hints for `\chord (...)`; positions stay authoritative). |
 | `IVoicingStrategy` | `Difficulty Difficulty`, `Voice(chord) → Voicing`. Selection is a strategy, not a table. |
 | `BeginnerShellStrategy` | Movable dom7 shell (root + maj3 + min7 on strings 5/4/3); covers all 12 roots; emits FirstFret + muted {1,2,6}. |
-| `VoicingBook` | `Lookup(chord, difficulty)` — dispatches to the registered strategy. New tiers register a strategy; call sites unchanged. |
+| `VoicingShape(Quality, CagedShape Shape, int RootString, Voicing Canonical)` | **voicings slice (`Domain/Voicings/`).** An authored voicing entry: a CAGED shape captured at the canonical **C** anchor (`Canonical` holds C-anchored frets). Inherently movable — there is **no `fixed` flag**. |
+| `CagedShape` (enum C/A/G/E/D) + `CagedShapeRanking.FamiliarityRank()` | CAGED family (diagram label + ranked-list tiebreak). Familiarity order **E A G C D** (barre-roots first); pack-overridable later. |
+| `VoicingDslParser` / `VoicingDslWriter` | **voicings slice.** Parse `voicing <Chord> shape:<C\|A\|G\|E\|D> root:<6..1> frets: <s6…s1>` → `VoicingShape`, **normalizing any anchor to the lowest non-negative C placement** so `(Quality, Shape)` dedups; the writer serializes the canonical-C DSL back (round-trips). See `chordflow-dsl-reference`. |
+| `VoicingRealizer.Realize(shape, targetRoot)` | **voicings slice.** Slide a canonical-C shape to any root: +semis to every fretted string, octave-fold into the **0–15** window, `null` if none fits. Open↔barre is just where the shape lands (no separate open form). Reuses the existing `Voicing` type. |
+| `VoicingBook(stored)` | **voicings slice — now an instance** built with the authored library (was a static strategy dispatcher). `Candidates(chord, difficulty)` → exact-quality stored voicings realized to the root, ranked by neck position then familiarity (may be empty); `Lookup(chord, difficulty)` → the one to play: top candidate, else the strategy shape, throwing if neither covers it. Stored authored voicings **shadow** generated. |
 | `Fretboard` | Standard-tuning geometry. `PositionsFor(pc, maxFret=12)` → every fret that sounds a pitch class. |
 
 ---
@@ -142,6 +146,7 @@ The old sequential `Beat(Duration, IsHit)` model was **removed**; rhythm is now 
 | `ProgressionEntity` | EF entity: `Id` (string PK — slug for built-ins, GUID for user), `Name`, `Dsl` (canonical Nashville string, optionally prefixed by a catalog header — v1 serialization), `Origin` (stored by name) + nullable `PackId`, denormalized `Genre`/`Subgenre`/`Tags` (JSON `TEXT`, C3), `CreatedUtc`. |
 | `ChordFlowDbContext.Progressions` | `DbSet<ProgressionEntity>`; `Origin` stored `HasConversion<string>()`; `Tags` defaults `'[]'`. |
 | `RhythmPatternEntity` | **slice-2.** EF entity mirroring `ProgressionEntity` but with **no catalog metadata** (rhythm isn't genre-filtered — EX3): `Id` (string PK), `Name`, `Dsl` (canonical Rhythm-DSL — the only persisted form), `TsNumerator`/`TsDenominator` (meter, 4/4 today), `Origin` by name + nullable `PackId`, `CreatedUtc`. `RhythmPatterns` `DbSet`; `SeedBuiltInRhythmPatterns()` seeds `SeedData.BuiltInRhythmPatterns` idempotently by `Id`. `RhythmPatternStore.Find(id)` re-parses the row → `RhythmPattern` (the in-memory `SeedData` seeds are DSL-derived from the same strings — single source of truth). |
+| `VoicingEntity` / `VoicingStore` | **voicings slice.** EF entity mirroring `ProgressionEntity` (full catalog parity: `Id`, `Name`, `Dsl` = canonical-C voicing DSL, `Origin` + `PackId`, `Genre`/`Subgenre`/`Tags`, `CreatedUtc`); `Voicings` `DbSet` + `AddVoicings` migration. `VoicingStore.LoadShapes()` re-parses every row → `VoicingShape`s — the library handed to a `VoicingBook` at the feature seam (`Program.cs` builds the book and injects it into `AlphaTexRenderer`); `Find(id)` resolves one. No `SeedBuiltInVoicings` yet — voicings are authored via the UI / shipped in packs. |
 | `ChordFlowDbContext.SeedBuiltInProgressions()` | Idempotent first-run seeding: inserts `SeedData.BuiltInProgressions` rows missing by `Id` (denormalizing any catalog header into the columns); never touches existing or user rows. Called from `Program.cs` after `Migrate()`. |
 | Round-trip | Load row → strip catalog header (`CatalogHeader.Parse`) → `ProgressionParser.Parse(body)` → `Progression` → `Transposer.Realize` → `AlphaTexRenderer.Render`. `Dsl` is the only persisted form; alphaTex is never stored. |
 
@@ -154,7 +159,7 @@ The old sequential `Beat(Duration, IsHit)` model was **removed**; rhythm is now 
 ```
 Exercise
   → Transposer.Realize (progression → IReadOnlyList<RealizedBar> — chord + ticks per span)
-  → VoicingBook strategy (voicings)   OR  LeadTargets (solo targets → fretboard)
+  → VoicingBook stored-first: authored voicings ∥ strategy fallback (voicings)   OR  LeadTargets (solo targets → fretboard)
   → FeelTransform (apply rhythm + feel; identity for Straight)
   → RhythmQuantizer (→ slots, split at beat lines AND chord-span boundaries)
   → AlphaTexRenderer (per slot: SpanCovering(StartTick) → chord group → alphaTex)

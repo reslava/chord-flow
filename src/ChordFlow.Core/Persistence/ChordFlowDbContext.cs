@@ -25,6 +25,8 @@ public sealed class ChordFlowDbContext : DbContext
 
     public DbSet<RhythmPatternEntity> RhythmPatterns => Set<RhythmPatternEntity>();
 
+    public DbSet<VoicingEntity> Voicings => Set<VoicingEntity>();
+
     /// <summary>
     /// First-run seeding: insert any <see cref="SeedData.BuiltInProgressions"/> not already present
     /// (matched by <c>Id</c>) with <see cref="Origin.BuiltIn"/>. Idempotent — re-running adds
@@ -203,6 +205,14 @@ public sealed class ChordFlowDbContext : DbContext
             // rhythm patterns aren't genre-filtered; the TsNumerator/TsDenominator pair stores the meter.
             e.HasKey(x => x.Id);
             e.Property(x => x.Origin).HasConversion<string>();
+        });
+
+        modelBuilder.Entity<VoicingEntity>(e =>
+        {
+            // Field-for-field parity with ProgressionEntity: string PK, Origin by name, JSON-array Tags default.
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Origin).HasConversion<string>();
+            e.Property(x => x.Tags).HasDefaultValue("[]");
         });
     }
 }
