@@ -9,7 +9,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 30
+priority: 40
 depends_on: []
 ---
 # Intervals — the theory substrate (deferred, captured)

@@ -9,7 +9,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 60
+priority: 70
 depends_on: []
 ---
 # CAGED system — the derivation engine (subsumes authored voicings)

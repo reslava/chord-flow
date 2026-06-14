@@ -3,12 +3,13 @@ type: thread
 id: th_01KV3X9Z1EAH6KWW7TPH0ZETST
 title: Exercise definition & UI — the capstone over Harmony + Rhythm
 status: active
-created: 2026-06-14
+created: "2026-06-14T00:00:00.000Z"
+updated: 2026-06-14
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 1000
+priority: 30
 depends_on: []
 ---
 # Exercise definition & UI — the capstone over Harmony + Rhythm

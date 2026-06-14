@@ -3,12 +3,13 @@ type: thread
 id: th_01KV3X9Z19GNEJSPZXW7VSBY32
 title: Voicings — the fourth content pillar (authored, stored, movable)
 status: active
-created: 2026-06-14
+created: "2026-06-14T00:00:00.000Z"
+updated: 2026-06-14
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 1000
+priority: 80
 depends_on: []
 ---
 # Voicings — the fourth content pillar (authored, stored, movable)

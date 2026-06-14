@@ -9,7 +9,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 40
+priority: 50
 depends_on: []
 ---
 # Octave shapes — the 5 CAGED root maps (engine skeleton)

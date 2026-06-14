@@ -9,7 +9,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 90
+priority: 100
 depends_on: []
 ---
 # Progression Transforms — functional rewrites of Progressions
