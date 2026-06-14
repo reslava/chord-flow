@@ -22,6 +22,7 @@ public static class VoicingDslWriter
             [Quality.Minor7] = "min7",
             [Quality.HalfDiminished7] = "m7b5",
             [Quality.Diminished] = "dim",
+            [Quality.Diminished7] = "dim7",
             [Quality.Augmented] = "aug",
         };
 

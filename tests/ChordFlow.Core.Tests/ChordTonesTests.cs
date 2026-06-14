@@ -14,6 +14,7 @@ public class ChordTonesTests
     [InlineData(Quality.Minor7, new[] { 0, 3, 7, 10 })]
     [InlineData(Quality.HalfDiminished7, new[] { 0, 3, 6, 10 })]
     [InlineData(Quality.Diminished, new[] { 0, 3, 6 })]
+    [InlineData(Quality.Diminished7, new[] { 0, 3, 6, 9 })]
     [InlineData(Quality.Augmented, new[] { 0, 4, 8 })]
     public void Of_EachQuality_SpellsTheC5IntervalSet(Quality quality, int[] expected)
     {

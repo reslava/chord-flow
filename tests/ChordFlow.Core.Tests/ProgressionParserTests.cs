@@ -102,6 +102,8 @@ public class ProgressionParserTests
     [InlineData("1^7", Quality.Major7)]
     [InlineData("1°", Quality.Diminished)]
     [InlineData("1dim", Quality.Diminished)]
+    [InlineData("1°7", Quality.Diminished7)]
+    [InlineData("1dim7", Quality.Diminished7)]
     [InlineData("1ø", Quality.HalfDiminished7)]
     [InlineData("1m7b5", Quality.HalfDiminished7)]
     [InlineData("1+", Quality.Augmented)]

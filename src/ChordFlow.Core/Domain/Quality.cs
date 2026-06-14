@@ -28,6 +28,9 @@ public enum Quality
     /// <summary>Diminished triad — {0, 3, 6}.</summary>
     Diminished,
 
+    /// <summary>Diminished 7th — {0, 3, 6, 9}; the fully-symmetric stack of minor 3rds (1 b3 b5 bb7).</summary>
+    Diminished7,
+
     /// <summary>Augmented triad — {0, 4, 8}.</summary>
     Augmented,
 }

@@ -19,6 +19,7 @@ public static class QualityIntervals
         [Quality.Minor7] = new[] { 0, 3, 7, 10 },
         [Quality.HalfDiminished7] = new[] { 0, 3, 6, 10 },
         [Quality.Diminished] = new[] { 0, 3, 6 },
+        [Quality.Diminished7] = new[] { 0, 3, 6, 9 },
         [Quality.Augmented] = new[] { 0, 4, 8 },
     };
 

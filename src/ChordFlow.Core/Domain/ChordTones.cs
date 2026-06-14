@@ -36,13 +36,13 @@ public static class ChordTones
 
     // Map a semitone interval to its harmonic function. The v1 qualities (C5) only ever place
     // a tone in one of these bands, so the classification is unambiguous:
-    //   0 → root · 3/4 → third · 6/7/8 → fifth (dim/perfect/aug) · 10/11 → seventh.
+    //   0 → root · 3/4 → third · 6/7/8 → fifth (dim/perfect/aug) · 9/10/11 → seventh (bb7/b7/maj7).
     private static ChordToneFunction Classify(int interval) => interval switch
     {
         0 => ChordToneFunction.Root,
         3 or 4 => ChordToneFunction.Third,
         6 or 7 or 8 => ChordToneFunction.Fifth,
-        10 or 11 => ChordToneFunction.Seventh,
+        9 or 10 or 11 => ChordToneFunction.Seventh,
         _ => throw new ArgumentOutOfRangeException(
             nameof(interval), interval, "Interval does not map to a v1 chord-tone function."),
     };

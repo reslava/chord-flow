@@ -4,8 +4,8 @@ id: rf_01KTSAQ6990GY3J4CZ7HPVPW6K
 title: ChordFlow DSL
 status: active
 created: "2026-06-10T00:00:00.000Z"
-updated: 2026-06-13
-version: 6
+updated: 2026-06-14
+version: 8
 tags: []
 parent_id: null
 requires_load: []
@@ -53,6 +53,7 @@ By default a degree is a **major** chord. Add a suffix to change it:
 | `-7` or `m7` | Minor 7th | `2-7` · `2m7` |
 | `maj7` or `^7` | Major 7th | `1maj7` · `1^7` |
 | `°` or `dim` | Diminished | `7°` · `7dim` |
+| `°7` or `dim7` | Diminished 7th | `7°7` · `7dim7` |
 | `ø` or `m7b5` | Half-diminished 7th | `2ø` · `2m7b5` |
 | `+` or `aug` | Augmented | `5+` · `5aug` |
 
@@ -306,7 +307,7 @@ voicing <Chord>  shape:<C|A|G|E|D>  root:<6..1>  frets: <s6 s5 s4 s3 s2 s1>
 | `root:` | the string (6 = low E … 1 = high E) that sounds the root. |
 | `frets:` | six fret numbers, **low-E → high-E** (strings 6 → 1): `x` = muted, `0` = open, a number = that fret. |
 
-Quality suffixes are the same as the Progression DSL (`maj`/`m`/`7`/`m7`/`maj7`/`m7b5`/`dim`/`aug`, …). A trailing `# comment` is ignored.
+Quality suffixes are the same as the Progression DSL (`maj`/`m`/`7`/`m7`/`maj7`/`m7b5`/`dim`/`dim7`/`aug`, …; `dim` = diminished triad, `dim7` = symmetric diminished 7th). A trailing `# comment` is ignored.
 
 ### Examples
 

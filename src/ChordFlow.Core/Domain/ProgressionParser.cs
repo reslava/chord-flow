@@ -33,6 +33,8 @@ public static class ProgressionParser
             ["^7"] = Quality.Major7,
             ["°"] = Quality.Diminished,
             ["dim"] = Quality.Diminished,
+            ["°7"] = Quality.Diminished7,
+            ["dim7"] = Quality.Diminished7,
             ["ø"] = Quality.HalfDiminished7,
             ["m7b5"] = Quality.HalfDiminished7,
             ["+"] = Quality.Augmented,
