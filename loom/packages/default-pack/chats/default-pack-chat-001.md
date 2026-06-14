@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 17
+last_ai_block: 19
 ---
 # default-pack Chat
 
@@ -457,3 +457,26 @@ All pitch-verified, Zone/Area applied. You're right that the "hard barre" framin
 **Now 34 voicings** = maj/min/dom7/maj7/m7 × full CAGED (25) + m7b5/dim7/aug × E/A/D (9). Test count guard bumped to 34, parse+realize sweep covers the new grips, **345/345 still green**. Done-doc corrected.
 
 Still uncommitted — commit to main?
+
+## Rafa:
+
+In `domain` weave create, threads, ideas for:
+- **intervals** — update the existing idea: interval set (1 b2 2 b3 3 4 b5 5 b6 6 b7 7 8; #5 for aug, bb7 for dim7) + fretboard positions across 2 octaves left and right.
+- **octave-shapes** — the 5 CAGED root maps you listed (C: 5,2 · A: 5,3 · G: 6,3,1 · E: 6,4,1 · D: 4,2).
+- **chord-qualities** — the interval formulas (your table).
+- **caged-system** — the derivation: quality intervals × octave shape → chord shape; superset that subsumes the authored voicings.
+
+
+
+## AI:
+
+Done — the derivation engine is now four linked threads in the `domain` weave, all draft, cross-linked, each carrying your data and naming the 34 authored voicings as its golden oracle.
+
+- **`domain/intervals`** *(updated — existing idea, now promoted from "deferred stub" to "the engine's first building block)*: the flats-only vocabulary `1 b2 2 b3 3 4 b5 5 b6 6 b7 7 8` with the `#5`-for-aug / `bb7`-for-dim7 overrides, plus the real deliverable — the **fretboard interval lattice across 2 octaves L/R of a root** (the same-note case = the octave-shape maps; intervals generalize it). Notes that the dim7 `bb7`=9 classifier gap is the general rule.
+- **`domain/octave-shapes`** *(new)*: your 5 root maps as a table — C(5,2 −2), A(5,3 +2), G(6,3,1 −3), E(6,4,1 +2), D(4,2 +3) — the skeleton each CAGED shape hangs on, and the basis of the Zone/Area rule.
+- **`domain/chord-qualities`** *(new)*: your interval-formula table (maj…dim7…aug), framed as the authoritative source that `QualityIntervals` + the `ChordTones` classifier should *derive from* rather than duplicate; extensible to 6/9/11/13/sus additively.
+- **`domain/caged-system`** *(new — the capstone)*: the derivation `quality intervals × octave shape → chord shape`, the superset that subsumes the authored voicings, with the deferred per-position playability hint falling out naturally, and scales/arpeggios as the next overlay. Names intervals/octave-shapes/chord-qualities as its three substrates and itself as the integrator (design it after those three lock).
+
+Dependency order for when you schedule: **intervals → octave-shapes → chord-qualities → caged-system**.
+
+These are all draft idea docs (uncommitted). Want me to commit them, or leave them local while you review/refine first?
