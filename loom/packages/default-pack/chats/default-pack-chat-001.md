@@ -2,9 +2,10 @@
 type: chat
 id: ch_01KV1JG2G944HX0MYH11A9ECC5
 title: default-pack Chat
-status: active
+status: done
 created: "2026-06-13T00:00:00.000Z"
-version: 1
+updated: 2026-06-14
+version: 2
 tags: []
 parent_id: null
 requires_load: []

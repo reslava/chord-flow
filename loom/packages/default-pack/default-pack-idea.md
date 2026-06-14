@@ -2,9 +2,10 @@
 type: idea
 id: id_01KV06Z7C68HW71XF76ESWT203
 title: Default pack — the curated free starter content bundle (all entities)
-status: draft
-created: 2026-06-13
-version: 1
+status: done
+created: "2026-06-13T00:00:00.000Z"
+updated: 2026-06-14
+version: 2
 tags: []
 parent_id: null
 requires_load: []
