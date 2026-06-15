@@ -36,9 +36,10 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     {
     }
 
-    public string Render(Exercise exercise)
+    public string Render(Exercise exercise, RenderOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(exercise);
+        RenderOptions opts = options ?? RenderOptions.Default;
         EnsureMajorSupported(exercise.Key);
 
         // Spelling lives in the domain (NoteSpeller), keeping this the only alphaTex-aware code.
@@ -48,17 +49,12 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         TimeSignature ts = rhythm.TimeSignature;
         IReadOnlyList<RealizedBar> bars = Transposer.RealizeBars(exercise.Progression, exercise.Key);
 
-        var sb = new StringBuilder();
-        AppendHeader(
-            sb,
-            $"{exercise.Progression.Name} — {keyName}",
-            $"{exercise.Difficulty} — {rhythm.Name}",
-            exercise.Tempo,
-            ts,
-            NoteSpeller.KeySignatureToken(exercise.Key));
-
-        // Duration is stateful in alphaTex: a ":N" token persists across beats and bars until changed.
-        string? currentDuration = null;
+        // Stateful render context: the alphaTex ":N" duration persists until changed, the active chord
+        // label is tracked so {ch "…"} is emitted only at chord changes, and each \chord diagram is
+        // collected once. The body is rendered FIRST so the collected \chord definitions are available
+        // when the header is built — \chord is header metadata, emitted before the lone "." (see
+        // alphatex-syntax-reference.md).
+        var state = new RenderState();
         var barLines = new List<string>(bars.Count + 1);
 
         // Apply the exercise's groove feel as a playback-time warp before quantizing (identity for
@@ -71,20 +67,31 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         {
             Chord firstChord = bars[0].Spans[0].Chord;
             IReadOnlyList<RhythmSlot> pickupSlots = RhythmQuantizer.Quantize(pickup);
-            barLines.Add(RenderBar(pickupSlots, _ => firstChord, exercise.Difficulty, ref currentDuration));
+            barLines.Add(RenderBar(pickupSlots, _ => firstChord, exercise.Difficulty, exercise.Key, opts, state));
         }
 
-        RenderBars(bars, feltBars, ts, exercise.Difficulty, barLines, ref currentDuration);
+        RenderBars(bars, feltBars, ts, exercise.Difficulty, exercise.Key, opts, state, barLines);
 
+        var sb = new StringBuilder();
+        AppendHeader(
+            sb,
+            $"{exercise.Progression.Name} — {keyName}",
+            $"{exercise.Difficulty} — {rhythm.Name}",
+            exercise.Tempo,
+            ts,
+            NoteSpeller.KeySignatureToken(exercise.Key),
+            opts,
+            state.ChordDefinitions);
         sb.Append(string.Join("\n", barLines));
 
         return sb.ToString();
     }
 
-    public string Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, Feel feel = Feel.Straight)
+    public string Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, Feel feel = Feel.Straight, RenderOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentNullException.ThrowIfNull(rhythm);
+        RenderOptions opts = options ?? RenderOptions.Default;
         if (song.Sections.Count == 0)
         {
             throw new ArgumentException("Cannot render a song with no sections.", nameof(song));
@@ -98,17 +105,10 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         RealizedSection first = song.Sections[0];
         EnsureMajorSupported(first.Key);
 
-        var sb = new StringBuilder();
-        AppendHeader(
-            sb,
-            $"{first.Label} — {NoteSpeller.Name(first.Key.Tonic, first.Key)}",
-            $"{difficulty} — {rhythm.Name}",
-            tempo,
-            ts,
-            NoteSpeller.KeySignatureToken(first.Key));
-
-        // currentDuration is threaded across every section so a ":N" carries over section seams unchanged.
-        string? currentDuration = null;
+        // The render state is threaded across every section so the ":N" duration and the active chord
+        // label carry over section seams unchanged. Body first, then the header (so collected \chord
+        // diagram definitions land in the metadata before the ".").
+        var state = new RenderState();
         var barLines = new List<string>();
         Key? previousKey = null;
 
@@ -122,10 +122,20 @@ public sealed class AlphaTexRenderer : IScoreRenderer
                 barLines.Add("\\ks " + NoteSpeller.KeySignatureToken(section.Key));
             }
 
-            RenderBars(section.Bars, feltBars, ts, difficulty, barLines, ref currentDuration);
+            RenderBars(section.Bars, feltBars, ts, difficulty, section.Key, opts, state, barLines);
             previousKey = section.Key;
         }
 
+        var sb = new StringBuilder();
+        AppendHeader(
+            sb,
+            $"{first.Label} — {NoteSpeller.Name(first.Key.Tonic, first.Key)}",
+            $"{difficulty} — {rhythm.Name}",
+            tempo,
+            ts,
+            NoteSpeller.KeySignatureToken(first.Key),
+            opts,
+            state.ChordDefinitions);
         sb.Append(string.Join("\n", barLines));
 
         return sb.ToString();
@@ -140,13 +150,33 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     }
 
     private static void AppendHeader(
-        StringBuilder sb, string title, string subtitle, int tempo, TimeSignature ts, string keySig)
+        StringBuilder sb, string title, string subtitle, int tempo, TimeSignature ts, string keySig,
+        RenderOptions options, IReadOnlyList<string> chordDefinitions)
     {
         sb.Append("\\title \"").Append(title).Append("\"\n");
         sb.Append("\\subtitle \"").Append(subtitle).Append("\"\n");
         sb.Append("\\tempo ").Append(tempo.ToString(CultureInfo.InvariantCulture)).Append('\n');
         sb.Append("\\ts ").Append(ts.Numerator).Append(' ').Append(ts.Denominator).Append('\n');
         sb.Append("\\ks ").Append(keySig).Append('\n');
+
+        // Chord-diagram visibility toggle: bare \chordDiagramsInScore shows the boxes; "false" suppresses
+        // them for a names-only render (the label still shows via {ch "…"}). Omitted entirely when neither
+        // chord toggle is on, keeping today's output byte-identical.
+        if (options.ShowChordNames || options.ShowChordDiagrams)
+        {
+            sb.Append(options.ShowChordDiagrams ? "\\chordDiagramsInScore\n" : "\\chordDiagramsInScore false\n");
+        }
+
+        // \chord definitions are header metadata (before the lone "."), one per distinct chord in first-use
+        // order; the body references each by name with {ch "…"}.
+        if (options.ShowChordDiagrams)
+        {
+            foreach (string definition in chordDefinitions)
+            {
+                sb.Append(definition).Append('\n');
+            }
+        }
+
         sb.Append(".\n");
     }
 
@@ -167,8 +197,10 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         IReadOnlyList<IReadOnlyList<RhythmEvent>> feltBars,
         TimeSignature ts,
         Difficulty difficulty,
-        List<string> barLines,
-        ref string? currentDuration)
+        Key key,
+        RenderOptions options,
+        RenderState state,
+        List<string> barLines)
     {
         for (int i = 0; i < bars.Count; i++)
         {
@@ -179,7 +211,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
             // boundaries so a slot landing on a new chord starts a fresh attack.
             IReadOnlyList<int> boundaries = InteriorBoundaries(bar);
             IReadOnlyList<RhythmSlot> slots = RhythmQuantizer.Quantize(feltEvents, ts, boundaries);
-            barLines.Add(RenderBar(slots, bar.ChordCovering, difficulty, ref currentDuration));
+            barLines.Add(RenderBar(slots, bar.ChordCovering, difficulty, key, options, state));
         }
     }
 
@@ -207,7 +239,9 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         IReadOnlyList<RhythmSlot> slots,
         Func<int, Chord> chordForTick,
         Difficulty difficulty,
-        ref string? currentDuration)
+        Key key,
+        RenderOptions options,
+        RenderState state)
     {
         var tokens = new List<string>(slots.Count);
 
@@ -223,32 +257,101 @@ public sealed class AlphaTexRenderer : IScoreRenderer
 
             string durationToken = slot.NoteValue.ToString(CultureInfo.InvariantCulture);
             string prefix = string.Empty;
-            if (durationToken != currentDuration)
+            if (durationToken != state.CurrentDuration)
             {
                 prefix = ":" + durationToken + " ";
-                currentDuration = durationToken;
+                state.CurrentDuration = durationToken;
             }
 
-            // Each slot is voiced with the chord covering its onset tick (harmonic-rhythm lookup).
-            string body = slot.IsRest ? "r" : FormatChord(chordForTick(slot.StartTick), difficulty);
+            // Beat effects collect into one brace group ({ch "…" tu N}); the chord label is added only at a
+            // chord change, the tuplet on every triplet-grid slot ({tu} does not persist like :N duration).
+            var effects = new List<string>(2);
+            string body;
 
-            // A triplet-grid slot carries the verified alphaTex {tu N} beat effect (N = numerator).
-            // Unlike :N duration, {tu} does not persist in alphaTex, so it is emitted on every slot.
+            if (slot.IsRest)
+            {
+                body = "r";
+            }
+            else
+            {
+                // Each slot is voiced with the chord covering its onset tick (harmonic-rhythm lookup).
+                Chord chord = chordForTick(slot.StartTick);
+                Voicing voicing = Voice(chord, difficulty, options);
+                body = NoteGroup(voicing);
+
+                if (options.ShowChordNames || options.ShowChordDiagrams)
+                {
+                    string name = ChordSymbol.Format(chord, key);
+                    if (!string.Equals(name, state.CurrentChordName, StringComparison.Ordinal))
+                    {
+                        state.CurrentChordName = name;
+                        // Collect each diagram definition once; it's emitted in the header, not inline.
+                        if (options.ShowChordDiagrams && state.DefinedChords.Add(name))
+                        {
+                            state.ChordDefinitions.Add(ChordDefinition(name, voicing));
+                        }
+
+                        effects.Add($"ch \"{name}\"");
+                    }
+                }
+            }
+
             if (slot.Tuplet is { } tuplet)
             {
-                body += "{tu " + tuplet.Numerator.ToString(CultureInfo.InvariantCulture) + "}";
+                effects.Add("tu " + tuplet.Numerator.ToString(CultureInfo.InvariantCulture));
             }
 
-            tokens.Add(prefix + body);
+            string effectGroup = effects.Count > 0 ? "{" + string.Join(" ", effects) + "}" : string.Empty;
+            tokens.Add(prefix + body + effectGroup);
         }
 
         return string.Join(" ", tokens) + " |";
     }
 
-    private string FormatChord(Chord chord, Difficulty difficulty)
+    // Resolve the chord's voicing. v1 ships only ByDifficulty; an unimplemented strategy fails loud rather
+    // than silently falling back (CAGED-shape preference is deferred to the caged-system/voicings threads).
+    private Voicing Voice(Chord chord, Difficulty difficulty, RenderOptions options)
     {
-        Voicing voicing = _book.Lookup(chord, difficulty);
-        IEnumerable<string> notes = voicing.Positions.Select(p => $"{p.Fret}.{p.String}");
-        return "(" + string.Join(" ", notes) + ")";
+        if (options.Voicing != VoicingStrategy.ByDifficulty)
+        {
+            throw new NotSupportedException($"Voicing strategy {options.Voicing} is not implemented in v1.");
+        }
+
+        return _book.Lookup(chord, difficulty);
+    }
+
+    private static string NoteGroup(Voicing voicing) =>
+        "(" + string.Join(" ", voicing.Positions.Select(p => $"{p.Fret}.{p.String}")) + ")";
+
+    // An alphaTex chord-diagram definition: \chord ("Name" f1 … f6), frets ordered string 1 (high E) →
+    // string 6 (low E), an unplayed string written as x. The realized voicing carries the diagram hints.
+    private static string ChordDefinition(string name, Voicing voicing)
+    {
+        var fretByString = voicing.Positions.ToDictionary(p => p.String, p => p.Fret);
+        var frets = new List<string>(Fretboard.StringCount);
+        for (int stringNumber = 1; stringNumber <= Fretboard.StringCount; stringNumber++)
+        {
+            frets.Add(fretByString.TryGetValue(stringNumber, out int fret)
+                ? fret.ToString(CultureInfo.InvariantCulture)
+                : "x");
+        }
+
+        return $"\\chord (\"{name}\" {string.Join(" ", frets)})";
+    }
+
+    // Per-render mutable context (single-threaded over one Render call).
+    private sealed class RenderState
+    {
+        // The active alphaTex ":N" duration; persists across beats, bars, and section seams until changed.
+        public string? CurrentDuration;
+
+        // The last emitted chord label, so {ch "…"} is written only at a chord change.
+        public string? CurrentChordName;
+
+        // Chord labels whose \chord diagram has already been collected (define-once).
+        public readonly HashSet<string> DefinedChords = new(StringComparer.Ordinal);
+
+        // The \chord diagram definition lines, in first-use order — emitted in the header before the ".".
+        public readonly List<string> ChordDefinitions = new();
     }
 }

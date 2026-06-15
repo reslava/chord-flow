@@ -91,7 +91,7 @@ public sealed class ExerciseLibraryHandler
     /// Reload a saved exercise: reconstruct the definition from seed data and regenerate
     /// its alphaTex. Returns <c>null</c> if the id is unknown.
     /// </summary>
-    public LoadedExercise? Load(int id)
+    public LoadedExercise? Load(int id, RenderOptions? options = null)
     {
         using var db = new ChordFlowDbContext(_dbOptions);
         ExerciseEntity? entity = db.Exercises.AsNoTracking().FirstOrDefault(e => e.Id == id);
@@ -101,7 +101,7 @@ public sealed class ExerciseLibraryHandler
         }
 
         Exercise exercise = ToExercise(entity);
-        return new LoadedExercise(exercise, LoadScoreEnvelope.From(exercise, _renderer));
+        return new LoadedExercise(exercise, LoadScoreEnvelope.From(exercise, _renderer, options));
     }
 
     // Rebuild the Domain Exercise from a stored definition. The progression/rhythm ids

@@ -9,7 +9,8 @@ namespace ChordFlow.Rendering;
 /// </summary>
 public interface IScoreRenderer
 {
-    string Render(Exercise exercise);
+    /// <param name="options">Render-time presentation options; <c>null</c> ⇒ <see cref="RenderOptions.Default"/> (today's render).</param>
+    string Render(Exercise exercise, RenderOptions? options = null);
 
     /// <summary>
     /// Render a <see cref="RealizedSong"/> as a single score: one header (seeded from the first section's
@@ -17,5 +18,6 @@ public interface IScoreRenderer
     /// changes. The stateful <c>:N</c> duration flows across section seams. The play params come from a
     /// <see cref="SongExercise"/> (the Song itself carries no rhythm/tempo/feel — decision D).
     /// </summary>
-    string Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, Feel feel = Feel.Straight);
+    /// <param name="options">Render-time presentation options; <c>null</c> ⇒ <see cref="RenderOptions.Default"/> (today's render).</param>
+    string Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, Feel feel = Feel.Straight, RenderOptions? options = null);
 }

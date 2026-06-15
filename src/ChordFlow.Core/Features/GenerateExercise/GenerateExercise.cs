@@ -15,8 +15,8 @@ public sealed record LoadScoreEnvelope(string Type, string Tex, int Tempo)
     /// single place a loadScore envelope is built — shared by GenerateExercise (fresh)
     /// and ExerciseLibrary (regenerated on load), so alphaTex is never persisted.
     /// </summary>
-    public static LoadScoreEnvelope From(Exercise exercise, IScoreRenderer renderer) =>
-        new("loadScore", renderer.Render(exercise), exercise.Tempo);
+    public static LoadScoreEnvelope From(Exercise exercise, IScoreRenderer renderer, RenderOptions? options = null) =>
+        new("loadScore", renderer.Render(exercise, options), exercise.Tempo);
 }
 
 /// <summary>

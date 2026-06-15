@@ -10,7 +10,7 @@ namespace ChordFlow.Persistence;
 /// on load" pattern as <see cref="RhythmPatternStore"/> (the realized frets are never stored). <see cref="LoadShapes"/>
 /// is what the feature seam hands to a <see cref="VoicingBook"/>; <see cref="Find"/> resolves a single row.
 /// </summary>
-public sealed class VoicingStore
+public sealed class VoicingStore : IContentStore
 {
     private readonly ChordFlowDbContext _db;
 
@@ -18,6 +18,69 @@ public sealed class VoicingStore
     {
         ArgumentNullException.ThrowIfNull(db);
         _db = db;
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<ContentSummary> List() =>
+        ContentSummaries.Build(_db.Voicings.AsNoTracking()
+            .Select(v => new { v.Id, v.Name, v.Origin }).ToList()
+            .Select(v => (v.Id, v.Name, v.Origin)));
+
+    /// <inheritdoc/>
+    public ContentDoc? Get(string id)
+    {
+        List<Entities.VoicingEntity> rows = _db.Voicings.AsNoTracking().Where(v => v.Id == id).ToList();
+        Entities.VoicingEntity? row = OriginResolver.ResolveOne(rows, id);
+        // The editor authors the voicing line; strip any catalog header (metadata editing is EX3).
+        return row is null ? null : new ContentDoc(row.Id, row.Name, StripHeader(row.Dsl));
+    }
+
+    /// <inheritdoc/>
+    public string Save(string? id, string name, string dsl)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(dsl);
+
+        // Validate AND canonicalize: any authoring anchor folds to the stored canonical-C form (IN9).
+        VoicingShape shape = VoicingDslParser.Parse(StripHeader(dsl)); // throws FormatException on bad input
+        string canonicalDsl = VoicingDslWriter.ToDsl(shape);
+        string targetId = string.IsNullOrWhiteSpace(id) ? Guid.NewGuid().ToString() : id;
+
+        Entities.VoicingEntity? row = _db.Voicings.Find(targetId, Origin.UserDefined);
+        if (row is null)
+        {
+            _db.Voicings.Add(new Entities.VoicingEntity
+            {
+                Id = targetId,
+                Name = name,
+                Dsl = canonicalDsl,
+                Origin = Origin.UserDefined,
+                CreatedUtc = DateTime.UtcNow,
+            });
+        }
+        else
+        {
+            row.Name = name;
+            row.Dsl = canonicalDsl;
+        }
+
+        _db.SaveChanges();
+        return targetId;
+    }
+
+    /// <inheritdoc/>
+    public DeleteOutcome Delete(string id)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        Entities.VoicingEntity? row = _db.Voicings.Find(id, Origin.UserDefined);
+        if (row is null)
+        {
+            return DeleteOutcome.NotFound;
+        }
+
+        _db.Voicings.Remove(row);
+        _db.SaveChanges();
+        return _db.Voicings.Any(v => v.Id == id) ? DeleteOutcome.Reverted : DeleteOutcome.Deleted;
     }
 
     /// <summary>

@@ -220,6 +220,74 @@ public class AlphaTexRendererTests
         Assert.Equal(viaSeed, viaDsl);
     }
 
+    [Fact]
+    public void Render_NullOptions_MatchesDefaultOptions()
+    {
+        Exercise exercise = BbI7Quarters();
+        Assert.Equal(Renderer.Render(exercise), Renderer.Render(exercise, RenderOptions.Default));
+    }
+
+    [Fact]
+    public void Render_ShowChordNames_AttachesLabelOncePerChordChange_AndSuppressesDiagrams()
+    {
+        Exercise exercise = BbI7Quarters();
+
+        string tex = Renderer.Render(exercise, new RenderOptions(ShowChordNames: true));
+
+        // Names without the fret boxes: the directive is emitted explicitly as false.
+        Assert.Contains("\\chordDiagramsInScore false", tex);
+        // The label is attached at the chord change only — not on every strum of the same chord.
+        Assert.Equal(1, CountOccurrences(tex, "{ch \"Bb7\"}"));
+        Assert.EndsWith(
+            ":4 (1.5 0.4 1.3){ch \"Bb7\"} (1.5 0.4 1.3) (1.5 0.4 1.3) (1.5 0.4 1.3) |", tex);
+    }
+
+    [Fact]
+    public void Render_ShowChordNames_LabelsEachDistinctChordChange()
+    {
+        var prog = ProgressionParser.Parse("p", "P", "17_27_37_47", TimeSignature.FourFour);
+        var exercise = new Exercise(new Key(new PitchClass(10), false), prog, SeedData.Quarters, 90, Difficulty.Beginner);
+
+        string tex = Renderer.Render(exercise, new RenderOptions(ShowChordNames: true));
+
+        Assert.Equal(4, CountOccurrences(tex, "{ch \""));
+    }
+
+    [Fact]
+    public void Render_ShowChordDiagrams_DefinesDiagramOnceInHeaderAndEnablesInScore()
+    {
+        Exercise exercise = BbI7Quarters();
+
+        string tex = Renderer.Render(exercise, new RenderOptions(ShowChordDiagrams: true));
+
+        // Visibility toggle (bare = show) and the \chord definition are both metadata, before the lone "."
+        // that ends the header; the beat references the chord by name with {ch "…"} (no inline \chord).
+        Assert.Contains("\\chordDiagramsInScore\n", tex);
+        // \chord def: frets string 1 (high E) → string 6 (low E), x for an unplayed string; defined once.
+        Assert.Equal(1, CountOccurrences(tex, "\\chord (\"Bb7\" x x 1 0 1 x)"));
+        int defIndex = tex.IndexOf("\\chord (\"Bb7\"", System.StringComparison.Ordinal);
+        int dotIndex = tex.IndexOf("\n.\n", System.StringComparison.Ordinal);
+        Assert.True(defIndex >= 0 && defIndex < dotIndex, "\\chord definition must precede the metadata terminator");
+        Assert.Contains("(1.5 0.4 1.3){ch \"Bb7\"}", tex);
+        Assert.DoesNotContain("\\chord (\"Bb7\" x x 1 0 1 x) (1.5", tex); // not inline
+    }
+
+    [Fact]
+    public void Render_UnimplementedVoicingStrategy_Throws()
+    {
+        Exercise exercise = BbI7Quarters();
+
+        Assert.Throws<NotSupportedException>(
+            () => Renderer.Render(exercise, new RenderOptions(Voicing: (VoicingStrategy)99)));
+    }
+
+    private static Exercise BbI7Quarters() =>
+        new(new Key(new PitchClass(10), false), // Bb major
+            new Progression("test", "Test", new RomanDegree[] { new(1, Quality.Dominant7) }),
+            SeedData.Quarters,
+            90,
+            Difficulty.Beginner);
+
     private static string LastBar(string tex) => tex.Split('\n')[^1];
 
     private static IReadOnlyList<string> ChordGroups(string barLine) =>

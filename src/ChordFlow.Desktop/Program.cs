@@ -1,4 +1,5 @@
 using ChordFlow.Domain;
+using ChordFlow.Features.ContentCrud;
 using ChordFlow.Features.ExerciseLibrary;
 using ChordFlow.Features.GenerateExercise;
 using ChordFlow.Features.Packs;
@@ -79,10 +80,21 @@ internal static class Program
                 // before navigating so the JS "ready" ping is never missed.
                 var router = new WebMessageRouter();
                 var bridge = new WebView2Bridge(core, router);
-                var renderer = new AlphaTexRenderer(new VoicingBook(voicingLibrary));
+                // Swappable so an authored-voicing change can hot-rebuild the voicing book without a restart (IN11).
+                var renderer = new SwappableRenderer(new AlphaTexRenderer(new VoicingBook(voicingLibrary)));
                 var generate = new GenerateExerciseHandler(renderer);
                 var library = new ExerciseLibraryHandler(dbOptions, renderer);
                 var progress = new ProgressHandler(dbOptions);
+                var contentCrud = new ContentCrudHandler(dbOptions, renderer);
+
+                // Live-refresh: after a voicing save/delete, reload the authored library and swap in a fresh
+                // renderer so the next generated/previewed score reflects it (IN11). Progression/song/rhythm
+                // are read per-use and aren't snapshotted, so they need no rebuild.
+                contentCrud.VoicingsChanged += () =>
+                {
+                    using var rebuildDb = new ChordFlowDbContext(dbOptions);
+                    renderer.Swap(new AlphaTexRenderer(new VoicingBook(new VoicingStore(rebuildDb).LoadShapes())));
+                };
 
                 // PracticeSession is the C# transport seam (drives play/stop/tempo,
                 // tracks position from playbackFinished/beatChanged echoes).
@@ -97,11 +109,11 @@ internal static class Program
                 // Render an exercise and push its score; on a render failure surface a status
                 // to the UI instead of silently dropping the message (which looked like the
                 // control "did nothing"). Returns whether the score was sent.
-                bool TrySendScore(Exercise exercise)
+                bool TrySendScore(Exercise exercise, RenderOptions options)
                 {
                     try
                     {
-                        bridge.Send(LoadScoreEnvelope.From(exercise, renderer));
+                        bridge.Send(LoadScoreEnvelope.From(exercise, renderer, options));
                         return true;
                     }
                     catch (Exception renderEx)
@@ -116,7 +128,7 @@ internal static class Program
                 router.Ready += () =>
                 {
                     Exercise boot = generate.Build(keyPitchClass: 10, rhythmId: "beat_1_3", tempo: 80);
-                    if (TrySendScore(boot))
+                    if (TrySendScore(boot, RenderOptions.Default))
                     {
                         currentExercise = boot;
                         activeExerciseId = null;
@@ -126,10 +138,10 @@ internal static class Program
 
                 // Generate a fresh exercise from the UI's key/rhythm/tempo selections.
                 // It becomes the on-screen (unsaved) definition only if it rendered.
-                router.GenerateRequested += (keyPitchClass, rhythmId, tempo) =>
+                router.GenerateRequested += (keyPitchClass, rhythmId, tempo, renderOptions) =>
                 {
                     Exercise exercise = generate.Build(keyPitchClass, rhythmId, tempo);
-                    if (TrySendScore(exercise))
+                    if (TrySendScore(exercise, renderOptions))
                     {
                         currentExercise = exercise;
                         activeExerciseId = null;
@@ -149,11 +161,11 @@ internal static class Program
                 router.ListExercisesRequested += () => bridge.Send(library.List());
 
                 // Reload a saved exercise: regenerated score + becomes the active definition.
-                router.LoadExerciseRequested += id =>
+                router.LoadExerciseRequested += (id, renderOptions) =>
                 {
                     try
                     {
-                        LoadedExercise? loaded = library.Load(id);
+                        LoadedExercise? loaded = library.Load(id, renderOptions);
                         if (loaded is not null)
                         {
                             currentExercise = loaded.Exercise;
@@ -185,6 +197,53 @@ internal static class Program
                     int count = progress.MarkPracticed(activeExerciseId.Value);
                     bridge.Send(new PracticeRecordedEnvelope(activeExerciseId.Value, count));
                     bridge.Send(library.List()); // refresh so the ✓ practiced marker appears
+                };
+
+                // Content-CRUD wiring (the generic entity* protocol). Failures from a bad DSL surface as an
+                // entityParseError shown inline (IN3); list/get failures (a bogus entity) become a status line.
+                router.EntityListRequested += entity =>
+                {
+                    try { bridge.Send(contentCrud.List(entity)); }
+                    catch (FormatException ex) { bridge.Send(new StatusEnvelope(ex.Message, true)); }
+                };
+                router.EntityGetRequested += (entity, id) =>
+                {
+                    try
+                    {
+                        EntityLoadedEnvelope? loaded = contentCrud.Get(entity, id);
+                        if (loaded is not null)
+                        {
+                            bridge.Send(loaded);
+                        }
+                        else
+                        {
+                            bridge.Send(new StatusEnvelope($"'{id}' not found.", true));
+                        }
+                    }
+                    catch (FormatException ex) { bridge.Send(new StatusEnvelope(ex.Message, true)); }
+                };
+                router.EntityPreviewRequested += (entity, dsl, renderOptions) =>
+                {
+                    try { bridge.Send(contentCrud.Preview(entity, dsl, renderOptions)); }
+                    catch (FormatException ex) { bridge.Send(new EntityParseErrorEnvelope(entity, ex.Message)); }
+                };
+                router.EntitySaveRequested += (entity, id, name, dsl) =>
+                {
+                    try
+                    {
+                        bridge.Send(contentCrud.Save(entity, id, name, dsl));
+                        bridge.Send(contentCrud.List(entity)); // refresh the list (and badges)
+                    }
+                    catch (FormatException ex) { bridge.Send(new EntityParseErrorEnvelope(entity, ex.Message)); }
+                };
+                router.EntityDeleteRequested += (entity, id) =>
+                {
+                    try
+                    {
+                        bridge.Send(contentCrud.Delete(entity, id));
+                        bridge.Send(contentCrud.List(entity));
+                    }
+                    catch (FormatException ex) { bridge.Send(new EntityParseErrorEnvelope(entity, ex.Message)); }
                 };
 
                 core.Navigate($"https://{VirtualHost}/index.html");

@@ -48,6 +48,21 @@ Bar-level metadata can also appear at the start of any bar, before notes: `\ts 3
 
 ⚠️ **Dotted notes and ties** — exact token NOT yet verified. The early-exploration notation `(...)h.2` / `h.2` is **wrong — do not use**. MVP rhythms (beat-1, beat-1+3, quarters) need only `:4` + `r`, so this is not required for v1.
 
+## Chord names & diagrams
+
+Verified 2026-06-15 against the alphaTab docs ([score-metadata](https://www.alphatab.net/docs/alphatex/score-metadata#chorddiagramsinscore), [Chord model](https://www.alphatab.net/docs/reference/types/model/chord/)) and confirmed in the running app. **`\chordDiagramsInScore` and `\chord` are score-metadata directives — they go in the header, before the lone `.`, NOT inline in the music** (inline `\chord` is silently ignored — names show, diagrams don't). Canonical shape:
+
+```
+\chordDiagramsInScore
+\chord ("E" 0 0 1 2 2 0)
+.
+(0.1 0.2 1.3 2.4 2.5 0.6){ch "E"}
+```
+
+- **Attach a chord label to a beat:** the `{ch "Name"}` beat effect — e.g. `(1.5 0.4 1.3){ch "Bb7"}`. The name renders above the staff (works on its own, no `\chord` needed). Beat effects combine in one brace group: `{ch "Bb7" tu 3}`.
+- **Define a chord diagram (header):** `\chord ("Name" f1 f2 f3 f4 f5 f6)` — exactly six fret values **ordered string 1 (high E) → string 6 (low E)** (cross-checked: notes `0.1 0.2 1.3 2.4 2.5 0.6` ⇒ `0 0 1 2 2 0`). An unplayed string is `x`. One definition per distinct chord, emitted in the metadata header; the body references it by name with `{ch "Name"}`.
+- **Toggle diagram visibility:** bare `\chordDiagramsInScore` shows the fret boxes; `\chordDiagramsInScore false` hides them (names-only render). Omitted entirely when no chord toggle is on (default render byte-identical).
+
 ## Worked example — 12-bar blues in Bb, beats 1 & 3
 
 A "beats 1 & 3" bar in 4/4 = four quarters: chord, rest, chord, rest. Frets below are placeholders (`x`) — real values come from ChordFlow's `VoicingBook`, not hardcoded in alphaTex.
@@ -74,6 +89,8 @@ A "beats 1 & 3" bar in 4/4 = four quarters: chord, rest, chord, rest. Frets belo
 | `Beat.IsHit == true` + `Voicing` | `(fret.string …)` |
 | `Beat.IsHit == false` | `r` |
 | bar boundary | `|` |
+| `RenderOptions.ShowChordNames` | `{ch "Name"}` at each chord change + `\chordDiagramsInScore false` |
+| `RenderOptions.ShowChordDiagrams` | `\chordDiagramsInScore true` + inline `\chord ("Name" f1…f6)` (once) + `{ch "Name"}` |
 
 ## Sources
 - https://www.alphatab.net/docs/alphatex/introduction

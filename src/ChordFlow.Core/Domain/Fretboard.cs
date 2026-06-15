@@ -42,5 +42,19 @@ public static class Fretboard
         return positions;
     }
 
+    /// <summary>
+    /// The <see cref="PitchClass"/> sounding on <paramref name="stringNumber"/> (1 = high E .. 6 = low E) at
+    /// <paramref name="fret"/> (0 = open). The inverse of <see cref="PositionsFor"/> — used to label a voicing's
+    /// notes by their interval against a chord root.
+    /// </summary>
+    public static PitchClass PitchClassAt(int stringNumber, int fret)
+    {
+        if (stringNumber < 1 || stringNumber > StringCount)
+            throw new ArgumentOutOfRangeException(nameof(stringNumber));
+        if (fret < 0) throw new ArgumentOutOfRangeException(nameof(fret));
+
+        return new PitchClass(Mod12(OpenPitchClass[stringNumber] + fret));
+    }
+
     private static int Mod12(int value) => ((value % 12) + 12) % 12;
 }

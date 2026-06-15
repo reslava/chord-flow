@@ -24,6 +24,22 @@
     header h1 { font-size: 1.05rem; margin: 0; font-weight: 600; }
     #status { font-size: .8rem; color: #9aa0a6; margin-left: auto; }
 
+    /* View toggle (Practice ⇄ Content) — a small segmented control in the header. */
+    .nav { display: flex; gap: .25rem; }
+    .nav button {
+      font: inherit;
+      font-size: .82rem;
+      padding: .25rem .7rem;
+      border: 1px solid #4a4a4f;
+      background: #2d2d30;
+      color: #cfd2d6;
+      cursor: pointer;
+    }
+    .nav button:first-child { border-radius: 4px 0 0 4px; }
+    .nav button:last-child { border-radius: 0 4px 4px 0; border-left: none; }
+    .nav button.active { background: #3a4d78; color: #fff; border-color: #3a4d78; }
+    [hidden] { display: none !important; }
+
     /* Toolbars — the builder (key/rhythm/generate/save/practiced) and the transport
        (play/stop/tempo). Each control posts a bridge envelope to its C# slice. */
     .toolbar {
@@ -60,14 +76,30 @@
 
     main { display: flex; gap: 1rem; padding: 1rem; align-items: flex-start; }
     #score-pane { flex: 1; min-width: 0; }
-    /* alphaTab renders its tablature into #score. position:relative anchors the
-       absolutely-positioned cursor overlay. */
-    #score { position: relative; background: #fff; color: #000; border-radius: 6px; overflow: auto; }
     /* alphaTab positions the playback cursor + highlight elements but does NOT
        color them — we must, per the alphaTab cursor docs, or they're invisible. */
     .at-cursor-bar { background: rgba(255, 242, 0, 0.25); }      /* current bar highlight */
     .at-cursor-beat { background: rgba(64, 64, 255, 0.75); width: 3px; } /* moving beat line */
     .at-highlight * { fill: #2867f5; stroke: #2867f5; }          /* active beat's notes */
+
+    /* ---- Shared score render component (score-render-component.js) ---- */
+    /* The component owns its control strip + alphaTab surface inside whatever container it's given. */
+    .cf-controls {
+      display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+      padding: .5rem .75rem; margin-bottom: .5rem;
+      background: #2d2d30; border: 1px solid #333; border-radius: 6px; font-size: .85rem;
+    }
+    .cf-controls label { color: #9aa0a6; }
+    .cf-controls button {
+      font: inherit; padding: .3rem .9rem; border: 1px solid #4a4a4f;
+      border-radius: 4px; background: #3a3a3d; color: #e6e6e6; cursor: pointer;
+    }
+    .cf-controls button:disabled { opacity: .5; cursor: default; }
+    .cf-controls .cf-tempo { width: 4rem; font: inherit; padding: .25rem .4rem;
+      background: #3a3a3d; color: #e6e6e6; border: 1px solid #4a4a4f; border-radius: 4px; }
+    .cf-toggle { display: inline-flex; align-items: center; gap: .25rem; color: #cfd2d6; cursor: pointer; }
+    /* alphaTab renders into this surface; position:relative anchors its cursor overlay. */
+    .cf-score-surface { position: relative; background: #fff; color: #000; border-radius: 6px; overflow: auto; }
 
     /* Saved-exercise library — click an item to reload it. */
     #library-pane {
@@ -83,45 +115,91 @@
     #library li { padding: .4rem .5rem; border-radius: 4px; cursor: pointer; font-size: .82rem; }
     #library li:hover { background: #2d2d30; }
     #library li.empty { color: #6b7075; cursor: default; font-style: italic; }
+
+    /* ---- Content view (generic CRUD editor) ---- */
+    #content-view { padding: 1rem; }
+    .cc-tabs { display: flex; gap: .3rem; margin-bottom: .8rem; flex-wrap: wrap; }
+    .cc-tabs button {
+      font: inherit; font-size: .82rem; padding: .3rem .8rem;
+      border: 1px solid #4a4a4f; border-radius: 4px; background: #2d2d30; color: #cfd2d6; cursor: pointer;
+    }
+    .cc-tabs button.active { background: #3a4d78; color: #fff; border-color: #3a4d78; }
+
+    .cc-body { display: flex; gap: 1rem; align-items: flex-start; }
+    .cc-list-pane { width: 240px; flex: none; }
+    .cc-list-pane h2 { font-size: .85rem; margin: .2rem .3rem .5rem; color: #9aa0a6; font-weight: 600; }
+    .cc-list { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow: auto;
+      background: #252526; border: 1px solid #333; border-radius: 6px; }
+    .cc-list li { padding: .4rem .5rem; border-radius: 4px; cursor: pointer; font-size: .82rem;
+      display: flex; align-items: center; gap: .4rem; }
+    .cc-list li:hover { background: #2d2d30; }
+    .cc-list li.active { background: #34374a; }
+    .cc-list li.empty { color: #6b7075; cursor: default; font-style: italic; }
+    .cc-badge { font-size: .65rem; padding: .05rem .35rem; border-radius: 3px; margin-left: auto;
+      background: #3a3a3d; color: #9aa0a6; border: 1px solid #4a4a4f; }
+    .cc-badge.user { background: #2e4a2e; color: #b6e0b6; border-color: #3a5d3a; }
+
+    .cc-editor { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .5rem; }
+    .cc-editor .cc-row { display: flex; gap: .5rem; align-items: center; }
+    .cc-editor input[type=text], .cc-editor textarea {
+      font: inherit; padding: .35rem .5rem; background: #3a3a3d; color: #e6e6e6;
+      border: 1px solid #4a4a4f; border-radius: 4px; width: 100%;
+    }
+    .cc-editor textarea { min-height: 6rem; resize: vertical; font-family: ui-monospace, "Cascadia Code", monospace; }
+    .cc-help { font-size: .75rem; color: #8a8f94; }
+    .cc-error { font-size: .8rem; color: #ff8a8a; min-height: 1.1rem; white-space: pre-wrap; }
+    .cc-actions { display: flex; gap: .5rem; }
+    .cc-actions button { font: inherit; padding: .3rem .9rem; border: 1px solid #4a4a4f;
+      border-radius: 4px; background: #3a3a3d; color: #e6e6e6; cursor: pointer; }
+    .cc-actions button.primary { background: #3a4d78; border-color: #3a4d78; color: #fff; }
+    .cc-actions button:disabled { opacity: .5; cursor: default; }
+    .cc-preview { margin-top: .3rem; border: 1px solid #333; border-radius: 6px; background: #fff; min-height: 4rem; overflow: auto; }
+    .cc-preview.empty { background: #252526; color: #6b7075; font-style: italic; padding: 1rem; }
   </style>
 </head>
 <body>
   <header>
     <h1>ChordFlow</h1>
-    <span>Rhythm &amp; Progression Trainer</span>
+    <nav class="nav" id="viewNav">
+      <button id="navPractice" type="button" class="active">Practice</button>
+      <button id="navContent" type="button">Content</button>
+    </nav>
     <span id="status">starting…</span>
   </header>
 
-  <!-- Builder: pick key + rhythm, then generate / save / mark practiced. -->
-  <section class="toolbar" id="builder">
-    <label for="key">Key</label>
-    <select id="key"></select>
-    <label for="rhythm">Rhythm</label>
-    <select id="rhythm"></select>
-    <button id="btnGenerate" type="button">Generate</button>
-    <button id="btnSave" type="button">Save</button>
-    <button id="btnPractice" type="button">Mark practiced</button>
-  </section>
+  <!-- Practice view: the exercise generator (key/rhythm → score + transport + saved list). -->
+  <div id="practice-view">
+    <!-- Builder: pick key + rhythm, then generate / save / mark practiced. -->
+    <section class="toolbar" id="builder">
+      <label for="key">Key</label>
+      <select id="key"></select>
+      <label for="rhythm">Rhythm</label>
+      <select id="rhythm"></select>
+      <button id="btnGenerate" type="button">Generate</button>
+      <button id="btnSave" type="button">Save</button>
+      <button id="btnPractice" type="button">Mark practiced</button>
+    </section>
 
-  <!-- Transport: play/stop/tempo for the score on screen. -->
-  <section class="toolbar" id="transport">
-    <button id="btnPlay" type="button" disabled>▶ Play</button>
-    <button id="btnStop" type="button" disabled>■ Stop</button>
-    <label for="tempo">Tempo</label>
-    <input id="tempo" type="number" min="40" max="240" step="1" value="80" disabled />
-    <span>BPM</span>
-  </section>
+    <!-- Transport (Play/Stop/Tempo + render toggles) is rendered by the shared ChordFlowScore
+         component into #score-pane — see score-render-component.js / app.js. -->
+    <main>
+      <div id="score-pane"></div>
+      <aside id="library-pane">
+        <h2>Saved exercises</h2>
+        <ul id="library"><li class="empty">No saved exercises</li></ul>
+      </aside>
+    </main>
+  </div>
 
-  <main>
-    <div id="score-pane"><div id="score"></div></div>
-    <aside id="library-pane">
-      <h2>Saved exercises</h2>
-      <ul id="library"><li class="empty">No saved exercises</li></ul>
-    </aside>
-  </main>
+  <!-- Content view: the generic CRUD editor for DSL-backed entities (populated by content-crud.js). -->
+  <div id="content-view" hidden></div>
 
   <!-- Bundled alphaTab JS build (constraint C6) — loaded from disk, offline. -->
   <script src="alphaTab.min.js"></script>
+  <script src="bridge.js"></script>
+  <script src="score-render-component.js"></script>
+  <script src="chord-diagram.js"></script>
+  <script src="content-crud.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -38,7 +38,7 @@ ChordFlow.sln
     ChordFlow.Desktop/    net10.0-windows  — the host. The ONLY project with a UI package.
       Program.cs          entry point + bridge wiring
       WebHost/            WebView2 transport (WebView2Bridge) + virtual-host mapping
-      wwwroot/            index.html, app.js (bridge module), alphaTab, font/, soundfont/
+      wwwroot/            index.html (Practice ⇄ Content views), bridge.js (shared transport), score-render-component.js (shared alphaTex→alphaTab render/transport component), app.js (Practice), content-crud.js (Content editor) + chord-diagram.js (SVG fret-box), alphaTab, font/, soundfont/
   tests/
     ChordFlow.Core.Tests/ net10.0          — xUnit, targets Core
 ```
@@ -63,13 +63,13 @@ Pure, immutable, fully unit-tested, **no I/O**. Harmony (PitchClass, interval-ba
 `AlphaTexRenderer : IScoreRenderer` maps an `Exercise → string` (alphaTex). The `RhythmQuantizer` collapses the tick grid into `:N` duration slots. This isolation is the **exporter seam**: a future MIDI/GuitarPro/MusicXML exporter is a new `IScoreRenderer`, not a rewrite.
 
 ### Features/ — vertical slices
-Each is a class with a method composing Domain + Rendering + Persistence — **no mediator, no ceremonial layering**. `GenerateExercise` (definition → alphaTex), `PracticeSession` (play/stop/tempo + position echoes), `ExerciseLibrary` (save/list/reload — regenerating alphaTex on load, never storing it), `Progress` (mark-practiced records), `Packs` (the open-core content layer: `PackReader` loads a `manifest.json` + per-kind `.dsl` folder bundle from disk; `PackImporter` upserts it idempotently by the composite `(Id, Origin)` key, caller-declaring the tier — BuiltIn for the default pack, Pack for third-party. A pack is data-only; importing one needs zero engine change).
+Each is a class with a method composing Domain + Rendering + Persistence — **no mediator, no ceremonial layering**. `GenerateExercise` (definition → alphaTex), `PracticeSession` (play/stop/tempo + position echoes), `ExerciseLibrary` (save/list/reload — regenerating alphaTex on load, never storing it), `Progress` (mark-practiced records), `ContentCrud` (the generic CRUD surface behind the `entity*` bridge family: maps an entity discriminator to its `IContentStore` for list/get/save/delete, builds score/diagram previews, raises `VoicingsChanged` for live-refresh), `Packs` (the open-core content layer: `PackReader` loads a `manifest.json` + per-kind `.dsl` folder bundle from disk; `PackImporter` upserts it idempotently by the composite `(Id, Origin)` key, caller-declaring the tier — BuiltIn for the default pack, Pack for third-party. A pack is data-only; importing one needs zero engine change).
 
 ### Bridge/ — the host-agnostic contract
 The JSON envelope DTOs (e.g. `StatusEnvelope`, `LoadScoreEnvelope`, `PracticeRecordedEnvelope` — the outbound ones live with their feature) and `IBridge` (the C#→JS send abstraction features depend on), plus `WebMessageRouter`, which parses inbound JSON and raises typed events. The router is host-agnostic on purpose: any host reuses it; only the *transport* differs.
 
 ### Persistence/ — SQLite via EF Core
-Stores exercise **definitions** and practice events, **never alphaTex** (it's regenerated on load, so a renderer fix improves every saved exercise). One local file at `%LOCALAPPDATA%\ChordFlow\chordflow.db`; migrations apply on startup. Lives in Core (not the host) so a future web host reuses it. `Domain/` stays I/O-free — persistence is a separate Core sub-area.
+Stores exercise **definitions** and practice events, **never alphaTex** (it's regenerated on load, so a renderer fix improves every saved exercise). One local file at `%LOCALAPPDATA%\ChordFlow\chordflow.db`; migrations apply on startup. Lives in Core (not the host) so a future web host reuses it. The four content stores (`ProgressionStore`/`SongStore`/`RhythmPatternStore`/`VoicingStore`) implement a shared **`IContentStore`** (list/get/save/delete in DSL strings) for the CRUD UI; writes only ever target the `UserDefined` tier (editing a BuiltIn/Pack id writes a shadow; delete = delete or revert), and voicing saves canonicalize to C. `Domain/` stays I/O-free — persistence is a separate Core sub-area.
 
 ---
 
@@ -81,7 +81,9 @@ A WinForms `Form` hosts a dock-filled `WebView2` control (windowed controller �
 
 ## 5. The C#↔JS bridge — a narrow string protocol
 
-`CoreWebView2.PostWebMessageAsString` (C#→JS) and the `WebMessageReceived` event (JS→C#). Small JSON envelopes; **the payload that matters is just the alphaTex string**. The envelope `type` string is the entire contract surface (`loadScore` / `play` / `stop` / `setTempo` / `generate` / `save` / `listExercises` / `loadExercise` / `markPracticed` / `ready` / `playbackFinished` / `beatChanged` / `status` …). On the JS side a single `app.js` bridge module owns the `chrome.webview` plumbing; the rest of the UI talks only to that module.
+`CoreWebView2.PostWebMessageAsString` (C#→JS) and the `WebMessageReceived` event (JS→C#). Small JSON envelopes; **the payload that matters is just the alphaTex string**. The envelope `type` string is the entire contract surface (`loadScore` / `play` / `stop` / `setTempo` / `generate` / `save` / `listExercises` / `loadExercise` / `markPracticed` / `ready` / `playbackFinished` / `beatChanged` / `status` …), plus the **generic content-CRUD family** `entityList` / `entityGet` / `entityPreview` / `entitySave` / `entityDelete` (each carrying an `entity` discriminator) and its replies (`entityLoaded` / `entityPreview` / `entityParseError` / `entitySaved` / `entityDeleted`). On the JS side a shared `bridge.js` module owns the `chrome.webview` plumbing and **fans inbound messages out to every view** (Practice `app.js`, Content `content-crud.js` + the SVG `chord-diagram.js`); each view ignores envelope types it doesn't own. The three **render-producing** verbs (`generate` / `entityPreview` / `loadExercise`) carry an optional **`renderOptions`** bag (`showChordNames` / `showChordDiagrams` / `voicing`) mapped to the Core `RenderOptions`; absent ⇒ today's render (backward-compatible).
+
+**The shared render component (`score-render-component.js`, `window.ChordFlowScore`)** is the single owner of *alphaTex string → alphaTab notation + transport*. Every score-showing view consumes it (Practice and the Content progression/song/rhythm preview both in full-player mode), so there is exactly one alphaTab integration + settings source. Options split two ways: **player-kind** (metronome, count-in) applied locally via the alphaTab API; **content-kind** (chord names, diagrams, voicing) fire `onNeedsRerender(renderOptions)` so the consumer re-requests a C# render — alphaTex is never built in JS.
 
 ---
 
