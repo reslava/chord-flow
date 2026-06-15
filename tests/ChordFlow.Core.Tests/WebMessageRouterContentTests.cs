@@ -1,4 +1,5 @@
 using ChordFlow.Bridge;
+using ChordFlow.Domain;
 using ChordFlow.Rendering;
 using Xunit;
 
@@ -88,14 +89,54 @@ public class WebMessageRouterContentTests
     }
 
     [Fact]
+    public void Generate_ParsesReferencesAndParams()
+    {
+        var router = new WebMessageRouter();
+        GenerateRequest? got = null;
+        router.GenerateRequested += (req, _) => got = req;
+
+        router.Dispatch("""
+            {"type":"generate","harmonyEntity":"song","harmonyId":"blues_song_demo","compingPatternId":"beat_1_3",
+             "leadPatternId":"quarters","keyPitchClass":7,"tempo":90,"difficulty":"Intermediate","feel":"Swing"}
+            """);
+
+        Assert.NotNull(got);
+        Assert.Equal("song", got!.HarmonyEntity);
+        Assert.Equal("blues_song_demo", got.HarmonyId);
+        Assert.Equal("beat_1_3", got.CompingPatternId);
+        Assert.Equal("quarters", got.LeadPatternId);
+        Assert.Equal(7, got.KeyPitchClass);
+        Assert.Equal(90, got.Tempo);
+        Assert.Equal(Difficulty.Intermediate, got.Difficulty);
+        Assert.Equal(Feel.Swing, got.Feel);
+    }
+
+    [Fact]
+    public void Generate_DefaultsParamsAndDiscriminator_WhenAbsent()
+    {
+        var router = new WebMessageRouter();
+        GenerateRequest? got = null;
+        router.GenerateRequested += (req, _) => got = req;
+
+        router.Dispatch("""{"type":"generate","harmonyId":"12bar_blues","keyPitchClass":10}""");
+
+        Assert.NotNull(got);
+        Assert.Equal("progression", got!.HarmonyEntity);    // default discriminator
+        Assert.Null(got.LeadPatternId);                     // no lead
+        Assert.Equal(80, got.Tempo);                        // default tempo
+        Assert.Equal(Difficulty.Beginner, got.Difficulty);  // default param
+        Assert.Equal(Feel.Straight, got.Feel);
+    }
+
+    [Fact]
     public void Generate_WithRenderOptions_ParsesIntoRenderOptions()
     {
         var router = new WebMessageRouter();
         RenderOptions? got = null;
-        router.GenerateRequested += (_, _, _, opts) => got = opts;
+        router.GenerateRequested += (_, opts) => got = opts;
 
         router.Dispatch("""
-            {"type":"generate","keyPitchClass":10,"rhythmId":"quarters","tempo":90,
+            {"type":"generate","harmonyEntity":"progression","harmonyId":"12bar_blues","compingPatternId":"quarters","keyPitchClass":10,"tempo":90,
              "renderOptions":{"showChordNames":true,"showChordDiagramsOverStaff":true,"showChordDiagramsOnTop":true,"voicing":"byDifficulty"}}
             """);
 
@@ -111,9 +152,9 @@ public class WebMessageRouterContentTests
     {
         var router = new WebMessageRouter();
         RenderOptions? got = null;
-        router.GenerateRequested += (_, _, _, opts) => got = opts;
+        router.GenerateRequested += (_, opts) => got = opts;
 
-        router.Dispatch("""{"type":"generate","keyPitchClass":10,"rhythmId":"quarters","tempo":90}""");
+        router.Dispatch("""{"type":"generate","harmonyEntity":"progression","harmonyId":"12bar_blues","keyPitchClass":10,"tempo":90}""");
 
         Assert.Equal(RenderOptions.Default, got);
     }

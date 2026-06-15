@@ -5,7 +5,7 @@ title: ChordFlow Architecture
 status: active
 created: "2026-06-10T00:00:00.000Z"
 updated: 2026-06-15
-version: 6
+version: 8
 tags: []
 parent_id: null
 requires_load: []
@@ -81,7 +81,7 @@ A WinForms `Form` hosts a dock-filled `WebView2` control (windowed controller �
 
 ## 5. The C#↔JS bridge — a narrow string protocol
 
-`CoreWebView2.PostWebMessageAsString` (C#→JS) and the `WebMessageReceived` event (JS→C#). Small JSON envelopes; **the payload that matters is just the alphaTex string**. The envelope `type` string is the entire contract surface (`loadScore` / `play` / `stop` / `setTempo` / `generate` / `save` / `listExercises` / `loadExercise` / `markPracticed` / `ready` / `playbackFinished` / `beatChanged` / `status` …), plus the **generic content-CRUD family** `entityList` / `entityGet` / `entityPreview` / `entitySave` / `entityDelete` (each carrying an `entity` discriminator) and its replies (`entityLoaded` / `entityPreview` / `entityParseError` / `entitySaved` / `entityDeleted`). On the JS side a shared `bridge.js` module owns the `chrome.webview` plumbing and **fans inbound messages out to every view** (Practice `app.js`, Content `content-crud.js` + the SVG `chord-diagram.js`); each view ignores envelope types it doesn't own. The three **render-producing** verbs (`generate` / `entityPreview` / `loadExercise`) carry an optional **`renderOptions`** bag (`showChordNames` / `showChordDiagrams` / `voicing`) mapped to the Core `RenderOptions`; absent ⇒ today's render (backward-compatible).
+`CoreWebView2.PostWebMessageAsString` (C#→JS) and the `WebMessageReceived` event (JS→C#). Small JSON envelopes; **the payload that matters is just the alphaTex string**. The envelope `type` string is the entire contract surface (`loadScore` / `play` / `stop` / `setTempo` / `generate` / `save` / `listExercises` / `loadExercise` / `markPracticed` / `ready` / `playbackFinished` / `beatChanged` / `status` …), plus the **generic content-CRUD family** `entityList` / `entityGet` / `entityPreview` / `entitySave` / `entityDelete` (each carrying an `entity` discriminator) and its replies (`entityLoaded` / `entityPreview` / `entityParseError` / `entitySaved` / `entityDeleted`). On the JS side a shared `bridge.js` module owns the `chrome.webview` plumbing and **fans inbound messages out to every view** (Practice `app.js`, Content `content-crud.js` + the SVG `chord-diagram.js`); each view ignores envelope types it doesn't own. The three **render-producing** verbs (`generate` / `entityPreview` / `loadExercise`) carry an optional **`renderOptions`** bag (`showChordNames` / `showChordDiagrams` / `voicing`) mapped to the Core `RenderOptions`; absent ⇒ today's render (backward-compatible). The `generate` verb additionally carries the chosen **content references + params** — a harmony discriminator (`harmonyEntity` ∈ `song`/`progression`) + `harmonyId`, a `compingPatternId`, an optional `leadPatternId`, plus `keyPitchClass` / `tempo` / `difficulty` / `feel` — which `GenerateExercise.Build` resolves from the content stores via the shared **`ExerciseRefs`** seam into a canonical `Exercise` (the saved-exercise **load** path resolves the same way: `SongId` tries the Song store, else a lifted Progression). The Practice `app.js` populates its harmony/comping/lead pickers from the existing `entityList` replies — no new bridge verb.
 
 **The shared render component (`score-render-component.js`, `window.ChordFlowScore`)** is the single owner of *alphaTex string → alphaTab notation + transport*. Every score-showing view consumes it (Practice and the Content progression/song/rhythm preview both in full-player mode), so there is exactly one alphaTab integration + settings source. Options split two ways: **player-kind** (metronome, count-in) applied locally via the alphaTab API; **content-kind** (chord names, diagrams, voicing) fire `onNeedsRerender(renderOptions)` so the consumer re-requests a C# render — alphaTex is never built in JS.
 
@@ -90,9 +90,9 @@ A WinForms `Form` hosts a dock-filled `WebView2` control (windowed controller �
 ## 6. Data flow (one exercise)
 
 ```
-UI picks key/rhythm/tempo
-  → generate envelope (JS→C#)
-  → GenerateExercise.Build → Exercise (definition)
+UI picks harmony (Song/Progression) + comping + optional lead + params (key/tempo/difficulty/feel)
+  → generate envelope carrying those references + params (JS→C#)
+  → GenerateExercise.Build → ExerciseRefs resolves the references from the stores → Exercise (definition)
   → ExerciseRendering: expand Song (KeyOverride ?? InitialKey) → RealizedSong, then AlphaTexRenderer.Render(RealizedSong, comping, …, lead?) → alphaTex string
   → loadScore envelope (C#→JS)
   → app.js: api.tex(tex)

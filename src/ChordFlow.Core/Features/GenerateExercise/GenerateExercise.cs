@@ -24,12 +24,17 @@ public sealed record LoadScoreEnvelope(string Type, string Tex, int Tempo)
 }
 
 /// <summary>
-/// GenerateExercise vertical slice: composes the Domain kernel + AlphaTexRenderer
-/// to produce a real, engine-rendered score and wrap it in a <see cref="LoadScoreEnvelope"/>
-/// for the bridge. No mediator — a slice is a class with a method.
+/// GenerateExercise vertical slice: composes a canonical <see cref="Exercise"/> from the UI's chosen
+/// <b>content references</b> (a stored Song or a bare Progression for harmony, a Comping pattern, an optional
+/// Lead pattern) + params, renders it to alphaTex, and wraps it in a <see cref="LoadScoreEnvelope"/> for the
+/// bridge. The reference → Domain resolution is the shared <see cref="ExerciseRefs"/> seam (also used by the
+/// library load path). No mediator — a slice is a class with a method.
 /// </summary>
 public sealed class GenerateExerciseHandler
 {
+    // A bare progression has no inherent key; if the UI sends no key override we anchor the lift at C major.
+    private static readonly Key DefaultLiftKey = new(new PitchClass(0), IsMinor: false);
+
     private readonly DbContextOptions<ChordFlowDbContext> _dbOptions;
     private readonly IScoreRenderer _renderer;
 
@@ -40,38 +45,52 @@ public sealed class GenerateExerciseHandler
     }
 
     /// <summary>
-    /// Build a 12-bar blues <see cref="Exercise"/> in the given key + rhythm, render
-    /// it to alphaTex, and wrap it in a loadScore envelope ready for the bridge.
+    /// Build the chosen <see cref="Exercise"/>, render it to alphaTex, and wrap it in a loadScore envelope
+    /// ready for the bridge.
     /// </summary>
-    /// <param name="keyPitchClass">Tonic pitch class 0..11 (10 = Bb). Major only for the MVP.</param>
-    /// <param name="rhythmId">Seed rhythm id; falls back to "Beats 1 & 3" if unknown.</param>
-    /// <param name="tempo">BPM.</param>
-    public LoadScoreEnvelope Generate(int keyPitchClass, string rhythmId, int tempo)
+    public LoadScoreEnvelope Generate(
+        string harmonyEntity, string harmonyId, string compingPatternId, string? leadPatternId,
+        int? keyPitchClass, int tempo, Difficulty difficulty, Feel feel)
     {
         using var db = new ChordFlowDbContext(_dbOptions);
-        return LoadScoreEnvelope.From(Build(keyPitchClass, rhythmId, tempo), new ProgressionStore(db), _renderer);
+        Exercise exercise = Build(
+            db, harmonyEntity, harmonyId, compingPatternId, leadPatternId, keyPitchClass, tempo, difficulty, feel);
+        return LoadScoreEnvelope.From(exercise, new ProgressionStore(db), _renderer);
     }
 
     /// <summary>
-    /// Build the 12-bar blues <see cref="Exercise"/> definition (no rendering). Exposed so
-    /// the host can keep the current definition for the ExerciseLibrary save path. The bare blues
-    /// progression is lifted into a single-section Song via <see cref="Song.OfProgression"/> so it rides the
-    /// one realization path; no lead track and no key override (the key is the Song's initial key).
+    /// Host convenience: build the <see cref="Exercise"/> definition opening a short-lived context (the host
+    /// keeps the returned definition for the save path; rendering opens its own context). Mirrors the per-use
+    /// context pattern of the other handlers.
     /// </summary>
-    public Exercise Build(int keyPitchClass, string rhythmId, int tempo)
+    public Exercise Build(
+        string harmonyEntity, string harmonyId, string compingPatternId, string? leadPatternId,
+        int? keyPitchClass, int tempo, Difficulty difficulty, Feel feel)
     {
-        RhythmPattern rhythm =
-            SeedData.RhythmPatterns.FirstOrDefault(r => r.Id == rhythmId) ?? SeedData.Beat1And3;
+        using var db = new ChordFlowDbContext(_dbOptions);
+        return Build(db, harmonyEntity, harmonyId, compingPatternId, leadPatternId, keyPitchClass, tempo, difficulty, feel);
+    }
 
-        // The chosen practice key is carried in KeyOverride so it persists for a bare-progression drill
-        // (the lifted Song isn't stored — only its id is — so KeyOverride is the key's only home; IN3/IN4).
-        var key = new Key(new PitchClass(keyPitchClass), false);
-        return new Exercise(
-            Song.OfProgression(SeedData.TwelveBarBlues, key),
-            rhythm,
-            Lead: null,
-            KeyOverride: key,
-            Tempo: tempo,
-            Difficulty: Difficulty.Beginner);
+    /// <summary>
+    /// Build the <see cref="Exercise"/> definition (no rendering) from the chosen references + params, resolving
+    /// each reference against the stores via <see cref="ExerciseRefs"/>. Exposed so the host can keep the
+    /// current definition for the ExerciseLibrary save path. <paramref name="harmonyEntity"/> is
+    /// <c>"song"</c> or <c>"progression"</c>; a bare progression is lifted via <see cref="Song.OfProgression"/>
+    /// so it rides the one realization path. The chosen practice key is carried in <c>KeyOverride</c> (the only
+    /// persistent home for a lifted progression's key); a stored Song with no override keeps its own initial key.
+    /// </summary>
+    public Exercise Build(
+        ChordFlowDbContext db,
+        string harmonyEntity, string harmonyId, string compingPatternId, string? leadPatternId,
+        int? keyPitchClass, int tempo, Difficulty difficulty, Feel feel)
+    {
+        Key? keyOverride = keyPitchClass is int pc ? new Key(new PitchClass(pc), false) : null;
+        Key liftKey = keyOverride ?? DefaultLiftKey;
+
+        Song song = ExerciseRefs.ResolveHarmony(harmonyEntity, harmonyId, liftKey, db);
+        RhythmPattern comping = ExerciseRefs.ResolvePattern(compingPatternId, db);
+        RhythmPattern? lead = ExerciseRefs.ResolveOptionalPattern(leadPatternId, db);
+
+        return new Exercise(song, comping, lead, keyOverride, tempo, difficulty, feel);
     }
 }

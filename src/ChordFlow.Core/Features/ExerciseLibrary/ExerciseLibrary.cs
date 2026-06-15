@@ -105,31 +105,27 @@ public sealed class ExerciseLibraryHandler
             return null;
         }
 
-        Exercise exercise = ToExercise(entity);
+        Exercise exercise = ToExercise(entity, db);
         return new LoadedExercise(exercise, LoadScoreEnvelope.From(exercise, new ProgressionStore(db), _renderer, options));
     }
 
-    // Rebuild the Domain Exercise from a stored definition. The KeyOverride token round-trips the chosen
-    // practice key (the only place a lifted bare-progression's key is stored). The MVP resolves the single
-    // seed progression + seed patterns by id and lifts the progression to a single-section Song so it rides
-    // the one realization path. Full Song/RhythmPattern store resolution (fail-loud on a missing row, §3) is
-    // a ui/exercise-workbench concern, once real authored content is saved as exercises.
-    private static Exercise ToExercise(ExerciseEntity e)
+    // Rebuild the Domain Exercise from a stored definition, resolving its references against the live stores
+    // (ui/exercise-workbench IN8 — was hard-wired to the single seed blues + seed patterns). The KeyOverride
+    // token round-trips the chosen practice key (the only place a lifted bare-progression's key is stored).
+    // The stored SongId carries no song-vs-progression discriminator, so ExerciseRefs tries the Song store
+    // first then falls back to a lifted Progression. A missing reference fails loud (surfaced as a load status).
+    private static Exercise ToExercise(ExerciseEntity e, ChordFlowDbContext db)
     {
         Key? keyOverride = e.KeyOverride is { Length: > 0 } token
             ? NoteSpeller.KeyFromSignatureToken(token)
             : null;
         Key liftKey = keyOverride ?? SeedDefaultKey;
 
-        Progression progression = SeedData.TwelveBarBlues;
-        RhythmPattern comping =
-            SeedData.RhythmPatterns.FirstOrDefault(r => r.Id == e.CompingPatternId) ?? SeedData.Beat1And3;
-        RhythmPattern? lead = e.LeadPatternId is { Length: > 0 } leadId
-            ? SeedData.RhythmPatterns.FirstOrDefault(r => r.Id == leadId)
-            : null;
+        Song song = ExerciseRefs.ResolveHarmonyById(e.SongId, liftKey, db);
+        RhythmPattern comping = ExerciseRefs.ResolvePattern(e.CompingPatternId, db);
+        RhythmPattern? lead = ExerciseRefs.ResolveOptionalPattern(e.LeadPatternId, db);
 
-        return new Exercise(
-            Song.OfProgression(progression, liftKey), comping, lead, keyOverride, e.Tempo, e.Difficulty, e.Feel);
+        return new Exercise(song, comping, lead, keyOverride, e.Tempo, e.Difficulty, e.Feel);
     }
 
     private static readonly Key SeedDefaultKey = new(new PitchClass(0), IsMinor: false); // C major fallback

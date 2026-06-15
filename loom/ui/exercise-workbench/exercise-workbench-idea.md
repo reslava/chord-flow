@@ -2,9 +2,10 @@
 type: idea
 id: id_01KV05B8D5VP4T5R37BSJ1NQRR
 title: Exercise workbench UI — generator + practice/player
-status: draft
-created: 2026-06-13
-version: 1
+status: done
+created: "2026-06-13T00:00:00.000Z"
+updated: 2026-06-15
+version: 2
 tags: []
 parent_id: null
 requires_load: []

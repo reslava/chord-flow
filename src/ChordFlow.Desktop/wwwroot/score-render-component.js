@@ -83,6 +83,18 @@ window.ChordFlowScore = (function () {
     const api = new alphaTab.AlphaTabApi(surface, buildSettings(player));
     let baseTempo = 80;   // the score's authored \tempo; runtime tempo scales off it
 
+    // Per-track playback volumes (player-kind, local — never part of renderOptions). Rhythm = track 0,
+    // Lead = track 1 (present only for a two-track exercise; a no-op otherwise). alphaTab rebuilds the tracks
+    // on every load, so these are re-asserted on scoreLoaded.
+    const trackVolumes = { rhythm: 1, lead: 1 };
+    function applyTrackVolume(which) {
+      if (!player || !api.score || !api.score.tracks) return;
+      const track = api.score.tracks[which === "lead" ? 1 : 0];
+      if (track && typeof api.changeTrackVolume === "function") {
+        api.changeTrackVolume([track], trackVolumes[which]);
+      }
+    }
+
     // "Diagrams on top" has no alphaTex directive — it's the score stylesheet's globalDisplayChordDiagramsOnTop
     // flag (defaults to shown when chords are defined). Set it from the current option each time a score
     // loads, so the top list shows/hides independently of the over-staff boxes (driven from the alphaTex).
@@ -90,6 +102,9 @@ window.ChordFlowScore = (function () {
       if (score && score.stylesheet) {
         score.stylesheet.globalDisplayChordDiagramsOnTop = !!options.diagramsOnTop;
       }
+      // Re-assert per-track volumes for the freshly loaded score (tracks are rebuilt on every load).
+      applyTrackVolume("rhythm");
+      applyTrackVolume("lead");
     });
 
     // Control refs, populated by buildControls when a strip is rendered.
@@ -126,6 +141,11 @@ window.ChordFlowScore = (function () {
       stop() { api.stop(); },
       // Translate absolute BPM into alphaTab's playbackSpeed multiplier (1.0 = authored tempo) — no re-render.
       setTempo(bpm) { if (bpm && baseTempo) api.playbackSpeed = bpm / baseTempo; },
+      // Per-track playback volume (0..1). which = "rhythm" | "lead"; lead is a no-op on a single-track score.
+      setTrackVolume(which, value) {
+        trackVolumes[which] = value;
+        applyTrackVolume(which);
+      },
       // Player-kind → applied locally; content-kind → ask the consumer to re-render with the new options.
       setOption(name, value) {
         options[name] = value;
@@ -234,6 +254,8 @@ window.ChordFlowScore = (function () {
       strip.append(
         toggle("metronome", "Metronome", options, handle, ui),
         toggle("countIn", "Count-in", options, handle, ui),
+        volumeSlider("rhythm", "Rhythm vol", handle, ui),
+        volumeSlider("lead", "Lead vol", handle, ui),
       );
     }
 
@@ -272,6 +294,19 @@ window.ChordFlowScore = (function () {
     input.addEventListener("change", () => handle.setOption(name, input.checked));
     wrap.append(input, document.createTextNode(" " + label));
     ui.toggles[name] = input;
+    return wrap;
+  }
+
+  // A per-track volume slider (0..1). Player-kind: applied locally via the alphaTab API, never re-rendered.
+  function volumeSlider(which, label, handle, ui) {
+    const wrap = document.createElement("label");
+    wrap.className = "cf-toggle";
+    const input = document.createElement("input");
+    input.type = "range";
+    input.min = "0"; input.max = "1"; input.step = "0.05"; input.value = "1";
+    input.addEventListener("input", () => handle.setTrackVolume(which, parseFloat(input.value)));
+    wrap.append(document.createTextNode(label + " "), input);
+    ui.toggles[which + "Vol"] = input;
     return wrap;
   }
 

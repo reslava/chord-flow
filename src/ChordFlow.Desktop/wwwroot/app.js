@@ -1,14 +1,14 @@
 // ChordFlow Practice view.
 //
-// Owns the Practice generator UI (key/rhythm pickers, Generate, Save, Mark-practiced, the saved list)
-// and hosts the shared ChordFlowScore render component (score-render-component.js) for notation +
-// playback. The component owns alphaTab and the transport strip (Play/Stop/Tempo + toggles); this view
-// only feeds it alphaTex and wires its callbacks back to the bridge.
+// Owns the Practice builder UI (definition pickers — harmony/comping/lead — sourced from the content stores
+// via the entity* bridge, plus the key/difficulty/feel param pickers), and hosts the shared ChordFlowScore
+// render component (score-render-component.js) for notation + playback. The component owns alphaTab and the
+// transport strip (Play/Stop/Tempo + toggles); this view only feeds it alphaTex and wires its callbacks.
 //
-// Each builder control posts a bridge envelope to its C# slice; inbound envelopes from the host
-// (loadScore, exerciseList, practiceRecorded, status) drive the component and the UI. Render-producing
-// requests (generate, loadExercise) carry the component's current renderOptions; a content-toggle change
-// (onNeedsRerender) replays the last request with the new options.
+// Generate posts the chosen content references + params; the host resolves them into a canonical Exercise and
+// pushes back a loadScore. Inbound envelopes (loadScore, exerciseList, practiceRecorded, status, and the
+// entityList catalog replies) drive the component, the library, and the pickers. A content-toggle change
+// (onNeedsRerender) replays the last render request with the new options.
 //
 // Transport is the shared window.ChordFlowBridge (bridge.js). With no host (plain browser) the bridge is
 // unavailable, so the component renders a SAMPLE_TEX score directly and the DB-backed actions are no-ops.
@@ -18,19 +18,23 @@
 const Bridge = window.ChordFlowBridge;
 
 const ChordFlow = (function () {
-  // Key names per tonic pitch class (0 = C .. 11 = B), spelled to match the
-  // renderer's \ks. Used for the key picker and the saved-list labels.
+  // Key names per tonic pitch class (0 = C .. 11 = B), spelled to match the renderer's \ks. Key picker only.
   const KEY_NAMES = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
 
-  // The three MVP rhythm patterns (id + display name), matching SeedData.
-  const RHYTHMS = [
-    { id: "beat_1", name: "Beat 1" },
-    { id: "beat_1_3", name: "Beats 1 & 3" },
-    { id: "quarters", name: "Quarters" },
-  ];
+  // Param enums — stable Domain enums (Difficulty / Feel); enumerated here rather than over a bridge.
+  const DIFFICULTIES = ["Beginner", "Intermediate", "Advanced"];
+  const FEELS = ["Straight", "Swing", "Shuffle", "Triplet"];
+
+  // The boot definition the host renders on ready (12-bar blues, Bb, Beats 1 & 3). Mirrored here as the
+  // generate-envelope defaults so an early content-toggle replay (before the catalog loads) is still valid.
+  const BOOT_REQUEST = {
+    type: "generate",
+    harmonyEntity: "progression", harmonyId: "12bar_blues",
+    compingPatternId: "beat_1_3", leadPatternId: null,
+    keyPitchClass: 10, tempo: 80, difficulty: "Beginner", feel: "Straight",
+  };
 
   // Browser-dev fallback only — in the app the host pushes the real score.
-  // Matches AlphaTexRenderer's output for 12-bar blues in Bb, "Beats 1 & 3".
   const SAMPLE_TEX = [
     '\\title "12-Bar Blues — Bb"',
     '\\subtitle "Beginner — Beats 1 & 3"',
@@ -52,8 +56,11 @@ const ChordFlow = (function () {
     "(8.5 7.4 8.3) r (8.5 7.4 8.3) r |",
   ].join("\n");
 
-  let view = null;            // the ChordFlowScore handle (owns alphaTab + transport)
+  let view = null;             // the ChordFlowScore handle (owns alphaTab + transport)
   let lastScoreRequest = null; // last render-producing envelope (sans renderOptions), for onNeedsRerender replay
+
+  // Content catalog, populated from the entity* bridge — the pickers' source and the library's name map.
+  const catalog = { progression: [], song: [], rhythm: [] };
 
   const $ = (id) => document.getElementById(id);
   const statusEl = () => $("status");
@@ -63,42 +70,77 @@ const ChordFlow = (function () {
   }
 
   // --- pickers -------------------------------------------------------------
-  function populatePickers() {
-    const keySel = $("key");
-    if (keySel) {
-      KEY_NAMES.forEach((name, pc) => {
-        const o = document.createElement("option");
-        o.value = String(pc);
-        o.textContent = name;
-        keySel.appendChild(o);
-      });
-      keySel.value = "10"; // Bb default, matching the host's boot score
+  // Fill a <select> from [{value,label}] options, preserving the current value if still present.
+  function fillSelect(sel, options, fallbackValue) {
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = "";
+    for (const opt of options) {
+      const o = document.createElement("option");
+      o.value = opt.value;
+      o.textContent = opt.label;
+      sel.appendChild(o);
     }
-
-    const rSel = $("rhythm");
-    if (rSel) {
-      RHYTHMS.forEach((r) => {
-        const o = document.createElement("option");
-        o.value = r.id;
-        o.textContent = r.name;
-        rSel.appendChild(o);
-      });
-      rSel.value = "beat_1_3";
-    }
+    const values = options.map((o) => o.value);
+    sel.value = values.includes(prev) ? prev : (values.includes(fallbackValue) ? fallbackValue : (values[0] ?? ""));
   }
 
-  function rhythmName(id) {
-    const r = RHYTHMS.find((x) => x.id === id);
-    return r ? r.name : id;
+  // The static param pickers (key/difficulty/feel) — built once. Harmony/comping/lead come from the catalog.
+  function populateStaticPickers() {
+    fillSelect($("key"), KEY_NAMES.map((name, pc) => ({ value: String(pc), label: name })), "10"); // Bb default
+    fillSelect($("difficulty"), DIFFICULTIES.map((d) => ({ value: d, label: d })), "Beginner");
+    fillSelect($("feel"), FEELS.map((f) => ({ value: f, label: f })), "Straight");
   }
 
-  // The current builder selections — the payload for a generate envelope. Tempo comes from the
-  // component's transport so the user's tempo choice authors the next generated exercise.
+  // Rebuild the harmony picker from songs + progressions; each option's value is "<entity>:<id>" so generate
+  // sends the right discriminator. Default to the boot blues progression when present.
+  function rebuildHarmonyPicker() {
+    const sel = $("harmony");
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = "";
+    const groups = [
+      { label: "Songs", entity: "song", items: catalog.song },
+      { label: "Progressions", entity: "progression", items: catalog.progression },
+    ];
+    for (const g of groups) {
+      if (g.items.length === 0) continue;
+      const og = document.createElement("optgroup");
+      og.label = g.label;
+      for (const it of g.items) {
+        const o = document.createElement("option");
+        o.value = `${g.entity}:${it.id}`;
+        o.textContent = it.name;
+        og.appendChild(o);
+      }
+      sel.appendChild(og);
+    }
+    const bootValue = "progression:12bar_blues";
+    const values = Array.from(sel.options).map((o) => o.value);
+    sel.value = values.includes(prev) ? prev : (values.includes(bootValue) ? bootValue : (values[0] ?? ""));
+  }
+
+  // Comping (required) + Lead (optional, with a "(none)" choice) from the rhythm catalog.
+  function rebuildRhythmPickers() {
+    const rhythmOpts = catalog.rhythm.map((r) => ({ value: r.id, label: r.name }));
+    fillSelect($("comping"), rhythmOpts, "beat_1_3");
+    fillSelect($("lead"), [{ value: "", label: "(none)" }, ...rhythmOpts], "");
+  }
+
+  // The current builder selections — the payload for a generate envelope. Tempo comes from the component
+  // transport so the user's tempo choice authors the next generated exercise.
   function selections() {
+    const [harmonyEntity, harmonyId] = ($("harmony").value || "progression:12bar_blues").split(/:(.*)/s);
+    const lead = $("lead").value;
     return {
+      harmonyEntity,
+      harmonyId,
+      compingPatternId: $("comping").value || "beat_1_3",
+      leadPatternId: lead || null,
       keyPitchClass: parseInt($("key").value, 10) || 0,
-      rhythmId: $("rhythm").value || "beat_1_3",
       tempo: view ? view.getTempo() : 80,
+      difficulty: $("difficulty").value || "Beginner",
+      feel: $("feel").value || "Straight",
     };
   }
 
@@ -130,10 +172,24 @@ const ChordFlow = (function () {
     }
   }
 
+  // Ask the host for the content lists that feed the pickers (and the library's name map).
+  function requestCatalog() {
+    for (const entity of ["progression", "song", "rhythm"]) {
+      Bridge.send({ type: "entityList", entity });
+    }
+  }
+
+  // A catalog list arrived — cache it and rebuild the pickers (and re-label the library, whose names resolve
+  // against the catalog). entityList also fans out from the Content view's own requests; harmless to re-apply.
+  function onCatalogList(entity, items) {
+    if (!(entity in catalog)) return;
+    catalog[entity] = items || [];
+    rebuildHarmonyPicker();
+    rebuildRhythmPickers();
+    if (lastLibrary) renderLibrary(lastLibrary); // re-label with freshly resolved names
+  }
+
   // --- view toggle (Practice ⇄ Content) ------------------------------------
-  // Switches the two top-level views in the single page. Exposed as a tiny global
-  // so the Content view (content-crud.js) can lazily initialize the first time it
-  // is shown, without app.js depending on it.
   function setupViewToggle() {
     const navPractice = $("navPractice");
     const navContent = $("navContent");
@@ -147,6 +203,8 @@ const ChordFlow = (function () {
       if (navPractice) navPractice.classList.toggle("active", !content);
       if (navContent) navContent.classList.toggle("active", content);
       if (content && window.ChordFlowContent) window.ChordFlowContent.show();
+      // Returning to Practice: the user may have authored content in the meantime — refresh the pickers.
+      if (!content && Bridge.available) requestCatalog();
     }
 
     if (navPractice) navPractice.addEventListener("click", () => show("practice"));
@@ -155,14 +213,29 @@ const ChordFlow = (function () {
   }
 
   // --- saved-exercise library ----------------------------------------------
+  let lastLibrary = null; // last exerciseList payload, re-rendered when the catalog (name map) updates
+
+  // Resolve a harmony id to a display name from the catalog (Song first, then Progression), else the raw id.
+  function harmonyName(id) {
+    return (catalog.song.find((s) => s.id === id) || catalog.progression.find((p) => p.id === id))?.name || id;
+  }
+  function rhythmName(id) {
+    return catalog.rhythm.find((r) => r.id === id)?.name || id;
+  }
+  function keyLabel(token) {
+    return token ? token.charAt(0).toUpperCase() + token.slice(1) : "—";
+  }
+
   function libraryLabel(ex) {
-    const key = KEY_NAMES[ex.key] !== undefined ? KEY_NAMES[ex.key] : ex.key;
-    const base = `${key} · ${rhythmName(ex.rhythmId)} · ${ex.tempo} BPM`;
-    // Mark practiced exercises with a ✓ and the count.
+    const parts = [harmonyName(ex.songId), rhythmName(ex.compingPatternId), keyLabel(ex.keyOverride),
+      `${ex.tempo} BPM`, ex.difficulty];
+    if (ex.leadPatternId) parts.push(`+lead ${rhythmName(ex.leadPatternId)}`);
+    const base = parts.join(" · ");
     return ex.practicedCount > 0 ? `${base}  ✅ ${ex.practicedCount}` : base;
   }
 
   function renderLibrary(exercises) {
+    lastLibrary = exercises;
     const ul = $("library");
     if (!ul) return;
     ul.innerHTML = "";
@@ -202,6 +275,10 @@ const ChordFlow = (function () {
       case "exerciseList":
         renderLibrary(msg.exercises);
         break;
+      case "entityList":
+        // The catalog feeds the pickers; the Content view owns the editor's own use of this same envelope.
+        onCatalogList(msg.entity, msg.items);
+        break;
       case "practiceRecorded":
         setStatus(`practiced ✓ — recorded ${msg.count}×`);
         break;
@@ -209,14 +286,15 @@ const ChordFlow = (function () {
         setStatus(msg.text);
         if (msg.isError) console.error("ChordFlow host:", msg.text);
         break;
-      // play/stop/setTempo are no longer host-driven — the ChordFlowScore component owns alphaTab transport.
-      // Other envelope types (entityList/entityPreview/… for the Content view) fan out to every receiver via
-      // the shared bridge; this view simply ignores the ones it doesn't own.
+      // play/stop/setTempo are not host-driven — the ChordFlowScore component owns alphaTab transport.
+      // Other Content-view envelopes (entityPreview/entityLoaded/…) fan out here and are ignored.
     }
   }
 
   function init() {
-    populatePickers();
+    populateStaticPickers();
+    rebuildHarmonyPicker();   // empty until the catalog arrives, but wires the element
+    rebuildRhythmPickers();
 
     if (typeof alphaTab === "undefined" || !window.ChordFlowScore) {
       setStatus("alphaTab/render component failed to load");
@@ -224,9 +302,6 @@ const ChordFlow = (function () {
       return;
     }
 
-    // The render component owns alphaTab + the transport strip; this view feeds it alphaTex and reacts to
-    // its callbacks. Position echoes (beatChanged/playbackFinished) keep the C# PracticeSession seam fed;
-    // a content-toggle change replays the last render request with the new renderOptions.
     view = window.ChordFlowScore.create($("score-pane"), {
       player: true,
       controls: "full",
@@ -243,14 +318,13 @@ const ChordFlow = (function () {
     setupViewToggle();
 
     if (Bridge.available) {
-      // Register the inbound handler BEFORE announcing ready, or we could miss
-      // the host's loadScore reply.
+      // Register the inbound handler BEFORE announcing ready, or we could miss the host's loadScore reply.
       Bridge.onReceive(onHostMessage);
-      // Seed the replay target with the boot exercise (the host pushes Bb / Beats 1 & 3 on ready). Without
-      // this a content-toggle change before the first Generate/Load would have nothing to re-render.
-      lastScoreRequest = { type: "generate", ...selections() };
-      // Carry the component's default render options on ready so the boot score reflects the checked
-      // toggles (names + on-top) instead of a neutral render.
+      // Seed the replay target with the boot definition (the host pushes Bb / Beats 1 & 3 on ready). Without
+      // this a content-toggle change before the first Generate/Load would have nothing valid to re-render.
+      lastScoreRequest = { ...BOOT_REQUEST };
+      requestCatalog(); // populate the pickers + library name map
+      // Carry the component's default render options on ready so the boot score reflects the checked toggles.
       Bridge.send({ type: "ready", renderOptions: view.getRenderOptions() });
       setStatus("waiting for score…");
     } else {

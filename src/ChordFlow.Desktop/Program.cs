@@ -130,7 +130,10 @@ internal static class Program
                 // MVP default: 12-bar blues in Bb (pitch class 10), "Beats 1 & 3", 80 BPM.
                 router.Ready += renderOptions =>
                 {
-                    Exercise boot = generate.Build(keyPitchClass: 10, rhythmId: "beat_1_3", tempo: 80);
+                    Exercise boot = generate.Build(
+                        harmonyEntity: "progression", harmonyId: "12bar_blues", compingPatternId: "beat_1_3",
+                        leadPatternId: null, keyPitchClass: 10, tempo: 80,
+                        difficulty: Difficulty.Beginner, feel: Feel.Straight);
                     if (TrySendScore(boot, renderOptions))
                     {
                         currentExercise = boot;
@@ -139,15 +142,25 @@ internal static class Program
                     bridge.Send(library.List()); // populate the saved-exercise list on boot
                 };
 
-                // Generate a fresh exercise from the UI's key/rhythm/tempo selections.
-                // It becomes the on-screen (unsaved) definition only if it rendered.
-                router.GenerateRequested += (keyPitchClass, rhythmId, tempo, renderOptions) =>
+                // Generate a fresh exercise from the UI's chosen content references + params. A bad/missing
+                // reference throws in Build, surfaced as a status (not a silent no-op). It becomes the on-screen
+                // (unsaved) definition only if it built and rendered.
+                router.GenerateRequested += (req, renderOptions) =>
                 {
-                    Exercise exercise = generate.Build(keyPitchClass, rhythmId, tempo);
-                    if (TrySendScore(exercise, renderOptions))
+                    try
                     {
-                        currentExercise = exercise;
-                        activeExerciseId = null;
+                        Exercise exercise = generate.Build(
+                            req.HarmonyEntity, req.HarmonyId, req.CompingPatternId, req.LeadPatternId,
+                            req.KeyPitchClass, req.Tempo, req.Difficulty, req.Feel);
+                        if (TrySendScore(exercise, renderOptions))
+                        {
+                            currentExercise = exercise;
+                            activeExerciseId = null;
+                        }
+                    }
+                    catch (Exception genEx)
+                    {
+                        bridge.Send(new StatusEnvelope($"Couldn't generate this exercise: {genEx.Message}", true));
                     }
                 };
 

@@ -1,7 +1,18 @@
 using System.Text.Json;
+using ChordFlow.Domain;
 using ChordFlow.Rendering;
 
 namespace ChordFlow.Bridge;
+
+/// <summary>
+/// The UI's chosen content references + params for one <c>generate</c> request — a stored Song or a bare
+/// Progression for harmony (the <see cref="HarmonyEntity"/> discriminator mirrors the content-CRUD
+/// <c>entity</c> string), a required Comping pattern, an optional Lead pattern, plus the param values. The
+/// host resolves the references against the stores (<c>ExerciseRefs</c>) into a canonical Exercise.
+/// </summary>
+public sealed record GenerateRequest(
+    string HarmonyEntity, string HarmonyId, string CompingPatternId, string? LeadPatternId,
+    int? KeyPitchClass, int Tempo, Difficulty Difficulty, Feel Feel);
 
 /// <summary>
 /// Parses inbound JSON envelopes from the WebView (JS→C#) and raises typed
@@ -28,8 +39,8 @@ public sealed class WebMessageRouter
     /// <summary>Active beat advanced — <c>(bar, beat)</c>, both 1-based. For progress/accuracy later.</summary>
     public event Action<int, int>? BeatChanged;
 
-    /// <summary>Generate a new exercise — <c>(keyPitchClass, rhythmId, tempo, renderOptions)</c>.</summary>
-    public event Action<int, string, int, RenderOptions>? GenerateRequested;
+    /// <summary>Generate a new exercise from the UI's chosen references + params — <c>(request, renderOptions)</c>.</summary>
+    public event Action<GenerateRequest, RenderOptions>? GenerateRequested;
 
     /// <summary>Start/resume playback (routes to PracticeSession).</summary>
     public event Action? PlayRequested;
@@ -100,9 +111,15 @@ public sealed class WebMessageRouter
                 break;
             case "generate":
                 GenerateRequested?.Invoke(
-                    envelope.KeyPitchClass ?? 0,
-                    envelope.RhythmId ?? "beat_1_3",
-                    envelope.Tempo ?? 80,
+                    new GenerateRequest(
+                        envelope.HarmonyEntity ?? "progression",
+                        envelope.HarmonyId ?? "",
+                        envelope.CompingPatternId ?? "beat_1_3",
+                        envelope.LeadPatternId,
+                        envelope.KeyPitchClass,
+                        envelope.Tempo ?? 80,
+                        ParseEnum(envelope.Difficulty, Difficulty.Beginner),
+                        ParseEnum(envelope.Feel, Feel.Straight)),
                     ToRenderOptions(envelope.RenderOptions));
                 break;
             case "play":
@@ -188,9 +205,18 @@ public sealed class WebMessageRouter
             ? strategy
             : VoicingStrategy.ByDifficulty;
 
+    // Parse a string enum param (Difficulty/Feel) case-insensitively; an absent or unrecognized value falls
+    // back to the supplied default (forward-compatible — a new value the host doesn't know is ignored).
+    private static T ParseEnum<T>(string? value, T fallback) where T : struct, Enum =>
+        Enum.TryParse(value, ignoreCase: true, out T parsed) && Enum.IsDefined(parsed) ? parsed : fallback;
+
     private sealed record InboundEnvelope(
         string? Type, int? Bar, int? Beat, int? Id,
-        int? KeyPitchClass, string? RhythmId, int? Tempo, int? Bpm,
+        // generate references + params: a song/progression harmony discriminator + id, the comping pattern id,
+        // an optional lead pattern id, the chosen key (null → the Song's own key), tempo, and the Difficulty/Feel
+        // param values (enum names). KeyPitchClass/Tempo are reused by setTempo's Bpm sibling below.
+        string? HarmonyEntity, string? HarmonyId, string? CompingPatternId, string? LeadPatternId,
+        int? KeyPitchClass, int? Tempo, string? Difficulty, string? Feel, int? Bpm,
         // Content-CRUD fields: Entity discriminator, the string content id (distinct from the int Id used by
         // loadExercise), and the editor's Name/Dsl payload.
         string? Entity, string? EntityId, string? Name, string? Dsl,

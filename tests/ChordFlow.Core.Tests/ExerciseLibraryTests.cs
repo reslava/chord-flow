@@ -1,5 +1,6 @@
 using ChordFlow.Domain;
 using ChordFlow.Features.ExerciseLibrary;
+using ChordFlow.Features.Packs;
 using ChordFlow.Persistence;
 using ChordFlow.Rendering;
 using Microsoft.Data.Sqlite;
@@ -23,6 +24,9 @@ public class ExerciseLibraryTests
         using (var db = new ChordFlowDbContext(options))
         {
             db.Database.Migrate(); // runs the full migration chain incl. RefactorExerciseToSongRefs
+            // Load now resolves references against the live stores (no more hard-wired seed blues), so the
+            // built-in content (12bar_blues + the three rhythms) must exist for a round-trip to resolve.
+            DefaultPack.ImportInto(db);
         }
 
         return (new ExerciseLibraryHandler(options, new AlphaTexRenderer()), conn);

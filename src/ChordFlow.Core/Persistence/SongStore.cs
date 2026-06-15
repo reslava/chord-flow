@@ -94,6 +94,26 @@ public sealed class SongStore : IContentStore
         return _db.Songs.Any(s => s.Id == id) ? DeleteOutcome.Reverted : DeleteOutcome.Deleted;
     }
 
+    /// <summary>
+    /// Find a stored song by id and parse it into a <see cref="Song"/>, or null if absent. Resolves the
+    /// highest tier per id (UserDefined &gt; Pack &gt; BuiltIn) like the other stores, then parses the
+    /// arrangement grammar only — stored <see cref="ProgressionReference"/>s are resolved later by
+    /// <see cref="SongExpander"/> (which has the <see cref="IProgressionStore"/>), keeping this a pure read.
+    /// </summary>
+    public Song? Find(string id)
+    {
+        List<SongEntity> rows = _db.Songs.AsNoTracking().Where(s => s.Id == id).ToList();
+        SongEntity? row = OriginResolver.ResolveOne(rows, id);
+        if (row is null)
+        {
+            return null;
+        }
+
+        // The DSL may carry a catalog header; the parser only ever sees the arrangement grammar.
+        (_, string body) = CatalogHeader.Parse(row.Dsl);
+        return SongParser.Parse(row.Id, row.Name, body, _ts);
+    }
+
     // SongParser raises FormatException for grammar errors but Song.FromSections raises ArgumentException for
     // structural ones (no plays, unknown part, …). Normalize the latter to a FormatException so the CRUD
     // parse-error surface (IN3) sees one "invalid definition" exception type for every entity.
