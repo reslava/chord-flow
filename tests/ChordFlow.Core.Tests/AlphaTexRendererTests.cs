@@ -265,9 +265,10 @@ public class AlphaTexRendererTests
 
         string tex = Renderer.Render(song, SeedData.Beat1, 80, Difficulty.Beginner, lead: SeedData.Quarters);
 
-        // Score metadata + the lone "." precede the first \track (\ts/\ks moved into each track).
-        Assert.Contains("\\track \"Comping\" \"comp\" { defaultSystemsLayout 4 }", tex);
-        Assert.Contains("\\track \"Lead\" \"lead\" { defaultSystemsLayout 4 }", tex);
+        // Score metadata + the lone "." precede the first \track (\ts/\ks moved into each track). Bars-per-row
+        // is a JS display setting now, so no `{ defaultSystemsLayout }` block on the \track line.
+        Assert.Contains("\\track \"Comping\" \"comp\"\n", tex);
+        Assert.Contains("\\track \"Lead\" \"lead\"\n", tex);
         Assert.Equal(2, CountOccurrences(tex, "\\ts 4 4")); // one per track
         Assert.Equal(2, CountOccurrences(tex, "\\ks bb"));
         Assert.Equal(1, CountOccurrences(tex, "\n.\n"));    // exactly one metadata terminator

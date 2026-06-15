@@ -2,13 +2,14 @@
 type: chat
 id: ch_01KV6G0P3BPPEWNCVF0F6WV3BJ
 title: exercise-workbench Chat
-status: active
+status: done
 created: "2026-06-15T00:00:00.000Z"
-version: 1
+updated: 2026-06-15
+version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 9
+last_ai_block: 11
 ---
 # exercise-workbench Chat
 
@@ -185,8 +186,7 @@ Nothing committed (per repo norms I leave that to you). Want me to commit this t
 ## Rafa:
 
 Commit push
-Thre are many issues but I think instead of enumerating them and start fixing, we should implement a debug tools that will help us a lot.
 
-UI text box to show, edit the alphaTex generated and render/play it.
-What you think?
-If you like the idea, give it a name and create a thread.
+## AI:
+
+Committed + pushed to `main` (`75ca326`, 18 files).

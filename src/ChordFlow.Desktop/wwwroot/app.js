@@ -191,24 +191,30 @@ const ChordFlow = (function () {
 
   // --- view toggle (Practice ⇄ Content) ------------------------------------
   function setupViewToggle() {
-    const navPractice = $("navPractice");
-    const navContent = $("navContent");
-    const practiceView = $("practice-view");
-    const contentView = $("content-view");
+    // Three top-level views in the single page; each lazily inits its module on first show.
+    const views = {
+      practice: { nav: $("navPractice"), el: $("practice-view") },
+      content: { nav: $("navContent"), el: $("content-view"),
+        onShow: () => window.ChordFlowContent && window.ChordFlowContent.show() },
+      debug: { nav: $("navDebug"), el: $("debug-view"),
+        onShow: () => window.ChordFlowInspector && window.ChordFlowInspector.show() },
+    };
 
     function show(viewName) {
-      const content = viewName === "content";
-      if (practiceView) practiceView.hidden = content;
-      if (contentView) contentView.hidden = !content;
-      if (navPractice) navPractice.classList.toggle("active", !content);
-      if (navContent) navContent.classList.toggle("active", content);
-      if (content && window.ChordFlowContent) window.ChordFlowContent.show();
+      const target = views[viewName] ? viewName : "practice";
+      for (const [name, v] of Object.entries(views)) {
+        const active = name === target;
+        if (v.el) v.el.hidden = !active;
+        if (v.nav) v.nav.classList.toggle("active", active);
+        if (active && v.onShow) v.onShow();
+      }
       // Returning to Practice: the user may have authored content in the meantime — refresh the pickers.
-      if (!content && Bridge.available) requestCatalog();
+      if (target === "practice" && Bridge.available) requestCatalog();
     }
 
-    if (navPractice) navPractice.addEventListener("click", () => show("practice"));
-    if (navContent) navContent.addEventListener("click", () => show("content"));
+    for (const [name, v] of Object.entries(views)) {
+      if (v.nav) v.nav.addEventListener("click", () => show(name));
+    }
     window.ChordFlowViews = { show };
   }
 

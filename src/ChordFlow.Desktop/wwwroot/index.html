@@ -36,7 +36,8 @@
       cursor: pointer;
     }
     .nav button:first-child { border-radius: 4px 0 0 4px; }
-    .nav button:last-child { border-radius: 0 4px 4px 0; border-left: none; }
+    .nav button:last-child { border-radius: 0 4px 4px 0; }
+    .nav button + button { border-left: none; }
     .nav button.active { background: #3a4d78; color: #fff; border-color: #3a4d78; }
     [hidden] { display: none !important; }
 
@@ -155,6 +156,18 @@
     .cc-actions button:disabled { opacity: .5; cursor: default; }
     .cc-preview { margin-top: .3rem; border: 1px solid #333; border-radius: 6px; background: #fff; min-height: 4rem; overflow: auto; }
     .cc-preview.empty { background: #252526; color: #6b7075; font-style: italic; padding: 1rem; }
+
+    /* ---- Debug view (alphaTex inspector) ---- */
+    #debug-view { padding: 1rem; display: flex; flex-direction: column; gap: .6rem; }
+    .atx-toolbar { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+    .atx-toolbar button { font: inherit; padding: .3rem .9rem; border: 1px solid #4a4a4f;
+      border-radius: 4px; background: #3a3a3d; color: #e6e6e6; cursor: pointer; }
+    .atx-toolbar button.primary { background: #3a4d78; border-color: #3a4d78; color: #fff; }
+    .atx-hint { font-size: .75rem; color: #8a8f94; }
+    .atx-version { margin-left: auto; font-size: .72rem; color: #6b7075; }
+    #atxText { font-family: ui-monospace, "Cascadia Code", monospace; font-size: .82rem;
+      width: 100%; min-height: 9rem; resize: vertical; padding: .5rem;
+      background: #1b1b1b; color: #d6d6d6; border: 1px solid #4a4a4f; border-radius: 6px; }
   </style>
 </head>
 <body>
@@ -163,6 +176,7 @@
     <nav class="nav" id="viewNav">
       <button id="navPractice" type="button" class="active">Practice</button>
       <button id="navContent" type="button">Content</button>
+      <button id="navDebug" type="button">Debug</button>
     </nav>
     <span id="status">starting…</span>
   </header>
@@ -204,12 +218,16 @@
   <!-- Content view: the generic CRUD editor for DSL-backed entities (populated by content-crud.js). -->
   <div id="content-view" hidden></div>
 
+  <!-- Debug view: the alphaTex inspector — show / edit / render the engine's emitted alphaTex (alphatex-inspector.js). -->
+  <div id="debug-view" hidden></div>
+
   <!-- Bundled alphaTab JS build (constraint C6) — loaded from disk, offline. -->
   <script src="alphaTab.min.js"></script>
   <script src="bridge.js"></script>
   <script src="score-render-component.js"></script>
   <script src="chord-diagram.js"></script>
   <script src="content-crud.js"></script>
+  <script src="alphatex-inspector.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

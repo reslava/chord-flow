@@ -5,7 +5,7 @@ title: alphaTex Syntax Reference
 status: active
 created: "2026-06-07T00:00:00.000Z"
 updated: 2026-06-15
-version: 2
+version: 5
 tags: []
 parent_id: null
 requires_load: []
@@ -26,18 +26,18 @@ The text DSL ChordFlow's `AlphaTexRenderer` emits. **Verified against the offici
 
 ## Multiple tracks (two staves)
 
-Verified 2026-06-15 against the [structural-metadata](https://www.alphatab.net/docs/alphatex/structural-metadata) + [document-structure](https://www.alphatab.net/docs/alphatex/document-structure) docs. A `\track "Name" "short"` directive (Structural Metadata) starts a new track; the bars after it belong to that track. **Score metadata** (`\title` / `\subtitle` / `\tempo` + the chord directives) stays at the top, terminated by the lone `.`; **bar metadata** (`\ts` / `\ks`) moves *into each track* (it is bar / master-bar level). `{ defaultSystemsLayout N }` on a track lays out N bars per row.
+Verified 2026-06-15 against the [structural-metadata](https://www.alphatab.net/docs/alphatex/structural-metadata) + [document-structure](https://www.alphatab.net/docs/alphatex/document-structure) docs. A `\track "Name" "short"` directive (Structural Metadata) starts a new track; the bars after it belong to that track. **Score metadata** (`\title` / `\subtitle` / `\tempo` + the chord directives) stays at the top, terminated by the lone `.`; **bar metadata** (`\ts` / `\ks`) moves *into each track* (it is bar / master-bar level). (Bars-per-row is **not** set in alphaTex — `{ defaultSystemsLayout N }` is multi-track-only and unreliable; ChordFlow controls it JS-side via `display.barsPerRow`, see `alphatab-js-api-reference.md`. ChordFlow no longer emits the `{ … }` block.)
 
 ```
 \title "…"
 \subtitle "…"
 \tempo 80
 .
-\track "Comping" "comp" { defaultSystemsLayout 4 }
+\track "Comping" "comp"
 \ts 4 4
 \ks bb
 :4 (1.5 0.4 1.3) … |          ← rhythm-guitar bars
-\track "Lead" "lead" { defaultSystemsLayout 4 }
+\track "Lead" "lead"
 \ts 4 4
 \ks bb
 :4 x.3 r x.3 r … |           ← lead bars as dead notes

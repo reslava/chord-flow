@@ -32,6 +32,7 @@ window.ChordFlowScore = (function () {
 
   const PLAYER_KIND = new Set(["metronome", "countIn"]);   // applied via the alphaTab API
   const CONTENT_KIND = new Set(["chordNames", "diagramsOverStaff", "diagramsOnTop", "voicing"]); // require a C# re-render
+  const DISPLAY_KIND = new Set(["autoLayout"]); // applied locally via updateSettings()+render() — no re-render request
 
   const DEFAULT_OPTIONS = {
     metronome: false,
@@ -40,16 +41,27 @@ window.ChordFlowScore = (function () {
     diagramsOverStaff: false,
     diagramsOnTop: true,     // default selected
     voicing: "byDifficulty",
+    autoLayout: false,       // false = honor the score's defaultSystemsLayout (fixed bars/row); true = fit to width
   };
+
+  // Bars-per-row control. The score's authored `defaultSystemsLayout` only takes effect on multi-track scores
+  // (and needs UseModelLayout), so it's unreliable as the single knob. `display.barsPerRow` on the Page layout
+  // is the global control that works for single- AND multi-track alike: 4 = fixed four bars per row, -1 =
+  // automatic (fit to width, alphaTab's default). "Auto layout" toggles between them.
+  function layoutDisplay(auto) {
+    return { layoutMode: alphaTab.LayoutMode.Page, barsPerRow: auto ? -1 : 4 };
+  }
 
   // The single alphaTab settings source of truth. Player settings are added only in player mode so a
   // lite preview never pays the soundfont/worker-player cost.
-  function buildSettings(player) {
+  function buildSettings(player, options) {
     const settings = {
       core: {
         fontDirectory: "font/",   // relative to index.html, served same-origin under the virtual host
         useWorkers: true,         // real https origin → layout worker is allowed off the main thread
       },
+      // Honor the engine's authored `defaultSystemsLayout N` unless the user flips to auto (fit-to-width).
+      display: layoutDisplay(!!(options && options.autoLayout)),
     };
     if (player) {
       settings.player = {
@@ -80,8 +92,15 @@ window.ChordFlowScore = (function () {
     const surface = document.createElement("div");
     surface.className = "cf-score-surface";
 
-    const api = new alphaTab.AlphaTabApi(surface, buildSettings(player));
+    const api = new alphaTab.AlphaTabApi(surface, buildSettings(player, options));
     let baseTempo = 80;   // the score's authored \tempo; runtime tempo scales off it
+
+    // Re-apply the layout pair at runtime when "Auto layout" toggles (display-only — no C# re-render).
+    function applyLayout() {
+      Object.assign(api.settings.display, layoutDisplay(options.autoLayout));
+      api.updateSettings();
+      api.render();
+    }
 
     // Per-track playback volumes (player-kind, local — never part of renderOptions). Rhythm = track 0,
     // Lead = track 1 (present only for a two-track exercise; a no-op otherwise). alphaTab rebuilds the tracks
@@ -101,6 +120,12 @@ window.ChordFlowScore = (function () {
     api.scoreLoaded.on((score) => {
       if (score && score.stylesheet) {
         score.stylesheet.globalDisplayChordDiagramsOnTop = !!options.diagramsOnTop;
+      }
+      // alphaTab renders only the FIRST track by default, so a two-track exercise (comping + lead) would
+      // hide the lead staff. Render every track the score defines so both staves show. Only intervene when
+      // there's more than one track — a single-track score keeps the default render untouched.
+      if (score && score.tracks && score.tracks.length > 1) {
+        api.renderTracks(score.tracks);
       }
       // Re-assert per-track volumes for the freshly loaded score (tracks are rebuilt on every load).
       applyTrackVolume("rhythm");
@@ -152,6 +177,10 @@ window.ChordFlowScore = (function () {
         syncToggle(name, value);
         if (PLAYER_KIND.has(name)) {
           applyPlayerOption(name, value);
+          return;
+        }
+        if (DISPLAY_KIND.has(name)) {
+          applyLayout();
           return;
         }
         if (CONTENT_KIND.has(name)) {
@@ -264,6 +293,7 @@ window.ChordFlowScore = (function () {
         toggle("chordNames", "Chord names", options, handle, ui),
         toggle("diagramsOverStaff", "Diagrams over staff", options, handle, ui),
         toggle("diagramsOnTop", "Diagrams on top", options, handle, ui),
+        toggle("autoLayout", "Auto layout", options, handle, ui),
       );
     }
 

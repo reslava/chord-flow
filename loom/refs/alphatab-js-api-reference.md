@@ -1,16 +1,16 @@
 ---
 type: reference
 id: rf_01KTHJNV034RMM23TNY1RXF4SR
-title: "alphaTab JS API Reference"
+title: alphaTab JS API Reference
 status: active
-created: 2026-06-07
-version: 1
+created: "2026-06-07T00:00:00.000Z"
+updated: 2026-06-15
+version: 5
 tags: []
 parent_id: null
-child_ids: []
 requires_load: []
 slug: alphatab-js-api-reference
-description: "Verified alphaTab JavaScript API surface for ChordFlow's WebView layer — init, player settings, playback methods, events."
+description: Verified alphaTab JavaScript API surface for ChordFlow's WebView layer — init, player settings, playback methods, events.
 ---
 # alphaTab JS API Reference
 
@@ -39,7 +39,9 @@ const api = new alphaTab.AlphaTabApi(document.querySelector('#at'), settings);
 
 ## Loading content
 
-- `api.tex(texString)` — renders the given alphaTex. **This is ChordFlow's load path** (imperative; the C# engine pushes the alphaTex string over the Photino bridge).
+- `api.tex(texString)` — renders the given alphaTex. **This is ChordFlow's load path** (imperative; the C# engine pushes the alphaTex string over the WebView2 bridge).
+- **Multi-track rendering (verified, v1.8.3):** `api.tex(tex)` renders **only the first track** by default — a two-track score (comping + lead) shows just the comping staff. Render every track explicitly with `api.renderTracks(api.score.tracks)` (takes `Track[]` from `api.score.tracks`). ChordFlow's `score-render-component.js` does this in its `scoreLoaded` handler when `score.tracks.length > 1`; a single-track score is left on the default path (byte-identical render).
+- **Bars per row (verified, v1.8.3):** the score's authored `defaultSystemsLayout N` only takes effect for **multi-track** scores (and needs `systemsLayoutMode = UseModelLayout`), so it's unreliable as the single control. Use the global **`display.barsPerRow`** on `LayoutMode.Page` instead — it governs single- AND multi-track: `4` = fixed four bars per row, `-1` = automatic (fit-to-width, the default). ChordFlow sets `barsPerRow: 4` by default with an **"Auto layout"** toggle (→ `-1`); runtime change via `api.settings.display.barsPerRow = N; api.updateSettings(); api.render();`. (The C# renderer no longer emits `defaultSystemsLayout` — bars-per-row is purely this JS setting.)
 
 ## Playback methods
 

@@ -75,7 +75,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
 
         // Two tracks (IN5): score metadata + the lone "." first, then a \track per staff carrying its own
         // bar metadata (\ts/\ks). The lead pattern renders as dead notes (\x.3); both tracks span the same
-        // master bars so the staves stay aligned. `defaultSystemsLayout 4` lays out 4 bars per row.
+        // master bars so the staves stay aligned. Bars-per-row is a JS display setting (display.barsPerRow).
         List<string> leadBars = BuildLeadBars(song, rhythm, lead, feel, ts);
 
         AppendScoreMetadata(sb, title, subtitle, tempo, opts, state.ChordDefinitions);
@@ -201,12 +201,13 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         sb.Append(".\n");
     }
 
-    // A \track line + its bar metadata (\ts/\ks). `defaultSystemsLayout 4` renders 4 bars per row.
+    // A \track line + its bar metadata (\ts/\ks). Bars-per-row is controlled on the JS side via
+    // display.barsPerRow (works for single- AND multi-track); the old `{ defaultSystemsLayout 4 }` block was
+    // multi-track-only and is no longer emitted.
     private static void AppendTrackHeader(
         StringBuilder sb, string name, string shortName, TimeSignature ts, string keySig)
     {
-        sb.Append("\\track \"").Append(name).Append("\" \"").Append(shortName)
-            .Append("\" { defaultSystemsLayout 4 }\n");
+        sb.Append("\\track \"").Append(name).Append("\" \"").Append(shortName).Append("\"\n");
         sb.Append("\\ts ").Append(ts.Numerator).Append(' ').Append(ts.Denominator).Append('\n');
         sb.Append("\\ks ").Append(keySig).Append('\n');
     }
