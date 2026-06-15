@@ -7,9 +7,9 @@ using Xunit;
 namespace ChordFlow.Core.Tests;
 
 /// <summary>
-/// <c>AlphaTexRenderer.Render(RealizedSong, …)</c>: single-section parity with <c>Render(Exercise)</c>,
-/// multi-section concatenation, inline <c>\ks</c> emitted only on key change, and the stateful <c>:N</c>
-/// duration carried across section seams.
+/// <c>AlphaTexRenderer.Render(RealizedSong, …)</c>: <see cref="Song.OfProgression"/> lift parity with a
+/// manual single-section song, multi-section concatenation, inline <c>\ks</c> emitted only on key change,
+/// and the stateful <c>:N</c> duration carried across section seams.
 /// </summary>
 public class SongRenderTests
 {
@@ -34,15 +34,18 @@ public class SongRenderTests
     }
 
     [Fact]
-    public void Render_SingleSection_BarBodyMatchesEquivalentExercise()
+    public void Render_OfProgressionLift_BarBodyMatchesManualSingleSectionSong()
     {
-        var exercise = new Exercise(CMajor, Blues, SeedData.Beat1And3, 100, Difficulty.Beginner);
-        string exerciseTex = Renderer.Render(exercise);
+        // Song.OfProgression lifts a bare progression into a one-section song; its rendered body must match
+        // a manually-authored single-section song over the same progression (IN2 — one realization path,
+        // no Progression-vs-Song branch).
+        RealizedSong viaLift = SongExpander.Expand(Song.OfProgression(Blues, CMajor), new EmptyStore());
+        RealizedSong viaManual = SongExpander.Expand(OneBluesSong(new PartPlay("blues", 1)), new EmptyStore());
 
-        RealizedSong realized = SongExpander.Expand(OneBluesSong(new PartPlay("blues", 1)), new EmptyStore());
-        string songTex = Renderer.Render(realized, SeedData.Beat1And3, 100, Difficulty.Beginner);
+        string liftTex = Renderer.Render(viaLift, SeedData.Beat1And3, 100, Difficulty.Beginner);
+        string manualTex = Renderer.Render(viaManual, SeedData.Beat1And3, 100, Difficulty.Beginner);
 
-        Assert.Equal(Body(exerciseTex), Body(songTex));
+        Assert.Equal(Body(liftTex), Body(manualTex));
     }
 
     [Fact]

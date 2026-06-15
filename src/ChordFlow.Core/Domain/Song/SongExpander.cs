@@ -14,13 +14,19 @@ public static class SongExpander
     /// (<see cref="Modulation.Apply"/>), and <see cref="PartPlay"/> appends <c>Repeat</c> copies of the
     /// resolved progression realized in the current key. <see cref="RealizedSection.Key"/> is therefore an
     /// output of the fold, never an input (decision E).
+    /// <para>
+    /// <paramref name="startKey"/> seeds the fold (defaults to <see cref="Song.InitialKey"/>). An
+    /// <see cref="Exercise.KeyOverride"/> passes the re-anchored key here so the whole song transposes;
+    /// relative modulations still accumulate from the seed, and an <see cref="AbsoluteKey"/> reset still
+    /// overrides it mid-arrangement (additive — callers that omit it are unchanged).
+    /// </para>
     /// </summary>
-    public static RealizedSong Expand(Song song, IProgressionStore store)
+    public static RealizedSong Expand(Song song, IProgressionStore store, Key? startKey = null)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentNullException.ThrowIfNull(store);
 
-        Key key = song.InitialKey;
+        Key key = startKey ?? song.InitialKey;
         var sections = new List<RealizedSection>();
 
         foreach (ArrangementItem item in song.Items)

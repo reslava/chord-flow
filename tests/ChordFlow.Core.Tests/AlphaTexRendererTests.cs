@@ -7,6 +7,7 @@ namespace ChordFlow.Core.Tests;
 public class AlphaTexRendererTests
 {
     private static readonly AlphaTexRenderer Renderer = new();
+    private static readonly Key Bb = new(new PitchClass(10), false); // Bb major
 
     [Fact]
     public void Render_KnownExercise_ProducesExpectedAlphaTex()
@@ -14,14 +15,8 @@ public class AlphaTexRendererTests
         // One-bar "I" progression in Bb, Beat 1 rhythm — a single strike ringing the whole bar (a whole
         // note, sustain-literal), tempo 80.
         var progression = new Progression("test", "Test Blues", new RomanDegree[] { new(1, Quality.Dominant7) });
-        var exercise = new Exercise(
-            new Key(new PitchClass(10), false), // Bb major
-            progression,
-            SeedData.Beat1,
-            80,
-            Difficulty.Beginner);
 
-        string tex = Renderer.Render(exercise);
+        string tex = Renderer.RenderProgression(Bb, progression, SeedData.Beat1, 80, Difficulty.Beginner);
 
         string expected = string.Join("\n",
             "\\title \"Test Blues — Bb\"",
@@ -38,14 +33,7 @@ public class AlphaTexRendererTests
     [Fact]
     public void Render_FullBbBlues_HasTwelveBarsAndCorrectHeader()
     {
-        var exercise = new Exercise(
-            new Key(new PitchClass(10), false),
-            SeedData.TwelveBarBlues,
-            SeedData.Beat1And3,
-            80,
-            Difficulty.Beginner);
-
-        string tex = Renderer.Render(exercise);
+        string tex = Renderer.RenderProgression(Bb, SeedData.TwelveBarBlues, SeedData.Beat1And3, 80, Difficulty.Beginner);
 
         Assert.StartsWith("\\title \"12-Bar Blues — Bb\"", tex);
         Assert.Contains("\\subtitle \"Beginner — Beats 1 & 3\"", tex);
@@ -68,14 +56,8 @@ public class AlphaTexRendererTests
     public void Render_QuartersRhythm_EmitsFourHitsPerBar()
     {
         var progression = new Progression("test", "Test", new RomanDegree[] { new(1, Quality.Dominant7) });
-        var exercise = new Exercise(
-            new Key(new PitchClass(10), false),
-            progression,
-            SeedData.Quarters,
-            90,
-            Difficulty.Beginner);
 
-        string tex = Renderer.Render(exercise);
+        string tex = Renderer.RenderProgression(Bb, progression, SeedData.Quarters, 90, Difficulty.Beginner);
 
         Assert.EndsWith(":4 (1.5 0.4 1.3) (1.5 0.4 1.3) (1.5 0.4 1.3) (1.5 0.4 1.3) |", tex);
         Assert.DoesNotContain("r", tex.Split('\n')[^1]); // no rests in the bar line
@@ -86,14 +68,8 @@ public class AlphaTexRendererTests
     {
         // The \ts header now derives from the pattern's TimeSignature rather than a hardcoded "4 4".
         var progression = new Progression("test", "Test", new RomanDegree[] { new(1, Quality.Dominant7) });
-        var exercise = new Exercise(
-            new Key(new PitchClass(10), false),
-            progression,
-            SeedData.Quarters,
-            90,
-            Difficulty.Beginner);
 
-        string tex = Renderer.Render(exercise);
+        string tex = Renderer.RenderProgression(Bb, progression, SeedData.Quarters, 90, Difficulty.Beginner);
 
         Assert.Contains("\\ts 4 4", tex);
         // Quantized through the new tick path: four quarter hits, stateful ":4" once.
@@ -107,10 +83,8 @@ public class AlphaTexRendererTests
         var pickup = new PickupMeasure(new[] { RhythmEvent.Hit(0, 48) }, LengthTicks: 48);
         var rhythm = RhythmPattern.SingleBar("p", "Pickup", SeedData.Beat1.Bars[0].Events, TimeSignature.FourFour, pickup);
         var progression = new Progression("test", "Test", new RomanDegree[] { new(1, Quality.Dominant7) });
-        var exercise = new Exercise(
-            new Key(new PitchClass(10), false), progression, rhythm, 80, Difficulty.Beginner);
 
-        string tex = Renderer.Render(exercise);
+        string tex = Renderer.RenderProgression(Bb, progression, rhythm, 80, Difficulty.Beginner);
 
         // Pickup bar + the single progression bar = 2 pipes. The pickup carries the ":4"; the main
         // bar is Beat 1 ringing the whole bar → a whole note (":1").
@@ -123,9 +97,8 @@ public class AlphaTexRendererTests
     {
         var rhythm = RhythmPatternParser.Parse("trip", "Triplets", ":3 XXX XXX XXX XXX", TimeSignature.FourFour);
         var prog = new Progression("test", "Test", new RomanDegree[] { new(1, Quality.Dominant7) });
-        var exercise = new Exercise(new Key(new PitchClass(10), false), prog, rhythm, 90, Difficulty.Beginner);
 
-        string tex = Renderer.Render(exercise);
+        string tex = Renderer.RenderProgression(Bb, prog, rhythm, 90, Difficulty.Beginner);
 
         // Twelve tupled eighths, stateful ":8" once, "{tu 3}" on each slot (it does not persist).
         string inner = string.Join(" ", Enumerable.Repeat("(1.5 0.4 1.3){tu 3}", 12));
@@ -138,9 +111,8 @@ public class AlphaTexRendererTests
     {
         var rhythm = RhythmPatternParser.Parse("mix", "Mixed", "XXX:3 X... X.X:3 X...", TimeSignature.FourFour);
         var prog = new Progression("test", "Test", new RomanDegree[] { new(1, Quality.Dominant7) });
-        var exercise = new Exercise(new Key(new PitchClass(10), false), prog, rhythm, 90, Difficulty.Beginner);
 
-        string tex = Renderer.Render(exercise);
+        string tex = Renderer.RenderProgression(Bb, prog, rhythm, 90, Difficulty.Beginner);
 
         Assert.EndsWith(
             ":8 (1.5 0.4 1.3){tu 3} (1.5 0.4 1.3){tu 3} (1.5 0.4 1.3){tu 3} " +
@@ -151,14 +123,14 @@ public class AlphaTexRendererTests
     [Fact]
     public void Render_MinorKey_Throws()
     {
-        var exercise = new Exercise(
-            new Key(new PitchClass(9), true), // A minor
-            SeedData.TwelveBarBlues,
-            SeedData.Beat1,
-            80,
-            Difficulty.Beginner);
+        // The renderer rejects a minor section key (MVP is major-only). Bars are realized in a major key so
+        // only the section's declared key drives the rejection.
+        var aMinor = new Key(new PitchClass(9), true); // A minor
+        var bars = Transposer.RealizeBars(SeedData.TwelveBarBlues, Bb);
+        var realized = new RealizedSong(new[] { new RealizedSection("blues", aMinor, bars) });
 
-        Assert.Throws<NotSupportedException>(() => Renderer.Render(exercise));
+        Assert.Throws<NotSupportedException>(
+            () => Renderer.Render(realized, SeedData.Beat1, 80, Difficulty.Beginner));
     }
 
     [Fact]
@@ -166,9 +138,9 @@ public class AlphaTexRendererTests
     {
         // "17_67" = I7 (first half) · VI7 (second half) in Bb, struck on every quarter.
         var prog = ProgressionParser.Parse("p", "P", "17_67", TimeSignature.FourFour);
-        var exercise = new Exercise(new Key(new PitchClass(10), false), prog, SeedData.Quarters, 90, Difficulty.Beginner);
 
-        IReadOnlyList<string> groups = ChordGroups(LastBar(Renderer.Render(exercise)));
+        IReadOnlyList<string> groups = ChordGroups(LastBar(
+            Renderer.RenderProgression(Bb, prog, SeedData.Quarters, 90, Difficulty.Beginner)));
 
         Assert.Equal(4, groups.Count);
         Assert.Equal(groups[0], groups[1]);     // both quarters of the I7 half
@@ -181,9 +153,9 @@ public class AlphaTexRendererTests
     {
         // "17:2_67:1_27:1" = I7 (half) · VI7 (quarter) · ii7 (quarter), struck on every quarter.
         var prog = ProgressionParser.Parse("p", "P", "17:2_67:1_27:1", TimeSignature.FourFour);
-        var exercise = new Exercise(new Key(new PitchClass(10), false), prog, SeedData.Quarters, 90, Difficulty.Beginner);
 
-        IReadOnlyList<string> groups = ChordGroups(LastBar(Renderer.Render(exercise)));
+        IReadOnlyList<string> groups = ChordGroups(LastBar(
+            Renderer.RenderProgression(Bb, prog, SeedData.Quarters, 90, Difficulty.Beginner)));
 
         Assert.Equal(4, groups.Count);
         Assert.Equal(groups[0], groups[1]);     // the I7 half spans quarters 1–2
@@ -196,9 +168,9 @@ public class AlphaTexRendererTests
     public void Render_FourChordBar_VoicesEachQuarterDistinctly()
     {
         var prog = ProgressionParser.Parse("p", "P", "17_27_37_47", TimeSignature.FourFour);
-        var exercise = new Exercise(new Key(new PitchClass(10), false), prog, SeedData.Quarters, 90, Difficulty.Beginner);
 
-        IReadOnlyList<string> groups = ChordGroups(LastBar(Renderer.Render(exercise)));
+        IReadOnlyList<string> groups = ChordGroups(LastBar(
+            Renderer.RenderProgression(Bb, prog, SeedData.Quarters, 90, Difficulty.Beginner)));
 
         Assert.Equal(4, groups.Count);
         Assert.Equal(4, groups.Distinct().Count()); // I7/II7/III7/IV7 all different
@@ -208,14 +180,11 @@ public class AlphaTexRendererTests
     public void Render_BluesViaDsl_IsByteIdenticalToSeedProgression()
     {
         // The DSL round-trip must reproduce the existing seed output exactly (C4 backward compatibility).
-        var key = new Key(new PitchClass(10), false);
-        string viaSeed = Renderer.Render(
-            new Exercise(key, SeedData.TwelveBarBlues, SeedData.Beat1And3, 80, Difficulty.Beginner));
+        string viaSeed = Renderer.RenderProgression(Bb, SeedData.TwelveBarBlues, SeedData.Beat1And3, 80, Difficulty.Beginner);
 
         var dslProg = ProgressionParser.Parse(
             "12bar_blues", "12-Bar Blues", "17 17 17 17 47 47 17 17 57 47 17 57", TimeSignature.FourFour);
-        string viaDsl = Renderer.Render(
-            new Exercise(key, dslProg, SeedData.Beat1And3, 80, Difficulty.Beginner));
+        string viaDsl = Renderer.RenderProgression(Bb, dslProg, SeedData.Beat1And3, 80, Difficulty.Beginner);
 
         Assert.Equal(viaSeed, viaDsl);
     }
@@ -223,16 +192,13 @@ public class AlphaTexRendererTests
     [Fact]
     public void Render_NullOptions_MatchesDefaultOptions()
     {
-        Exercise exercise = BbI7Quarters();
-        Assert.Equal(Renderer.Render(exercise), Renderer.Render(exercise, RenderOptions.Default));
+        Assert.Equal(BbI7QuartersTex(), BbI7QuartersTex(RenderOptions.Default));
     }
 
     [Fact]
     public void Render_ShowChordNames_AttachesLabelOncePerChordChange_AndSuppressesDiagrams()
     {
-        Exercise exercise = BbI7Quarters();
-
-        string tex = Renderer.Render(exercise, new RenderOptions(ShowChordNames: true));
+        string tex = BbI7QuartersTex(new RenderOptions(ShowChordNames: true));
 
         // Names without the fret boxes: the directive is emitted explicitly as false.
         Assert.Contains("\\chordDiagramsInScore false", tex);
@@ -246,9 +212,9 @@ public class AlphaTexRendererTests
     public void Render_ShowChordNames_LabelsEachDistinctChordChange()
     {
         var prog = ProgressionParser.Parse("p", "P", "17_27_37_47", TimeSignature.FourFour);
-        var exercise = new Exercise(new Key(new PitchClass(10), false), prog, SeedData.Quarters, 90, Difficulty.Beginner);
 
-        string tex = Renderer.Render(exercise, new RenderOptions(ShowChordNames: true));
+        string tex = Renderer.RenderProgression(Bb, prog, SeedData.Quarters, 90, Difficulty.Beginner,
+            options: new RenderOptions(ShowChordNames: true));
 
         Assert.Equal(4, CountOccurrences(tex, "{ch \""));
     }
@@ -256,9 +222,7 @@ public class AlphaTexRendererTests
     [Fact]
     public void Render_ShowChordDiagramsOverStaff_DefinesDiagramInHeaderAndEnablesOverStaffOnly()
     {
-        Exercise exercise = BbI7Quarters();
-
-        string tex = Renderer.Render(exercise, new RenderOptions(ShowChordDiagramsOverStaff: true));
+        string tex = BbI7QuartersTex(new RenderOptions(ShowChordDiagramsOverStaff: true));
 
         // Over-staff on → the only chord-diagram alphaTex directive, \chordDiagramsInScore (bare = show).
         // On-top has no alphaTex directive (it's the JS stylesheet flag), so it never appears in the tex.
@@ -277,9 +241,7 @@ public class AlphaTexRendererTests
     [Fact]
     public void Render_ShowChordDiagramsOnTop_EmitsDefsAndSuppressesOverStaff_NoOnTopDirective()
     {
-        Exercise exercise = BbI7Quarters();
-
-        string tex = Renderer.Render(exercise, new RenderOptions(ShowChordDiagramsOnTop: true));
+        string tex = BbI7QuartersTex(new RenderOptions(ShowChordDiagramsOnTop: true));
 
         // On-top has no alphaTex directive — the top list is driven by \chord defs + the JS stylesheet flag.
         Assert.DoesNotContain("chordDiagramsOnTop", tex);
@@ -291,18 +253,68 @@ public class AlphaTexRendererTests
     [Fact]
     public void Render_UnimplementedVoicingStrategy_Throws()
     {
-        Exercise exercise = BbI7Quarters();
-
         Assert.Throws<NotSupportedException>(
-            () => Renderer.Render(exercise, new RenderOptions(Voicing: (VoicingStrategy)99)));
+            () => BbI7QuartersTex(new RenderOptions(Voicing: (VoicingStrategy)99)));
     }
 
-    private static Exercise BbI7Quarters() =>
-        new(new Key(new PitchClass(10), false), // Bb major
+    [Fact]
+    public void Render_WithLead_EmitsTwoTracksWithDeadNoteLead()
+    {
+        // Comping = Beat 1 (a whole-note strike); Lead = quarters → four dead notes on string 3.
+        RealizedSong song = OneBarI7();
+
+        string tex = Renderer.Render(song, SeedData.Beat1, 80, Difficulty.Beginner, lead: SeedData.Quarters);
+
+        // Score metadata + the lone "." precede the first \track (\ts/\ks moved into each track).
+        Assert.Contains("\\track \"Comping\" \"comp\" { defaultSystemsLayout 4 }", tex);
+        Assert.Contains("\\track \"Lead\" \"lead\" { defaultSystemsLayout 4 }", tex);
+        Assert.Equal(2, CountOccurrences(tex, "\\ts 4 4")); // one per track
+        Assert.Equal(2, CountOccurrences(tex, "\\ks bb"));
+        Assert.Equal(1, CountOccurrences(tex, "\n.\n"));    // exactly one metadata terminator
+        // Comping bar unchanged; lead bar is the rhythm rendered as dead notes.
+        Assert.Contains(":1 (1.5 0.4 1.3) |", tex);
+        Assert.Contains(":4 x.3 x.3 x.3 x.3 |", tex);
+        // Two master bars total (one per track), so two pipe separators.
+        Assert.Equal(2, tex.Count(c => c == '|'));
+    }
+
+    [Fact]
+    public void Render_WithoutLead_HasNoTrackWrapper()
+    {
+        // Single-track output must stay byte-identical to the pre-lead renderer (design §7.4) — no \track.
+        string tex = Renderer.RenderProgression(Bb, I7Progression(), SeedData.Beat1, 80, Difficulty.Beginner);
+
+        Assert.DoesNotContain("\\track", tex);
+    }
+
+    [Fact]
+    public void Render_WithLeadAndPickup_MirrorsPickupAsRestsOnLeadTrack()
+    {
+        // A comping pickup gets a matching leading bar on the lead track — but as a rest (the lead doesn't
+        // play during the anacrusis in v1), so the staves stay bar-aligned.
+        var pickup = new PickupMeasure(new[] { RhythmEvent.Hit(0, 48) }, LengthTicks: 48);
+        var rhythm = RhythmPattern.SingleBar("p", "Pickup", SeedData.Beat1.Bars[0].Events, TimeSignature.FourFour, pickup);
+
+        string tex = Renderer.Render(OneBarI7(), rhythm, 80, Difficulty.Beginner, lead: SeedData.Quarters);
+
+        // Pickup bar + one main bar, on each of the two tracks → 4 pipes.
+        Assert.Equal(4, tex.Count(c => c == '|'));
+        string leadSection = tex[tex.IndexOf("\\track \"Lead\"", System.StringComparison.Ordinal)..];
+        Assert.Contains(":4 r |", leadSection); // the lead pickup is a rest
+    }
+
+    private static Progression I7Progression() =>
+        new("test", "Test", new RomanDegree[] { new(1, Quality.Dominant7) });
+
+    private static RealizedSong OneBarI7() =>
+        new(new[] { new RealizedSection("Test", Bb, Transposer.RealizeBars(I7Progression(), Bb)) });
+
+    // A single Bb I7 bar struck on every quarter — the fixture for the RenderOptions tests.
+    private static string BbI7QuartersTex(RenderOptions? options = null) =>
+        Renderer.RenderProgression(
+            Bb,
             new Progression("test", "Test", new RomanDegree[] { new(1, Quality.Dominant7) }),
-            SeedData.Quarters,
-            90,
-            Difficulty.Beginner);
+            SeedData.Quarters, 90, Difficulty.Beginner, options: options);
 
     private static string LastBar(string tex) => tex.Split('\n')[^1];
 

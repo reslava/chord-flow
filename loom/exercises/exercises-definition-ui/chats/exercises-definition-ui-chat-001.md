@@ -2,9 +2,10 @@
 type: chat
 id: ch_01KTMF9BEC6TFWV9QY3K2AJZMR
 title: exercises-definition-ui Chat
-status: active
+status: done
 created: "2026-06-08T00:00:00.000Z"
-version: 1
+updated: 2026-06-15
+version: 2
 tags: []
 parent_id: null
 requires_load: [rf_01KTM41K36DYJ0CE44FE7TMCGH]

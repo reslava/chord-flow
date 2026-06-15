@@ -29,10 +29,9 @@ public class ProgressionSeedTests
         // DSL → parser → transposer → renderer must succeed for each built-in (in a major key).
         (_, string body) = CatalogHeader.Parse(def.Dsl);
         Progression prog = ProgressionParser.Parse(def.Id, def.Name, body, TimeSignature.FourFour);
-        var exercise = new Exercise(
-            new Key(new PitchClass(10), false), prog, SeedData.Quarters, 90, Difficulty.Beginner);
 
-        string tex = Renderer.Render(exercise);
+        string tex = Renderer.RenderProgression(
+            new Key(new PitchClass(10), false), prog, SeedData.Quarters, 90, Difficulty.Beginner);
 
         Assert.StartsWith($"\\title \"{def.Name} — Bb\"", tex);
         Assert.Contains('|', tex);

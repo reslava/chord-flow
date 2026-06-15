@@ -82,7 +82,7 @@ internal static class Program
                 var bridge = new WebView2Bridge(core, router);
                 // Swappable so an authored-voicing change can hot-rebuild the voicing book without a restart (IN11).
                 var renderer = new SwappableRenderer(new AlphaTexRenderer(new VoicingBook(voicingLibrary)));
-                var generate = new GenerateExerciseHandler(renderer);
+                var generate = new GenerateExerciseHandler(dbOptions, renderer);
                 var library = new ExerciseLibraryHandler(dbOptions, renderer);
                 var progress = new ProgressHandler(dbOptions);
                 var contentCrud = new ContentCrudHandler(dbOptions, renderer);
@@ -113,7 +113,10 @@ internal static class Program
                 {
                     try
                     {
-                        bridge.Send(LoadScoreEnvelope.From(exercise, renderer, options));
+                        // Expansion (the one I/O seam) needs the progression store; a short-lived context
+                        // per render keeps it consistent with the other handlers (merge decision (a)).
+                        using var renderDb = new ChordFlowDbContext(dbOptions);
+                        bridge.Send(LoadScoreEnvelope.From(exercise, new ProgressionStore(renderDb), renderer, options));
                         return true;
                     }
                     catch (Exception renderEx)

@@ -5,7 +5,7 @@ title: ChordFlow Domain Model
 status: active
 created: "2026-06-08T00:00:00.000Z"
 updated: 2026-06-15
-version: 21
+version: 26
 tags: []
 parent_id: null
 requires_load: []
@@ -133,8 +133,8 @@ The old sequential `Beat(Duration, IsHit)` model was **removed**; rhythm is now 
 | `RhythmSlot(int NoteValue, bool IsRest, bool TiedToPrevious, int StartTick, Tuplet? Tuplet = null)` | One quantized note/rest cell. `NoteValue` = alphaTex `:N` (1/2/4/8/16). **`StartTick`** (v0.4.0) = bar-relative onset tick; the renderer uses it to look up which `ChordSpan` covers the slot. **`Tuplet`** (slice-1) is set on triplet-grid slots, null on straight beats. |
 | `Tuplet(int Numerator, int Denominator)` | **slice-1.** A tuplet marker — `(3, 2)` = "3 in the time of 2." Rendered as alphaTex `{tu N}` (N = Numerator). Both eighth-triplet (`:8`) and 16th-triplet (`:16`) carry `(3, 2)`; the note value distinguishes them. |
 | `RhythmQuantizer` | tick grid → sequential slots. Walks events in order, fills gaps with rests, **splits spans at beat lines and at `ChordSpan` boundaries** (v0.4.0). At a chord boundary a sounding note **re-attacks** (`TiedToPrevious = false`); a rest stays a rest (no phantom strum). **slice-1:** `ClassifyBeats` detects triplet beats from event **edge ticks** (all interior edges on the 8t/16t triplet grid, off the straight-12t grid); a triplet beat decomposes against the straight duration table scaled by 3/2 and tags each slot `Tuplet(3,2)`, so a sustained multi-cell triplet note becomes one larger tuplet value (e.g. `X.X` → `:4{tu 3}`) instead of tied cells. **slice-2:** a straight **note** now coalesces across beat lines into the largest metrically-aligned value (`LargestAlignedFit` — the largest note value whose ticks divide the onset tick), so a beat-aligned ring is a whole/half note rather than tied quarters; rests and triplet beats still chunk per beat, and a syncopated/dotted ring still tie-splits. `Quantize(events, ts, spanBoundaries)`. |
-| `AlphaTexRenderer` | `Render(exercise, options?)` → alphaTex. Per realized bar, quantizes with that bar's span boundaries, then for each slot picks the chord via `HarmonicBar.SpanCovering(slot.StartTick)` (v0.4.0). Header (`\title \subtitle \tempo \ts \ks .`) then bars of stateful `:N` + `( )` chord groups / `r`, with `{tu N}` appended on each tupled slot (slice-1; `{tu}` does not persist like `:N`). **slice-1:** warps each pattern bar once and **tiles multi-bar patterns cyclically** onto the progression. **score-render-component thread:** an optional `RenderOptions` adds presentation toggles — `{ch "Name"}` labels at chord changes (any chord toggle), the `\chordDiagramsInScore` directive for **over-staff** boxes, and `\chord (...)` definitions (for either diagram mode) collected during body rendering and emitted in the **metadata header** (before the `.`), so the body is rendered before the header is assembled. **On-top** diagrams have no alphaTex directive — the list shows for defined+used chords and is toggled via the `globalDisplayChordDiagramsOnTop` stylesheet flag in the JS component (see `alphatex-syntax-reference.md`). A per-render `RenderState` (replacing the `ref currentDuration`) tracks duration + active chord label + the collected diagram definitions. Absent options ⇒ byte-identical to the pre-options render. Calls `NoteSpeller` + `ChordSymbol` + `RhythmQuantizer`; applies `Feel` pre-quantize. |
-| `IScoreRenderer` | Seam for future MIDI / GuitarPro / MusicXML exporters. Both `Render` overloads take an optional trailing `RenderOptions? options = null` (null ⇒ `RenderOptions.Default`). |
+| `AlphaTexRenderer` | `Render(RealizedSong, comping, tempo, difficulty, feel, lead?, options?)` → alphaTex — the **only** entry point (`Render(Exercise)` was dropped; Features expands the Song first, decision (a)). Per realized bar, quantizes with that bar's span boundaries, then for each slot picks the chord via `HarmonicBar.SpanCovering(slot.StartTick)` (v0.4.0). Header (`\title \subtitle \tempo \ts \ks .`) then bars of stateful `:N` + `( )` chord groups / `r`, with `{tu N}` appended on each tupled slot (slice-1; `{tu}` does not persist like `:N`). **slice-1:** warps each pattern bar once and **tiles multi-bar patterns cyclically** onto the progression. **score-render-component thread:** an optional `RenderOptions` adds presentation toggles — `{ch "Name"}` labels at chord changes (any chord toggle), the `\chordDiagramsInScore` directive for **over-staff** boxes, and `\chord (...)` definitions (for either diagram mode) collected during body rendering and emitted in the **metadata header** (before the `.`), so the body is rendered before the header is assembled. **On-top** diagrams have no alphaTex directive — the list shows for defined+used chords and is toggled via the `globalDisplayChordDiagramsOnTop` stylesheet flag in the JS component (see `alphatex-syntax-reference.md`). A per-render `RenderState` (replacing the `ref currentDuration`) tracks duration + active chord label + the collected diagram definitions. Absent options ⇒ byte-identical to the pre-options render. A non-null `lead` emits **two `\track` staves** (comping + a dead-note `x.3` lead, `defaultSystemsLayout 4`); `lead` null stays single-track and byte-identical (design §7.4). Calls `NoteSpeller` + `ChordSymbol` + `RhythmQuantizer`; applies `Feel` pre-quantize. |
+| `IScoreRenderer` | Seam for future MIDI / GuitarPro / MusicXML exporters. One `Render(RealizedSong, comping, tempo, difficulty, feel, lead?, options?)` entry point — pure/store-free (the Exercise→RealizedSong expansion is the Features I/O seam, decision (a)); `options` null ⇒ `RenderOptions.Default`. |
 | `RenderOptions` / `VoicingStrategy` | **score-render-component thread.** `RenderOptions(bool ShowChordNames, bool ShowChordDiagramsOverStaff, bool ShowChordDiagramsOnTop, VoicingStrategy Voicing)` — the render-time presentation bag carried from the bridge's `renderOptions` (ready/generate/entityPreview/loadExercise). `VoicingStrategy` ships only `ByDifficulty` (the existing `VoicingBook.Lookup(chord, difficulty)` selection); other values fail loud (CAGED-shape preference deferred to `caged-system`/`voicings`). Player-kind toggles (metronome/count-in) never reach Core — they're alphaTab-API-only in the JS component. |
 
 > ⚠️ **Ties/dotted alphaTex tokens are unverified** (see `alphatex-syntax-reference.md`). The quantizer models ties as slot metadata but the built-in patterns never produce them — beat-aligned rings **coalesce** into whole/half notes (slice-2) rather than tie — so the renderer **throws** only if a genuinely syncopated/dotted tie ever reaches it, rather than emit an unverified token. **Tuplets, by contrast, are verified** (`{tu N}`) and supported as of slice-1 — sustained triplet notes use a larger tuplet value precisely so the no-tie rule never trips inside a triplet.
@@ -162,15 +162,20 @@ The old sequential `Beat(Duration, IsHit)` model was **removed**; rhythm is now 
 
 ## 7. The unifying object & pipeline
 
-`Exercise(Key, Progression, RhythmPattern Rhythm, int Tempo, Difficulty, Feel = Straight)` — the persisted definition (SQLite stores definition fields only; alphaTex is regenerated on load, never stored).
+`Exercise(Song Song, RhythmPattern Comping, RhythmPattern? Lead, Key? KeyOverride, int Tempo, Difficulty, Feel = Straight)` — the **one canonical play-unit** (merge decision (a), `exercises-definition-ui`): it superseded both the old `Exercise(Key, Progression, …)` and the `SongExercise(Song, …)`, both **deleted**. Definition = references (a `Song` — a bare `Progression` is lifted via `Song.OfProgression`, so there's no Progression-vs-Song branch downstream; a required `Comping` pattern; an optional `Lead` pattern). Params = `KeyOverride` (null → `Song.InitialKey`; else a whole-song transpose), `Tempo`, `Difficulty`, `Feel`. SQLite (`ExerciseEntity`) stores the references + the `KeyOverride` **token** + params only; alphaTex is regenerated on load, never stored.
+
+Realization is **one path**, and the single I/O seam — expanding the Song against an `IProgressionStore` — lives in the **Features layer** (`Features/ExerciseRendering.RenderToTex`), never the renderer. `AlphaTexRenderer` is pure/store-free and only ever sees a `RealizedSong`; there is **no `Render(Exercise)` overload** (decision (a)).
 
 ```
 Exercise
-  → Transposer.Realize (progression → IReadOnlyList<RealizedBar> — chord + ticks per span)
-  → VoicingBook stored-first: authored voicings ∥ strategy fallback (voicings)   OR  LeadTargets (solo targets → fretboard)
+  → baseKey = KeyOverride ?? Song.InitialKey
+  → SongExpander.Expand(Song, store, startKey: baseKey) → RealizedSong (sections, each keyed)   ← Features (the I/O seam)
+  → per section: Comping → VoicingBook (authored ∥ strategy)  ‖  Lead → dead notes (x.3)   [LeadTargets → pitches deferred]
   → FeelTransform (apply rhythm + feel; identity for Straight)
   → RhythmQuantizer (→ slots, split at beat lines AND chord-span boundaries)
-  → AlphaTexRenderer (per slot: SpanCovering(StartTick) → chord group → alphaTex)
+  → AlphaTexRenderer.Render(RealizedSong, Comping, …, lead: Lead, options)
+       · Lead null → single track (byte-identical to the pre-merge output)
+       · Lead set  → two \track staves (comping + dead-note lead), defaultSystemsLayout 4
   → alphaTab
 ```
 
@@ -182,6 +187,6 @@ Exercise
 - **Timing/harmony separation:** `RomanDegree` is always timing-free. Chord-change timing lives exclusively on `ChordSpan.DurationTicks` on the 48-PPQ grid.
 - **Two degree frames:** `RomanDegree`/`ScaleDegree` (key-relative) vs `ChordTone` (chord-relative). Don't conflate.
 - **v1 render constraint:** only quarter-aligned span boundaries (durations ∈ {48, 96, 144, 192} in 4/4). Sub-quarter and off-beat (syncopated) boundaries are domain-legal but deferred.
-- **4/4 only** for v1. Rhythm patterns now support sub-quarter grids and **triplet tuplets render** (`:3`/`:6` → `{tu N}`); 32nds, ties, and dotted tokens still do not. No accuracy detection; no lead-training UI.
+- **4/4 only** for v1. Rhythm patterns now support sub-quarter grids and **triplet tuplets render** (`:3`/`:6` → `{tu N}`); 32nds, ties, and dotted tokens still do not. No accuracy detection. A v1 **dead-note lead track** (`x.3`, rhythm only) renders as a 2nd `\track` staff when an `Exercise.Lead` pattern is present; pitched `LeadTargets` deferred.
 
 Related: [[alphatex-syntax-reference]], [[alphatab-js-api-reference]].

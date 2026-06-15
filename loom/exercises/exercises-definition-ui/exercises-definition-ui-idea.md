@@ -2,9 +2,10 @@
 type: idea
 id: id_01KTWE71HWW2GWFHQQ0QMR84K6
 title: Exercise definition & UI — the capstone over Harmony + Rhythm
-status: draft
-created: 2026-06-11
-version: 1
+status: done
+created: "2026-06-11T00:00:00.000Z"
+updated: 2026-06-15
+version: 2
 tags: []
 parent_id: null
 requires_load: []

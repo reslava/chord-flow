@@ -51,6 +51,34 @@ public static class NoteSpeller
         return Name(key.Tonic, key).ToLowerInvariant();
     }
 
+    /// <summary>
+    /// Inverse of <see cref="KeySignatureToken"/>: parse a <c>\ks</c>-style tonic token (e.g. <c>bb</c>,
+    /// <c>f#</c>, <c>c</c>) back into a major <see cref="Key"/>. v1 keys are major-only, so the token has no
+    /// mode suffix; used to round-trip a persisted <c>Exercise.KeyOverride</c>.
+    /// </summary>
+    public static Key KeyFromSignatureToken(string token)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(token);
+
+        int basePc = char.ToUpperInvariant(token[0]) switch
+        {
+            'C' => 0, 'D' => 2, 'E' => 4, 'F' => 5, 'G' => 7, 'A' => 9, 'B' => 11,
+            _ => throw new FormatException($"Key token \"{token}\" has an unknown note letter."),
+        };
+
+        if (token.Length > 1)
+        {
+            basePc += token[1] switch
+            {
+                '#' => 1,
+                'b' => -1,
+                _ => throw new FormatException($"Key token \"{token}\" has an unknown accidental \"{token[1]}\"."),
+            };
+        }
+
+        return new Key(new PitchClass(Mod12(basePc)), IsMinor: false);
+    }
+
     // A key spells with sharps based on its (relative) major. The relative major of a minor key is
     // a minor third (3 semitones) up, so Am → C, Em → G, etc.
     private static bool UsesSharps(Key key)

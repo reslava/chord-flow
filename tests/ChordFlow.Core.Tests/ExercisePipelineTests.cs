@@ -12,18 +12,17 @@ public class ExercisePipelineTests
 {
     private static readonly AlphaTexRenderer Renderer = new();
 
-    private static Exercise BbBlues(RhythmPattern rhythm, Feel feel = Feel.Straight) => new(
-        new Key(new PitchClass(10), false), // Bb major
-        SeedData.TwelveBarBlues,
-        rhythm,
-        80,
-        Difficulty.Beginner,
-        feel);
+    // Bb 12-bar blues rendered through the canonical Render(RealizedSong, …) path (Render(Exercise) was
+    // dropped in the Exercise merge — decision (a)).
+    private static string RenderBbBlues(RhythmPattern rhythm, Feel feel = Feel.Straight) =>
+        Renderer.RenderProgression(
+            new Key(new PitchClass(10), false), // Bb major
+            SeedData.TwelveBarBlues, rhythm, 80, Difficulty.Beginner, feel);
 
     [Fact]
     public void Render_BbTwelveBarBlues_ProducesValidAlphaTexThroughTheNewPath()
     {
-        string tex = Renderer.Render(BbBlues(SeedData.Beat1And3));
+        string tex = RenderBbBlues(SeedData.Beat1And3);
 
         string[] lines = tex.Split('\n');
 
@@ -55,8 +54,8 @@ public class ExercisePipelineTests
     public void Render_StraightFeel_MatchesNoFeelOutput()
     {
         // Feel.Straight is the identity warp, so it must not change the rendered score.
-        string straight = Renderer.Render(BbBlues(SeedData.Quarters, Feel.Straight));
-        string none = Renderer.Render(BbBlues(SeedData.Quarters));
+        string straight = RenderBbBlues(SeedData.Quarters, Feel.Straight);
+        string none = RenderBbBlues(SeedData.Quarters);
 
         Assert.Equal(none, straight);
     }

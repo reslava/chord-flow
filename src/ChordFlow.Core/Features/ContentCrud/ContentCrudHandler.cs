@@ -1,4 +1,5 @@
 using ChordFlow.Domain;
+using ChordFlow.Features;
 using ChordFlow.Persistence;
 using ChordFlow.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -99,8 +100,8 @@ public sealed class ContentCrudHandler
             using var db = new ChordFlowDbContext(_dbOptions);
             return kind switch
             {
-                ContentEntity.Progression => ScorePreview(entity, ProgressionPreview(dsl), opts),
-                ContentEntity.Rhythm => ScorePreview(entity, RhythmPreview(dsl), opts),
+                ContentEntity.Progression => ScorePreview(entity, ProgressionPreview(dsl), db, opts),
+                ContentEntity.Rhythm => ScorePreview(entity, RhythmPreview(dsl), db, opts),
                 ContentEntity.Song => SongPreview(entity, dsl, db, opts),
                 ContentEntity.Voicing => VoicingPreview(entity, dsl),
                 _ => throw new FormatException($"Cannot preview entity \"{entity}\"."),
@@ -117,13 +118,17 @@ public sealed class ContentCrudHandler
         }
     }
 
-    private EntityPreviewEnvelope ScorePreview(string entity, Exercise exercise, RenderOptions options) =>
-        new(entity, "score", _renderer.Render(exercise, options), exercise.Tempo);
+    // Expansion (the one I/O seam) runs through ExerciseRendering against the live db's progression store,
+    // so a progression/rhythm preview goes down the exact same path a saved exercise renders through.
+    private EntityPreviewEnvelope ScorePreview(string entity, Exercise exercise, ChordFlowDbContext db, RenderOptions options) =>
+        new(entity, "score", ExerciseRendering.RenderToTex(exercise, new ProgressionStore(db), _renderer, options), exercise.Tempo);
 
     private static Exercise ProgressionPreview(string dsl)
     {
         Progression progression = ProgressionParser.Parse("preview", "Preview", dsl, TimeSignature.FourFour);
-        return new Exercise(PreviewKey, progression, SeedData.Quarters, PreviewTempo, Difficulty.Beginner);
+        return new Exercise(
+            Song.OfProgression(progression, PreviewKey), SeedData.Quarters, Lead: null, KeyOverride: null,
+            PreviewTempo, Difficulty.Beginner);
     }
 
     private static Exercise RhythmPreview(string dsl)
@@ -131,7 +136,9 @@ public sealed class ContentCrudHandler
         // Preview a bare rhythm on a single I chord so the focus is the timing, not the harmony.
         Progression oneChord = ProgressionParser.Parse("preview", "Preview", "1", TimeSignature.FourFour);
         RhythmPattern rhythm = RhythmPatternParser.Parse("preview", "Preview", dsl, TimeSignature.FourFour);
-        return new Exercise(PreviewKey, oneChord, rhythm, PreviewTempo, Difficulty.Beginner);
+        return new Exercise(
+            Song.OfProgression(oneChord, PreviewKey), rhythm, Lead: null, KeyOverride: null,
+            PreviewTempo, Difficulty.Beginner);
     }
 
     private EntityPreviewEnvelope SongPreview(string entity, string dsl, ChordFlowDbContext db, RenderOptions options)

@@ -9,12 +9,15 @@ using Microsoft.EntityFrameworkCore;
 namespace ChordFlow.Features.ExerciseLibrary;
 
 /// <summary>
-/// One saved exercise, for the library list in the UI. Raw definition fields — the
-/// JS builds the human label from its key/rhythm name maps (the same ones the pickers
-/// use), so no naming is duplicated in C#.
+/// One saved exercise, for the library list in the UI. Raw definition fields (references + params) — the JS
+/// builds the human label from its own name maps, so no naming is duplicated in C#. Reshaped for the merged
+/// <see cref="Exercise"/> model (IN4): <c>SongId</c>/<c>CompingPatternId</c>/<c>LeadPatternId</c> references +
+/// the <c>KeyOverride</c> token + <c>Feel</c> (was <c>Key</c>/<c>RhythmId</c>). NOTE: <c>app.js</c>'s list
+/// rendering still reads the old fields — the UI rewire belongs to the <c>ui/exercise-workbench</c> thread.
 /// </summary>
 public sealed record ExerciseSummary(
-    int Id, int Key, string RhythmId, int Tempo, string Difficulty, string CreatedUtc, int PracticedCount);
+    int Id, string SongId, string CompingPatternId, string? LeadPatternId, string? KeyOverride,
+    int Tempo, string Difficulty, string Feel, string CreatedUtc, int PracticedCount);
 
 /// <summary>Outbound envelope: the saved-exercise list. Serializes to <c>{"type":"exerciseList","exercises":[…]}</c>.</summary>
 public sealed record ExerciseListEnvelope(IReadOnlyList<ExerciseSummary> Exercises, string Type = "exerciseList");
@@ -46,11 +49,13 @@ public sealed class ExerciseLibraryHandler
         using var db = new ChordFlowDbContext(_dbOptions);
         var entity = new ExerciseEntity
         {
-            Key = NormalizePitchClass(exercise.Key.Tonic.Value),
-            ProgressionId = exercise.Progression.Id,
-            RhythmId = exercise.Rhythm.Id,
+            SongId = exercise.Song.Id,
+            CompingPatternId = exercise.Comping.Id,
+            LeadPatternId = exercise.Lead?.Id,
+            KeyOverride = exercise.KeyOverride is { } k ? NoteSpeller.KeySignatureToken(k) : null,
             Tempo = exercise.Tempo,
             Difficulty = exercise.Difficulty,
+            Feel = exercise.Feel,
             CreatedUtc = DateTime.UtcNow,
         };
         db.Exercises.Add(entity);
@@ -78,8 +83,8 @@ public sealed class ExerciseLibraryHandler
 
         var summaries = rows
             .Select(e => new ExerciseSummary(
-                e.Id, e.Key, e.RhythmId, e.Tempo,
-                e.Difficulty.ToString(),
+                e.Id, e.SongId, e.CompingPatternId, e.LeadPatternId, e.KeyOverride, e.Tempo,
+                e.Difficulty.ToString(), e.Feel.ToString(),
                 e.CreatedUtc.ToString("o", CultureInfo.InvariantCulture),
                 practiced.GetValueOrDefault(e.Id)))
             .ToList();
@@ -101,25 +106,31 @@ public sealed class ExerciseLibraryHandler
         }
 
         Exercise exercise = ToExercise(entity);
-        return new LoadedExercise(exercise, LoadScoreEnvelope.From(exercise, _renderer, options));
+        return new LoadedExercise(exercise, LoadScoreEnvelope.From(exercise, new ProgressionStore(db), _renderer, options));
     }
 
-    // Rebuild the Domain Exercise from a stored definition. The progression/rhythm ids
-    // resolve back to the seed objects; MVP keys are major-only.
+    // Rebuild the Domain Exercise from a stored definition. The KeyOverride token round-trips the chosen
+    // practice key (the only place a lifted bare-progression's key is stored). The MVP resolves the single
+    // seed progression + seed patterns by id and lifts the progression to a single-section Song so it rides
+    // the one realization path. Full Song/RhythmPattern store resolution (fail-loud on a missing row, §3) is
+    // a ui/exercise-workbench concern, once real authored content is saved as exercises.
     private static Exercise ToExercise(ExerciseEntity e)
     {
-        var key = new Key(new PitchClass(NormalizePitchClass(e.Key)), IsMinor: false);
+        Key? keyOverride = e.KeyOverride is { Length: > 0 } token
+            ? NoteSpeller.KeyFromSignatureToken(token)
+            : null;
+        Key liftKey = keyOverride ?? SeedDefaultKey;
 
-        // MVP has a single progression; resolve by id, fall back to it.
-        Progression progression = e.ProgressionId == SeedData.TwelveBarBlues.Id
-            ? SeedData.TwelveBarBlues
-            : SeedData.TwelveBarBlues;
+        Progression progression = SeedData.TwelveBarBlues;
+        RhythmPattern comping =
+            SeedData.RhythmPatterns.FirstOrDefault(r => r.Id == e.CompingPatternId) ?? SeedData.Beat1And3;
+        RhythmPattern? lead = e.LeadPatternId is { Length: > 0 } leadId
+            ? SeedData.RhythmPatterns.FirstOrDefault(r => r.Id == leadId)
+            : null;
 
-        RhythmPattern rhythm =
-            SeedData.RhythmPatterns.FirstOrDefault(r => r.Id == e.RhythmId) ?? SeedData.Beat1And3;
-
-        return new Exercise(key, progression, rhythm, e.Tempo, e.Difficulty);
+        return new Exercise(
+            Song.OfProgression(progression, liftKey), comping, lead, keyOverride, e.Tempo, e.Difficulty, e.Feel);
     }
 
-    private static int NormalizePitchClass(int value) => ((value % 12) + 12) % 12;
+    private static readonly Key SeedDefaultKey = new(new PitchClass(0), IsMinor: false); // C major fallback
 }

@@ -5,7 +5,7 @@ using ChordFlow.Domain;
 namespace ChordFlow.Rendering;
 
 /// <summary>
-/// The <b>only</b> component that knows alphaTex syntax. Turns an <see cref="Exercise"/> into an
+/// The <b>only</b> component that knows alphaTex syntax. Turns a <see cref="RealizedSong"/> into an
 /// alphaTex string per loom/refs/alphatex-syntax-reference.md: header metadata
 /// (<c>\title \subtitle \tempo \ts \ks</c>), a lone <c>.</c> to end the header, then bars of stateful
 /// <c>:N</c> durations, <c>( )</c> chord groups, <c>r</c> rests, separated by <c>|</c>. Note spelling
@@ -36,58 +36,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     {
     }
 
-    public string Render(Exercise exercise, RenderOptions? options = null)
-    {
-        ArgumentNullException.ThrowIfNull(exercise);
-        RenderOptions opts = options ?? RenderOptions.Default;
-        EnsureMajorSupported(exercise.Key);
-
-        // Spelling lives in the domain (NoteSpeller), keeping this the only alphaTex-aware code.
-        string keyName = NoteSpeller.Name(exercise.Key.Tonic, exercise.Key);
-
-        RhythmPattern rhythm = exercise.Rhythm;
-        TimeSignature ts = rhythm.TimeSignature;
-        IReadOnlyList<RealizedBar> bars = Transposer.RealizeBars(exercise.Progression, exercise.Key);
-
-        // Stateful render context: the alphaTex ":N" duration persists until changed, the active chord
-        // label is tracked so {ch "…"} is emitted only at chord changes, and each \chord diagram is
-        // collected once. The body is rendered FIRST so the collected \chord definitions are available
-        // when the header is built — \chord is header metadata, emitted before the lone "." (see
-        // alphatex-syntax-reference.md).
-        var state = new RenderState();
-        var barLines = new List<string>(bars.Count + 1);
-
-        // Apply the exercise's groove feel as a playback-time warp before quantizing (identity for
-        // Straight). The stored pattern stays straight — Feel is never baked into it (C4). Each pattern
-        // bar is warped once; multi-bar patterns tile cyclically onto the progression (design §7).
-        IReadOnlyList<IReadOnlyList<RhythmEvent>> feltBars = WarpBars(rhythm, exercise.Feel, ts);
-
-        // A pickup/anacrusis renders as a leading measure, voiced with the first chord of the first bar.
-        if (rhythm.Pickup is { } pickup && bars.Count > 0)
-        {
-            Chord firstChord = bars[0].Spans[0].Chord;
-            IReadOnlyList<RhythmSlot> pickupSlots = RhythmQuantizer.Quantize(pickup);
-            barLines.Add(RenderBar(pickupSlots, _ => firstChord, exercise.Difficulty, exercise.Key, opts, state));
-        }
-
-        RenderBars(bars, feltBars, ts, exercise.Difficulty, exercise.Key, opts, state, barLines);
-
-        var sb = new StringBuilder();
-        AppendHeader(
-            sb,
-            $"{exercise.Progression.Name} — {keyName}",
-            $"{exercise.Difficulty} — {rhythm.Name}",
-            exercise.Tempo,
-            ts,
-            NoteSpeller.KeySignatureToken(exercise.Key),
-            opts,
-            state.ChordDefinitions);
-        sb.Append(string.Join("\n", barLines));
-
-        return sb.ToString();
-    }
-
-    public string Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, Feel feel = Feel.Straight, RenderOptions? options = null)
+    public string Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, Feel feel = Feel.Straight, RhythmPattern? lead = null, RenderOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentNullException.ThrowIfNull(rhythm);
@@ -98,20 +47,67 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         }
 
         TimeSignature ts = rhythm.TimeSignature;
-        IReadOnlyList<IReadOnlyList<RhythmEvent>> feltBars = WarpBars(rhythm, feel, ts);
 
-        // One header, seeded from the first section's key (\ks is legal mid-score, so later key changes are
-        // emitted inline — no per-key score splitting; design §8.3).
+        // Seeded from the first section's key (\ks is legal mid-score, so later key changes are emitted
+        // inline — no per-key score splitting; design §8.3).
         RealizedSection first = song.Sections[0];
         EnsureMajorSupported(first.Key);
 
-        // The render state is threaded across every section so the ":N" duration and the active chord
-        // label carry over section seams unchanged. Body first, then the header (so collected \chord
-        // diagram definitions land in the metadata before the ".").
+        // Comping (rhythm-guitar) track body: pickup + section bars, with inline \ks on key change. The state
+        // collects each \chord diagram definition once for the score metadata block.
         var state = new RenderState();
-        var barLines = new List<string>();
-        Key? previousKey = null;
+        List<string> compingBars = BuildCompingBars(song, rhythm, feel, ts, difficulty, opts, state);
 
+        string title = $"{first.Label} — {NoteSpeller.Name(first.Key.Tonic, first.Key)}";
+        string subtitle = $"{difficulty} — {rhythm.Name}";
+        string keySig = NoteSpeller.KeySignatureToken(first.Key);
+
+        var sb = new StringBuilder();
+
+        if (lead is null)
+        {
+            // Single track — byte-identical to the pre-lead output (design §7.4): \ts/\ks sit in the header,
+            // and there is no \track wrapper.
+            AppendHeader(sb, title, subtitle, tempo, ts, keySig, opts, state.ChordDefinitions);
+            sb.Append(string.Join("\n", compingBars));
+            return sb.ToString();
+        }
+
+        // Two tracks (IN5): score metadata + the lone "." first, then a \track per staff carrying its own
+        // bar metadata (\ts/\ks). The lead pattern renders as dead notes (\x.3); both tracks span the same
+        // master bars so the staves stay aligned. `defaultSystemsLayout 4` lays out 4 bars per row.
+        List<string> leadBars = BuildLeadBars(song, rhythm, lead, feel, ts);
+
+        AppendScoreMetadata(sb, title, subtitle, tempo, opts, state.ChordDefinitions);
+        AppendTrackHeader(sb, "Comping", "comp", ts, keySig);
+        sb.Append(string.Join("\n", compingBars)).Append('\n');
+        AppendTrackHeader(sb, "Lead", "lead", ts, keySig);
+        sb.Append(string.Join("\n", leadBars));
+
+        return sb.ToString();
+    }
+
+    // The comping track body: a pickup measure (voiced with the first chord) then each section's bars, with
+    // an inline \ks only when the section key changes. The threaded state carries the ":N" duration and the
+    // active chord label across section seams, and collects \chord diagram definitions for the header.
+    private List<string> BuildCompingBars(
+        RealizedSong song, RhythmPattern rhythm, Feel feel, TimeSignature ts, Difficulty difficulty,
+        RenderOptions opts, RenderState state)
+    {
+        IReadOnlyList<IReadOnlyList<RhythmEvent>> feltBars = WarpBars(rhythm, feel, ts);
+        RealizedSection first = song.Sections[0];
+        var barLines = new List<string>();
+
+        // A pickup/anacrusis renders as a leading measure, voiced with the first chord of the first section
+        // (ported from the old Render(Exercise) path — merge decision (a)).
+        if (rhythm.Pickup is { } pickup && first.Bars.Count > 0)
+        {
+            Chord firstChord = first.Bars[0].Spans[0].Chord;
+            IReadOnlyList<RhythmSlot> pickupSlots = RhythmQuantizer.Quantize(pickup);
+            barLines.Add(RenderBar(pickupSlots, _ => firstChord, difficulty, first.Key, opts, state));
+        }
+
+        Key? previousKey = null;
         foreach (RealizedSection section in song.Sections)
         {
             EnsureMajorSupported(section.Key);
@@ -126,19 +122,47 @@ public sealed class AlphaTexRenderer : IScoreRenderer
             previousKey = section.Key;
         }
 
-        var sb = new StringBuilder();
-        AppendHeader(
-            sb,
-            $"{first.Label} — {NoteSpeller.Name(first.Key.Tonic, first.Key)}",
-            $"{difficulty} — {rhythm.Name}",
-            tempo,
-            ts,
-            NoteSpeller.KeySignatureToken(first.Key),
-            opts,
-            state.ChordDefinitions);
-        sb.Append(string.Join("\n", barLines));
+        return barLines;
+    }
 
-        return sb.ToString();
+    // The lead track body (v1 = dead notes): one bar per comping master bar so the two staves stay aligned.
+    // The lead pattern tiles per section exactly as the comping pattern does; a comping pickup is mirrored as
+    // a leading bar of rests (the lead doesn't play during the anacrusis in v1). Its own RenderState resets
+    // the ":N" duration for this track (alphaTex duration state does not carry across tracks). Inline \ks on
+    // a key change mirrors the comping walk so the master bars line up.
+    private List<string> BuildLeadBars(
+        RealizedSong song, RhythmPattern comping, RhythmPattern lead, Feel feel, TimeSignature ts)
+    {
+        IReadOnlyList<IReadOnlyList<RhythmEvent>> leadFelt = WarpBars(lead, feel, ts);
+        RealizedSection first = song.Sections[0];
+        var state = new RenderState();
+        var barLines = new List<string>();
+
+        if (comping.Pickup is { } pickup && first.Bars.Count > 0)
+        {
+            IReadOnlyList<RhythmSlot> pickupSlots = RhythmQuantizer.Quantize(pickup);
+            barLines.Add(RenderLeadBar(pickupSlots, state, allRests: true));
+        }
+
+        Key? previousKey = null;
+        foreach (RealizedSection section in song.Sections)
+        {
+            if (previousKey is not null && !section.Key.Equals(previousKey))
+            {
+                barLines.Add("\\ks " + NoteSpeller.KeySignatureToken(section.Key));
+            }
+
+            for (int i = 0; i < section.Bars.Count; i++)
+            {
+                IReadOnlyList<RhythmEvent> feltEvents = leadFelt[i % leadFelt.Count];
+                IReadOnlyList<RhythmSlot> slots = RhythmQuantizer.Quantize(feltEvents, ts, Array.Empty<int>());
+                barLines.Add(RenderLeadBar(slots, state, allRests: false));
+            }
+
+            previousKey = section.Key;
+        }
+
+        return barLines;
     }
 
     private static void EnsureMajorSupported(Key key)
@@ -149,6 +173,8 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         }
     }
 
+    // Single-track header: score metadata with \ts/\ks folded in before the lone "." (no \track wrapper).
+    // Byte-identical to the pre-lead output (design §7.4).
     private static void AppendHeader(
         StringBuilder sb, string title, string subtitle, int tempo, TimeSignature ts, string keySig,
         RenderOptions options, IReadOnlyList<string> chordDefinitions)
@@ -158,7 +184,37 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         sb.Append("\\tempo ").Append(tempo.ToString(CultureInfo.InvariantCulture)).Append('\n');
         sb.Append("\\ts ").Append(ts.Numerator).Append(' ').Append(ts.Denominator).Append('\n');
         sb.Append("\\ks ").Append(keySig).Append('\n');
+        AppendChordDirectives(sb, options, chordDefinitions);
+        sb.Append(".\n");
+    }
 
+    // Two-track score metadata: \ts/\ks move out to each \track (they are bar metadata), so the score block
+    // is just title/subtitle/tempo + the chord directives, terminated by the lone ".".
+    private static void AppendScoreMetadata(
+        StringBuilder sb, string title, string subtitle, int tempo,
+        RenderOptions options, IReadOnlyList<string> chordDefinitions)
+    {
+        sb.Append("\\title \"").Append(title).Append("\"\n");
+        sb.Append("\\subtitle \"").Append(subtitle).Append("\"\n");
+        sb.Append("\\tempo ").Append(tempo.ToString(CultureInfo.InvariantCulture)).Append('\n');
+        AppendChordDirectives(sb, options, chordDefinitions);
+        sb.Append(".\n");
+    }
+
+    // A \track line + its bar metadata (\ts/\ks). `defaultSystemsLayout 4` renders 4 bars per row.
+    private static void AppendTrackHeader(
+        StringBuilder sb, string name, string shortName, TimeSignature ts, string keySig)
+    {
+        sb.Append("\\track \"").Append(name).Append("\" \"").Append(shortName)
+            .Append("\" { defaultSystemsLayout 4 }\n");
+        sb.Append("\\ts ").Append(ts.Numerator).Append(' ').Append(ts.Denominator).Append('\n');
+        sb.Append("\\ks ").Append(keySig).Append('\n');
+    }
+
+    // The chord-diagram directives, shared by the single-track header and the two-track score metadata.
+    private static void AppendChordDirectives(
+        StringBuilder sb, RenderOptions options, IReadOnlyList<string> chordDefinitions)
+    {
         // Over-staff diagram visibility: \chordDiagramsInScore is the ONLY chord-diagram alphaTex metadata
         // directive (the top-of-score list is a stylesheet flag with no alphaTex directive — the JS render
         // component sets `globalDisplayChordDiagramsOnTop` for that). Emitted (bare = show, "false" = hide)
@@ -179,8 +235,6 @@ public sealed class AlphaTexRenderer : IScoreRenderer
                 sb.Append(definition).Append('\n');
             }
         }
-
-        sb.Append(".\n");
     }
 
     // Warp every pattern bar by the groove feel once (identity for Straight). Returns one event list per
@@ -306,6 +360,40 @@ public sealed class AlphaTexRenderer : IScoreRenderer
             }
 
             string effectGroup = effects.Count > 0 ? "{" + string.Join(" ", effects) + "}" : string.Empty;
+            tokens.Add(prefix + body + effectGroup);
+        }
+
+        return string.Join(" ", tokens) + " |";
+    }
+
+    // Render one lead-track bar (v1 = dead/muted notes): each hit is a dead note on string 3 (\x.3 —
+    // rhythm only, no pitch; pitched LeadTargets are the deferred swap-in), each rest an "r". The stateful
+    // ":N" duration and {tu N} tuplet tokens follow the same rules as the comping track. `allRests` renders
+    // every slot as a rest (used to mirror the comping pickup so the staves stay bar-aligned).
+    private static string RenderLeadBar(IReadOnlyList<RhythmSlot> slots, RenderState state, bool allRests)
+    {
+        var tokens = new List<string>(slots.Count);
+
+        foreach (RhythmSlot slot in slots)
+        {
+            if (slot.TiedToPrevious)
+            {
+                throw new NotSupportedException(
+                    "alphaTex tie rendering is not supported in v1 (tie token unverified).");
+            }
+
+            string durationToken = slot.NoteValue.ToString(CultureInfo.InvariantCulture);
+            string prefix = string.Empty;
+            if (durationToken != state.CurrentDuration)
+            {
+                prefix = ":" + durationToken + " ";
+                state.CurrentDuration = durationToken;
+            }
+
+            string body = allRests || slot.IsRest ? "r" : "x.3";
+            string effectGroup = slot.Tuplet is { } tuplet
+                ? "{tu " + tuplet.Numerator.ToString(CultureInfo.InvariantCulture) + "}"
+                : string.Empty;
             tokens.Add(prefix + body + effectGroup);
         }
 

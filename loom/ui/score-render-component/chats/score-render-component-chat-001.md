@@ -9,7 +9,7 @@ version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 24
+last_ai_block: 25
 ---
 # Score Render Component Chat
 
@@ -455,3 +455,15 @@ So my current build:
 - Dropped the invalid `\chordDiagramsOnTop` directive that was breaking the parse.
 
 388 tests pass. Relaunching so you can verify the default + the three toggles.
+
+## AI:
+
+Shipped. Committed `ab390cc` and pushed to `main` (`0dcc60e..ab390cc`, 16 files).
+
+Final state of the three-toggle chord display:
+- **Chord names** (`{ch}`), **Diagrams over staff** (`\chordDiagramsInScore`), **Diagrams on top** (chord-diagram list — `\chord` defs + the `globalDisplayChordDiagramsOnTop` stylesheet flag in JS; no alphaTex directive). Defaults: names + on top.
+- Verified in-app: diagrams on top + names over staff. ✓
+- Boot now carries the default render options (via `ready`); removed the invalid `\chordDiagramsOnTop` directive that was breaking the parse.
+- Docs synced: req **v3** (IN16 supersedes EX6), design, alphaTex + domain-model refs. 388 Core tests pass.
+
+Thread's done — score render component + the chord-display modes are on `main`.

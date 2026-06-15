@@ -1,16 +1,16 @@
 ---
 type: reference
 id: rf_01KTHJN829FMW964FTNCFSS2GM
-title: "alphaTex Syntax Reference"
+title: alphaTex Syntax Reference
 status: active
-created: 2026-06-07
-version: 1
+created: "2026-06-07T00:00:00.000Z"
+updated: 2026-06-15
+version: 2
 tags: []
 parent_id: null
-child_ids: []
 requires_load: []
 slug: alphatex-syntax-reference
-description: "Verified alphaTex notation syntax for ChordFlow's AlphaTexRenderer — metadata, notes, durations, chords, rests, bars."
+description: Verified alphaTex notation syntax for ChordFlow's AlphaTexRenderer — metadata, notes, durations, chords, rests, bars.
 ---
 # alphaTex Syntax Reference
 
@@ -23,6 +23,31 @@ The text DSL ChordFlow's `AlphaTexRenderer` emits. **Verified against the offici
 .                       ← a lone dot ends the metadata block, begins music
 <bar> | <bar> | ...     ← bars separated by pipes
 ```
+
+## Multiple tracks (two staves)
+
+Verified 2026-06-15 against the [structural-metadata](https://www.alphatab.net/docs/alphatex/structural-metadata) + [document-structure](https://www.alphatab.net/docs/alphatex/document-structure) docs. A `\track "Name" "short"` directive (Structural Metadata) starts a new track; the bars after it belong to that track. **Score metadata** (`\title` / `\subtitle` / `\tempo` + the chord directives) stays at the top, terminated by the lone `.`; **bar metadata** (`\ts` / `\ks`) moves *into each track* (it is bar / master-bar level). `{ defaultSystemsLayout N }` on a track lays out N bars per row.
+
+```
+\title "…"
+\subtitle "…"
+\tempo 80
+.
+\track "Comping" "comp" { defaultSystemsLayout 4 }
+\ts 4 4
+\ks bb
+:4 (1.5 0.4 1.3) … |          ← rhythm-guitar bars
+\track "Lead" "lead" { defaultSystemsLayout 4 }
+\ts 4 4
+\ks bb
+:4 x.3 r x.3 r … |           ← lead bars as dead notes
+```
+
+ChordFlow emits two tracks **only** when an `Exercise.Lead` pattern is present; with no lead it stays single-track (no `\track` wrapper, `\ts`/`\ks` in the header — byte-identical to the pre-lead output, design §7.4).
+
+## Dead / muted notes
+
+- **Dead note:** `x.3` — a muted/dead note on string 3 (no pitch). The v1 lead track renders each hit as `x.3` (rhythm only; pitched `LeadTargets` are the deferred swap-in), each rest as `r`. Also `3.3{x}` (a fretted note with the dead-note effect). Verified 2026-06-15.
 
 ## Metadata directives (header)
 

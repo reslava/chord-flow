@@ -37,7 +37,9 @@ public sealed record AbsoluteKey(Key Key) : ArrangementItem;
 /// A <b>Song</b>: an arrangement of <see cref="Progression"/>s. It composes <b>references</b> plus
 /// arrangement instructions (repetition, modulation, section order) only — it never holds bars or chords
 /// directly, so harmony stays in the Progression (constraint C1). A Song cannot be played on its own; the
-/// play unit is <see cref="SongExercise"/>, the analog of today's <see cref="Exercise"/> (decision D).
+/// play unit is <see cref="Exercise"/> (Song + Comping + optional Lead + params). A bare
+/// <see cref="Progression"/> is lifted into a single-section Song via <see cref="OfProgression"/> so there
+/// is one realization path (no Progression-vs-Song branch downstream).
 /// <para>
 /// All construction funnels through the guarded factory <see cref="FromSections"/> (paralleling
 /// <see cref="Progression.FromBars"/>), so a malformed Song is unconstructable.
@@ -133,5 +135,24 @@ public sealed record Song
         }
 
         return new Song(id, name, initialKey, parts, items);
+    }
+
+    /// <summary>
+    /// Lift a bare <paramref name="progression"/> into a single-section Song (one inline part "A" played
+    /// once) anchored at <paramref name="initialKey"/>. This is the trivial bridge that keeps a simple
+    /// one-progression drill on the same <see cref="SongExpander.Expand"/> → render path as a full
+    /// arrangement — no <c>Progression</c>-vs-<c>Song</c> branching downstream (IN2). The Song reuses the
+    /// progression's id/name so it stays traceable to its source.
+    /// </summary>
+    public static Song OfProgression(Progression progression, Key initialKey)
+    {
+        ArgumentNullException.ThrowIfNull(progression);
+
+        return FromSections(
+            progression.Id,
+            progression.Name,
+            initialKey,
+            new Dictionary<string, Part> { ["A"] = new InlineProgression("A", progression) },
+            new ArrangementItem[] { new PartPlay("A", 1) });
     }
 }
