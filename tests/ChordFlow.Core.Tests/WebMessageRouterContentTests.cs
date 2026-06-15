@@ -96,12 +96,13 @@ public class WebMessageRouterContentTests
 
         router.Dispatch("""
             {"type":"generate","keyPitchClass":10,"rhythmId":"quarters","tempo":90,
-             "renderOptions":{"showChordNames":true,"showChordDiagrams":true,"voicing":"byDifficulty"}}
+             "renderOptions":{"showChordNames":true,"showChordDiagramsOverStaff":true,"showChordDiagramsOnTop":true,"voicing":"byDifficulty"}}
             """);
 
         Assert.NotNull(got);
         Assert.True(got!.ShowChordNames);
-        Assert.True(got.ShowChordDiagrams);
+        Assert.True(got.ShowChordDiagramsOverStaff);
+        Assert.True(got.ShowChordDiagramsOnTop);
         Assert.Equal(VoicingStrategy.ByDifficulty, got.Voicing);
     }
 
@@ -128,7 +129,8 @@ public class WebMessageRouterContentTests
 
         Assert.NotNull(got);
         Assert.True(got!.ShowChordNames);
-        Assert.False(got.ShowChordDiagrams);
+        Assert.False(got.ShowChordDiagramsOverStaff);
+        Assert.False(got.ShowChordDiagramsOnTop);
     }
 
     [Fact]
@@ -138,10 +140,10 @@ public class WebMessageRouterContentTests
         RenderOptions? got = null;
         router.LoadExerciseRequested += (_, opts) => got = opts;
 
-        router.Dispatch("""{"type":"loadExercise","id":7,"renderOptions":{"showChordDiagrams":true}}""");
+        router.Dispatch("""{"type":"loadExercise","id":7,"renderOptions":{"showChordDiagramsOnTop":true}}""");
 
         Assert.NotNull(got);
-        Assert.True(got!.ShowChordDiagrams);
+        Assert.True(got!.ShowChordDiagramsOnTop);
     }
 
     [Fact]

@@ -31,13 +31,14 @@ window.ChordFlowScore = (function () {
     { Paused: 0, Playing: 1 };
 
   const PLAYER_KIND = new Set(["metronome", "countIn"]);   // applied via the alphaTab API
-  const CONTENT_KIND = new Set(["chordNames", "diagrams", "voicing"]); // require a C# re-render
+  const CONTENT_KIND = new Set(["chordNames", "diagramsOverStaff", "diagramsOnTop", "voicing"]); // require a C# re-render
 
   const DEFAULT_OPTIONS = {
     metronome: false,
     countIn: false,
-    chordNames: false,
-    diagrams: false,
+    chordNames: true,        // default selected
+    diagramsOverStaff: false,
+    diagramsOnTop: true,     // default selected
     voicing: "byDifficulty",
   };
 
@@ -82,6 +83,15 @@ window.ChordFlowScore = (function () {
     const api = new alphaTab.AlphaTabApi(surface, buildSettings(player));
     let baseTempo = 80;   // the score's authored \tempo; runtime tempo scales off it
 
+    // "Diagrams on top" has no alphaTex directive — it's the score stylesheet's globalDisplayChordDiagramsOnTop
+    // flag (defaults to shown when chords are defined). Set it from the current option each time a score
+    // loads, so the top list shows/hides independently of the over-staff boxes (driven from the alphaTex).
+    api.scoreLoaded.on((score) => {
+      if (score && score.stylesheet) {
+        score.stylesheet.globalDisplayChordDiagramsOnTop = !!options.diagramsOnTop;
+      }
+    });
+
     // Control refs, populated by buildControls when a strip is rendered.
     const ui = { play: null, stop: null, tempo: null, toggles: {} };
 
@@ -93,6 +103,12 @@ window.ChordFlowScore = (function () {
 
     function reflectPlayState(playing) {
       if (ui.play) ui.play.textContent = playing ? "⏸ Pause" : "▶ Play";
+    }
+
+    // Keep a toggle checkbox in sync when its option is set programmatically (e.g. the on-top coupling).
+    function syncToggle(name, value) {
+      const toggle = ui.toggles[name];
+      if (toggle && toggle.checked !== !!value) toggle.checked = !!value;
     }
 
     function setTransportEnabled(enabled) {
@@ -113,16 +129,28 @@ window.ChordFlowScore = (function () {
       // Player-kind → applied locally; content-kind → ask the consumer to re-render with the new options.
       setOption(name, value) {
         options[name] = value;
-        if (PLAYER_KIND.has(name)) applyPlayerOption(name, value);
-        else if (CONTENT_KIND.has(name)) cb.onNeedsRerender(handle.getRenderOptions());
-        const toggle = ui.toggles[name];
-        if (toggle && toggle.checked !== !!value) toggle.checked = !!value;
+        syncToggle(name, value);
+        if (PLAYER_KIND.has(name)) {
+          applyPlayerOption(name, value);
+          return;
+        }
+        if (CONTENT_KIND.has(name)) {
+          // Coupling: diagrams on top without over-staff leaves the staff with no chord indication, so
+          // auto-enable chord names (still user-overridable afterwards).
+          if ((name === "diagramsOnTop" || name === "diagramsOverStaff") &&
+              options.diagramsOnTop && !options.diagramsOverStaff && !options.chordNames) {
+            options.chordNames = true;
+            syncToggle("chordNames", true);
+          }
+          cb.onNeedsRerender(handle.getRenderOptions());
+        }
       },
       // The renderOptions payload to attach to a C# render request (generate / entityPreview / loadExercise).
       getRenderOptions() {
         return {
           showChordNames: !!options.chordNames,
-          showChordDiagrams: !!options.diagrams,
+          showChordDiagramsOverStaff: !!options.diagramsOverStaff,
+          showChordDiagramsOnTop: !!options.diagramsOnTop,
           voicing: options.voicing,
         };
       },
@@ -212,7 +240,8 @@ window.ChordFlowScore = (function () {
     if (controls === "full") {
       strip.append(
         toggle("chordNames", "Chord names", options, handle, ui),
-        toggle("diagrams", "Diagrams", options, handle, ui),
+        toggle("diagramsOverStaff", "Diagrams over staff", options, handle, ui),
+        toggle("diagramsOnTop", "Diagrams on top", options, handle, ui),
       );
     }
 

@@ -61,7 +61,11 @@ Verified 2026-06-15 against the alphaTab docs ([score-metadata](https://www.alph
 
 - **Attach a chord label to a beat:** the `{ch "Name"}` beat effect — e.g. `(1.5 0.4 1.3){ch "Bb7"}`. The name renders above the staff (works on its own, no `\chord` needed). Beat effects combine in one brace group: `{ch "Bb7" tu 3}`.
 - **Define a chord diagram (header):** `\chord ("Name" f1 f2 f3 f4 f5 f6)` — exactly six fret values **ordered string 1 (high E) → string 6 (low E)** (cross-checked: notes `0.1 0.2 1.3 2.4 2.5 0.6` ⇒ `0 0 1 2 2 0`). An unplayed string is `x`. One definition per distinct chord, emitted in the metadata header; the body references it by name with `{ch "Name"}`.
-- **Toggle diagram visibility:** bare `\chordDiagramsInScore` shows the fret boxes; `\chordDiagramsInScore false` hides them (names-only render). Omitted entirely when no chord toggle is on (default render byte-identical).
+- **Two diagram-display modes:**
+  - **On top** (a chord-diagram list above the score) — shown automatically for any chord that is **defined** (`\chord …`) and **used** (`{ch …}`). There is **no alphaTex directive** for it; visibility is the score stylesheet flag `globalDisplayChordDiagramsOnTop` (default shown), set in JS (`score.stylesheet.globalDisplayChordDiagramsOnTop`) when it needs suppressing.
+  - **Over the staff** (inline boxes at each chord) — the `\chordDiagramsInScore` directive: bare = show, `\chordDiagramsInScore false` = hide. The **only** chord-diagram alphaTex directive.
+- ⚠️ `\chordDiagramsOnTop` is **not** a valid alphaTex directive (only a settings/stylesheet key) — emitting it breaks the parse. Use the stylesheet flag, not a directive.
+- ChordFlow's `RenderOptions` maps: `ShowChordNames`→`{ch}` · `ShowChordDiagramsOverStaff`→`\chordDiagramsInScore` + `\chord` defs · `ShowChordDiagramsOnTop`→`\chord` defs (+ JS stylesheet flag). The directive is omitted entirely when no chord toggle is on (default render byte-identical).
 
 ## Worked example — 12-bar blues in Bb, beats 1 & 3
 

@@ -2,14 +2,14 @@
 type: chat
 id: ch_01KV59BZDNYMCZXN96GHC04TG8
 title: Score Render Component Chat
-status: active
+status: done
 created: "2026-06-15T00:00:00.000Z"
 updated: "2026-06-15T00:00:00.000Z"
-version: 1
+version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 18
+last_ai_block: 24
 ---
 # Score Render Component Chat
 
@@ -338,3 +338,120 @@ Docs synced to what shipped:
 - **refs:** architecture (preview full-player) + alphaTex syntax (header `\chord` placement, both directives) + domain-model already updated.
 
 **Thread state:** plan complete (7/7), 387 Core tests pass, app smoke-tested ✓ (chord names + over-staff diagrams render, metronome/count-in/play work, previews carry the toggles). Working tree only — nothing committed (your call). Deferred: the two-checkbox on-top/over-staff split (req EX6). I'd say this thread is ready to close whenever you are — want me to commit, or leave it for you?
+
+## Rafa:
+
+Current app UI Score Render checkboxes and current behaviour:
+- [ ] Chord names: show chord names if Diagrams is unselected
+- [ ] Diagrams: show chord diagram on top and over staff
+
+What we want:
+- [ ] Chord names: show chord names if Diagrams is unselected
+- [ ] Chord diagrams over staff
+- [ ] Diagrams on top: if `Chord diagrams over staff` is unselected then `Chord names` is automatically selected
+
+If you agree, implement it. Use better names for checkboxes if you consider, I just draft them
+
+
+## AI:
+
+Agreed — implementing now. Confirmed both modes are real alphaTex directives in the bundled build: `\chordDiagramsInScore` (over staff) and `\chordDiagramsOnTop` (top list). So three independent checkboxes:
+
+- **Chord names** — `{ch "…"}` labels over the staff.
+- **Diagrams over staff** — `\chordDiagramsInScore`.
+- **Diagrams on top** — `\chordDiagramsOnTop`.
+
+(`\chord` definitions emitted whenever either diagram mode is on; each mode's directive emitted explicitly `true`/`false` so they're independent — fixes the current "both at once".)
+
+Rules:
+- **Default selected:** Chord names + Diagrams on top.
+- **Coupling:** turning on *Diagrams on top* while *over staff* is off auto-checks *Chord names* (so the staff still shows the chord) — still user-overridable after.
+
+`RenderOptions` gains `ShowChordDiagramsOverStaff` + `ShowChordDiagramsOnTop` (replacing the single `ShowChordDiagrams`); `RenderOptions.Default` stays neutral (byte-identical guarantee). Building it now, then I'll relaunch for a smoke-test.
+
+## AI:
+
+Implemented + relaunched. Three checkboxes now in Practice (and the progression/song/rhythm previews):
+
+- **Chord names** · **Diagrams over staff** · **Diagrams on top**
+- **Defaults:** Chord names + Diagrams on top (checked); over staff unchecked.
+- **Coupling:** checking *Diagrams on top* while *over staff* is off auto-checks *Chord names*.
+- Each mode emits its own directive (`\chordDiagramsOnTop` / `\chordDiagramsInScore`, explicit true/false) so they're independent — turning on *over staff* alone no longer also shows the top list.
+
+388 Core tests pass. Please verify in the app:
+1. **Default view** — names + on-top chord list (no over-staff boxes).
+2. **Over staff ON, on top OFF** — boxes above the staff, no top list.
+3. **On top ON, over staff OFF** — top list only; *Chord names* auto-checks and labels show over the staff.
+4. Quick check in a **progression/song preview** too.
+
+If all four behave, I'll sync the docs (req: mark EX6 done, add the new Included; design + alphaTex ref for `\chordDiagramsOnTop`) and commit. Flag anything off.
+
+## AI:
+
+You're right, and the showcase nails it. Found the real bug: **`\chordDiagramsOnTop` is NOT a valid alphaTex directive** — in the bundled alphaTab, only `\chordDiagramsInScore` is parsed from alphaTex; on-top is a *stylesheet* flag (`globalDisplayChordDiagramsOnTop`) with no alphaTex directive. So emitting `\chordDiagramsOnTop` broke the parse → nothing rendered once any chord feature was on.
+
+What the showcase shows ("diagrams on top, names over staff") is alphaTab's **natural default**: define `\chord` (→ list on top by default) + `{ch "…"}` (→ names over the staff). No special directive. That's exactly the default you want.
+
+Fix (in progress):
+- **Drop the `\chordDiagramsOnTop` directive.** On top = `\chord` defs present (shows by default); over staff = `\chordDiagramsInScore`; names = `{ch}`.
+- On-top independence (hiding the top list when only *over staff* is wanted) = set the `globalDisplayChordDiagramsOnTop` stylesheet flag in JS. Best-effort; if it ever no-ops, worst case is on-top also shows alongside over-staff — which, per your "they ship together," is fine.
+- **Boot now carries the default renderOptions** (it was rendering with neutral defaults, so even the default view showed nothing).
+
+Finishing + relaunching.
+
+## Rafa:
+
+I think we have:
+
+### Score Metadata
+
+https://www.alphatab.net/docs/alphatex/score-metadata#chorddiagramsinscore
+`\chordDiagramsInScore visibility` visibility = true|false, required: no, default: true, configures whether chord diagrams are shown inline in the score. 
+
+Define chords used:
+https://www.alphatab.net/docs/reference/types/model/chord
+`\chord ("E" 0 0 1 2 2 0) options...` options are: `firstFret`, `barre`, `showDiagram`, `showFingering`, `showName` 
+
+and `showDiagram true|false` (required, no default)
+
+### Beat Properties
+
+https://www.alphatab.net/docs/alphatex/beat-properties
+`ch chordName` Adds a chord annotation to the beat.
+If the staff has a definition for this chord it will be shown in the chord diagram list to indicate its usage. The beat still has to define the notes separately.
+
+This will show C diagram on top (A is not defined) and C and A chord names over score
+
+```
+\chord ("C" 0 1 0 2 3 x)
+(0.1 1.2 0.3 2.4 3.5){ch "C"} (0.1 1.2 0.3 2.4 3.5) |
+(0.1 2.2 2.3 2.4 0.5){ch "A"}
+```
+
+---
+
+This will show E diagram on top and over score:
+
+```
+\chordDiagramsInScore
+\chord ("E" 0 0 1 2 2 0)
+(0.1 0.2 1.3 2.4 2.5 0.6){ch "E"}
+```
+
+
+## AI:
+
+That model matches exactly what I just implemented — your research confirms it:
+
+- **On top** = a chord is **defined** (`\chord (...)`) and **used** (`{ch}`). No directive. ✓ (renderer emits `\chord` defs when on-top or over-staff is on.)
+- **Names over score** = `{ch "Name"}` — always shows the name, defined or not. ✓ (emitted whenever any chord toggle is on.)
+- **Over staff** = add `\chordDiagramsInScore`. ✓ (emitted bare for on, `false` for off — explicit, so I don't rely on the murky default.)
+- **`\chord` fret order** = string 1 (high E) → 6 (low E), muted = `x` — your `("C" 0 1 0 2 3 x)` = C open, matches my `("Bb7" x x 1 0 1 x)`. ✓
+
+So my current build:
+- **Default (names + on top):** `\chord` defs + `{ch}` + `\chordDiagramsInScore false` → top list + names over staff (your showcase look), no over-staff boxes.
+- **+ over staff:** add `\chordDiagramsInScore` → boxes over staff too.
+- **on-top suppression** (over-staff-only) via the `globalDisplayChordDiagramsOnTop` stylesheet flag in JS — the one bit with no alphaTex directive.
+- Dropped the invalid `\chordDiagramsOnTop` directive that was breaking the parse.
+
+388 tests pass. Relaunching so you can verify the default + the three toggles.

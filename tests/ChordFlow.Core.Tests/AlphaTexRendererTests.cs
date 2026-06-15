@@ -254,22 +254,38 @@ public class AlphaTexRendererTests
     }
 
     [Fact]
-    public void Render_ShowChordDiagrams_DefinesDiagramOnceInHeaderAndEnablesInScore()
+    public void Render_ShowChordDiagramsOverStaff_DefinesDiagramInHeaderAndEnablesOverStaffOnly()
     {
         Exercise exercise = BbI7Quarters();
 
-        string tex = Renderer.Render(exercise, new RenderOptions(ShowChordDiagrams: true));
+        string tex = Renderer.Render(exercise, new RenderOptions(ShowChordDiagramsOverStaff: true));
 
-        // Visibility toggle (bare = show) and the \chord definition are both metadata, before the lone "."
-        // that ends the header; the beat references the chord by name with {ch "…"} (no inline \chord).
+        // Over-staff on → the only chord-diagram alphaTex directive, \chordDiagramsInScore (bare = show).
+        // On-top has no alphaTex directive (it's the JS stylesheet flag), so it never appears in the tex.
         Assert.Contains("\\chordDiagramsInScore\n", tex);
-        // \chord def: frets string 1 (high E) → string 6 (low E), x for an unplayed string; defined once.
+        Assert.DoesNotContain("chordDiagramsOnTop", tex);
+        // \chord def: frets string 1 (high E) → string 6 (low E), x for an unplayed string; defined once,
+        // in the metadata header (before the lone "."); the beat references it by name with {ch "…"}.
         Assert.Equal(1, CountOccurrences(tex, "\\chord (\"Bb7\" x x 1 0 1 x)"));
         int defIndex = tex.IndexOf("\\chord (\"Bb7\"", System.StringComparison.Ordinal);
         int dotIndex = tex.IndexOf("\n.\n", System.StringComparison.Ordinal);
         Assert.True(defIndex >= 0 && defIndex < dotIndex, "\\chord definition must precede the metadata terminator");
         Assert.Contains("(1.5 0.4 1.3){ch \"Bb7\"}", tex);
         Assert.DoesNotContain("\\chord (\"Bb7\" x x 1 0 1 x) (1.5", tex); // not inline
+    }
+
+    [Fact]
+    public void Render_ShowChordDiagramsOnTop_EmitsDefsAndSuppressesOverStaff_NoOnTopDirective()
+    {
+        Exercise exercise = BbI7Quarters();
+
+        string tex = Renderer.Render(exercise, new RenderOptions(ShowChordDiagramsOnTop: true));
+
+        // On-top has no alphaTex directive — the top list is driven by \chord defs + the JS stylesheet flag.
+        Assert.DoesNotContain("chordDiagramsOnTop", tex);
+        Assert.Contains("\\chordDiagramsInScore false\n", tex);   // over-staff stays off
+        Assert.Equal(1, CountOccurrences(tex, "\\chord (\"Bb7\" x x 1 0 1 x)")); // defs feed the top list
+        Assert.Contains("(1.5 0.4 1.3){ch \"Bb7\"}", tex);
     }
 
     [Fact]

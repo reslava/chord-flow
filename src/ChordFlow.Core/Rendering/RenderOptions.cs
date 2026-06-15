@@ -11,12 +11,14 @@ namespace ChordFlow.Rendering;
 /// </para>
 /// </summary>
 /// <param name="ShowChordNames">Emit a chord-name label at each chord change.</param>
-/// <param name="ShowChordDiagrams">Emit chord diagrams (fret boxes) above the staff.</param>
+/// <param name="ShowChordDiagramsOverStaff">Show chord diagrams (fret boxes) inline above the staff (alphaTex <c>\chordDiagramsInScore</c>).</param>
+/// <param name="ShowChordDiagramsOnTop">Show the chord-diagram list at the top of the score (alphaTex <c>\chordDiagramsOnTop</c>).</param>
 /// <param name="Voicing">How a chord resolves to a voicing at render time. v1 ships only
 /// <see cref="VoicingStrategy.ByDifficulty"/> — the existing difficulty-keyed selection.</param>
 public sealed record RenderOptions(
     bool ShowChordNames = false,
-    bool ShowChordDiagrams = false,
+    bool ShowChordDiagramsOverStaff = false,
+    bool ShowChordDiagramsOnTop = false,
     VoicingStrategy Voicing = VoicingStrategy.ByDifficulty)
 {
     /// <summary>The neutral options — what an absent <see cref="RenderOptions"/> means (today's render).</summary>

@@ -249,7 +249,9 @@ const ChordFlow = (function () {
       // Seed the replay target with the boot exercise (the host pushes Bb / Beats 1 & 3 on ready). Without
       // this a content-toggle change before the first Generate/Load would have nothing to re-render.
       lastScoreRequest = { type: "generate", ...selections() };
-      Bridge.send({ type: "ready" });
+      // Carry the component's default render options on ready so the boot score reflects the checked
+      // toggles (names + on-top) instead of a neutral render.
+      Bridge.send({ type: "ready", renderOptions: view.getRenderOptions() });
       setStatus("waiting for score…");
     } else {
       // Standalone browser: no host to push a score — render the dev sample.

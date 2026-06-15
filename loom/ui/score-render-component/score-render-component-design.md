@@ -2,10 +2,10 @@
 type: design
 id: de_01KV5CZF197BYKYJGS4W3NTQDY
 title: Score Render Component
-status: draft
+status: done
 created: "2026-06-15T00:00:00.000Z"
 updated: 2026-06-15
-version: 3
+version: 5
 tags: []
 parent_id: null
 requires_load: []
@@ -132,7 +132,7 @@ The C# side maps `renderOptions` → `RenderOptions` and passes it to `_renderer
 
 - **Inline voicing in the DSL** (`1@C` shape-pin, or an inline voicing literal) — a separate **DSL thread** (touches `chordflow-dsl-reference`, `ProgressionParser`/`SongParser`, domain). The renderer already resolves per-chord, so a future pin is a per-chord *override* of `Lookup` — seam noted, not built. (Authored shell/custom voicings already work via `VoicingBook`; only *inline declaration* is deferred.)
 - **CAGED-shape voicing preference** at render time — deferred to the `caged-system`/`voicings` threads (§5).
-- **Two chord-diagram display modes** (req EX6) — over-staff diagrams shipped (`\chordDiagramsInScore`); splitting into *on top* (`\chordDiagrams` → `ChordDiagramsOnTop`) vs *over staff*, with chord-names auto-enabled when on-top-only, is a deferred follow-up. Both alphaTex directives exist; it's a `RenderOptions` flag + renderer directive + a 2nd checkbox.
+- **Two chord-diagram display modes** — *shipped* (req IN16, supersedes EX6): three toggles — Chord names (`{ch}`), Diagrams over staff (`\chordDiagramsInScore`), Diagrams on top (the chord-diagram list, no alphaTex directive — driven by `\chord` defs + the `globalDisplayChordDiagramsOnTop` stylesheet flag set in JS). Defaults: names + on top. Note: `\chordDiagramsOnTop` is **not** a valid alphaTex directive (confirmed) — on-top is stylesheet-only.
 - **Voicing fret-box preview** stays SVG (`chord-diagram.js`).
 - No dependency on the derivation-engine threads (`intervals`, `octave-shapes`, `chord-qualities`, `caged-system`, `voicings`) — the component is insulated from them by the `VoicingBook` seam and can proceed in parallel.
 

@@ -19,8 +19,8 @@ public sealed class WebMessageRouter
     // JSON the JS side produces with JSON.stringify.
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    /// <summary>WebView booted and alphaTab is ready to receive a score.</summary>
-    public event Action? Ready;
+    /// <summary>WebView booted and alphaTab is ready to receive a score — carries the UI's initial render options.</summary>
+    public event Action<RenderOptions>? Ready;
 
     /// <summary>Playback reached the end (player returned to the stopped state).</summary>
     public event Action? PlaybackFinished;
@@ -90,7 +90,7 @@ public sealed class WebMessageRouter
         switch (envelope?.Type)
         {
             case "ready":
-                Ready?.Invoke();
+                Ready?.Invoke(ToRenderOptions(envelope.RenderOptions));
                 break;
             case "playbackFinished":
                 PlaybackFinished?.Invoke();
@@ -177,7 +177,8 @@ public sealed class WebMessageRouter
 
         return new RenderOptions(
             ShowChordNames: options.ShowChordNames ?? false,
-            ShowChordDiagrams: options.ShowChordDiagrams ?? false,
+            ShowChordDiagramsOverStaff: options.ShowChordDiagramsOverStaff ?? false,
+            ShowChordDiagramsOnTop: options.ShowChordDiagramsOnTop ?? false,
             Voicing: ParseVoicing(options.Voicing));
     }
 
@@ -196,5 +197,6 @@ public sealed class WebMessageRouter
         // Optional render-time presentation options on the render-producing verbs (generate/loadExercise/entityPreview).
         InboundRenderOptions? RenderOptions);
 
-    private sealed record InboundRenderOptions(bool? ShowChordNames, bool? ShowChordDiagrams, string? Voicing);
+    private sealed record InboundRenderOptions(
+        bool? ShowChordNames, bool? ShowChordDiagramsOverStaff, bool? ShowChordDiagramsOnTop, string? Voicing);
 }

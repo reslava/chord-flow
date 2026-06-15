@@ -2,9 +2,10 @@
 type: idea
 id: id_01KV05AZ7T77CMGM86X7T7GZRB
 title: Content-definition CRUD UI — the shared editor for DSL-backed entities
-status: draft
-created: 2026-06-13
-version: 1
+status: done
+created: "2026-06-13T00:00:00.000Z"
+updated: 2026-06-15
+version: 2
 tags: []
 parent_id: null
 requires_load: []

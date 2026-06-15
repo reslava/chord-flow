@@ -159,17 +159,20 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         sb.Append("\\ts ").Append(ts.Numerator).Append(' ').Append(ts.Denominator).Append('\n');
         sb.Append("\\ks ").Append(keySig).Append('\n');
 
-        // Chord-diagram visibility toggle: bare \chordDiagramsInScore shows the boxes; "false" suppresses
-        // them for a names-only render (the label still shows via {ch "…"}). Omitted entirely when neither
-        // chord toggle is on, keeping today's output byte-identical.
-        if (options.ShowChordNames || options.ShowChordDiagrams)
+        // Over-staff diagram visibility: \chordDiagramsInScore is the ONLY chord-diagram alphaTex metadata
+        // directive (the top-of-score list is a stylesheet flag with no alphaTex directive — the JS render
+        // component sets `globalDisplayChordDiagramsOnTop` for that). Emitted (bare = show, "false" = hide)
+        // whenever a chord toggle is on; omitted otherwise so today's output stays byte-identical. Names
+        // still show via {ch "…"}.
+        if (options.ShowChordNames || options.ShowChordDiagramsOverStaff || options.ShowChordDiagramsOnTop)
         {
-            sb.Append(options.ShowChordDiagrams ? "\\chordDiagramsInScore\n" : "\\chordDiagramsInScore false\n");
+            sb.Append(options.ShowChordDiagramsOverStaff ? "\\chordDiagramsInScore\n" : "\\chordDiagramsInScore false\n");
         }
 
         // \chord definitions are header metadata (before the lone "."), one per distinct chord in first-use
-        // order; the body references each by name with {ch "…"}.
-        if (options.ShowChordDiagrams)
+        // order; the body references each by name with {ch "…"}. Needed by either diagram mode (the on-top
+        // list renders the defined chords; over-staff renders them at each beat).
+        if (options.ShowChordDiagramsOverStaff || options.ShowChordDiagramsOnTop)
         {
             foreach (string definition in chordDefinitions)
             {
@@ -279,14 +282,15 @@ public sealed class AlphaTexRenderer : IScoreRenderer
                 Voicing voicing = Voice(chord, difficulty, options);
                 body = NoteGroup(voicing);
 
-                if (options.ShowChordNames || options.ShowChordDiagrams)
+                bool wantsDiagram = options.ShowChordDiagramsOverStaff || options.ShowChordDiagramsOnTop;
+                if (options.ShowChordNames || wantsDiagram)
                 {
                     string name = ChordSymbol.Format(chord, key);
                     if (!string.Equals(name, state.CurrentChordName, StringComparison.Ordinal))
                     {
                         state.CurrentChordName = name;
                         // Collect each diagram definition once; it's emitted in the header, not inline.
-                        if (options.ShowChordDiagrams && state.DefinedChords.Add(name))
+                        if (wantsDiagram && state.DefinedChords.Add(name))
                         {
                             state.ChordDefinitions.Add(ChordDefinition(name, voicing));
                         }

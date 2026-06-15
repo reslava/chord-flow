@@ -2,9 +2,10 @@
 type: chat
 id: ch_01KV4SDNDFDY4WP68P0FNBDPB0
 title: content-crud Chat
-status: active
+status: done
 created: "2026-06-15T00:00:00.000Z"
-version: 1
+updated: 2026-06-15
+version: 2
 tags: []
 parent_id: null
 requires_load: []

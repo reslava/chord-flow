@@ -125,10 +125,10 @@ internal static class Program
 
                 // When the WebView reports it booted, push a real engine-produced score.
                 // MVP default: 12-bar blues in Bb (pitch class 10), "Beats 1 & 3", 80 BPM.
-                router.Ready += () =>
+                router.Ready += renderOptions =>
                 {
                     Exercise boot = generate.Build(keyPitchClass: 10, rhythmId: "beat_1_3", tempo: 80);
-                    if (TrySendScore(boot, RenderOptions.Default))
+                    if (TrySendScore(boot, renderOptions))
                     {
                         currentExercise = boot;
                         activeExerciseId = null;
