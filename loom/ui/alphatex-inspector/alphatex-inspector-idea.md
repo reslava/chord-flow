@@ -2,9 +2,10 @@
 type: idea
 id: id_01KV6MNTQMPZXM49TM3GQWCN5K
 title: alphaTex inspector — live edit + render/play the engine's output
-status: draft
-created: 2026-06-15
-version: 1
+status: done
+created: "2026-06-15T00:00:00.000Z"
+updated: 2026-06-16
+version: 2
 tags: []
 parent_id: null
 requires_load: []
