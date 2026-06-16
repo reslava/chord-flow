@@ -5,6 +5,7 @@ using ChordFlow.Features.GenerateExercise;
 using ChordFlow.Features.Packs;
 using ChordFlow.Features.PracticeSession;
 using ChordFlow.Features.Progress;
+using ChordFlow.Features;
 using ChordFlow.Bridge;
 using ChordFlow.Persistence;
 using ChordFlow.Desktop.WebHost;
@@ -86,6 +87,12 @@ internal static class Program
                 var library = new ExerciseLibraryHandler(dbOptions, renderer);
                 var progress = new ProgressHandler(dbOptions);
                 var contentCrud = new ContentCrudHandler(dbOptions, renderer);
+
+                // Playback soundfont library: the catalog scans the served wwwroot/soundfont folder (host asset),
+                // and the global choice persists via the Core AppSettings store (C3). App-lifetime singletons.
+                var soundFonts = new SoundFontLibrary(
+                    new WwwrootSoundFontCatalog(Path.Combine(wwwroot, "soundfont")),
+                    new AppSettingsStore(dbOptions));
 
                 // Live-refresh: after a voicing save/delete, reload the authored library and swap in a fresh
                 // renderer so the next generated/previewed score reflects it (IN11). Progression/song/rhythm
@@ -261,6 +268,10 @@ internal static class Program
                     }
                     catch (FormatException ex) { bridge.Send(new EntityParseErrorEnvelope(entity, ex.Message)); }
                 };
+
+                // Playback soundfont: list (fonts + persisted selection) on request; persist a new global choice.
+                router.ListSoundFontsRequested += () => bridge.Send(soundFonts.ListWithSelection());
+                router.SetSoundFontRequested += id => soundFonts.SetSelected(id);
 
                 core.Navigate($"https://{VirtualHost}/index.html");
             }

@@ -78,6 +78,12 @@ public sealed class WebMessageRouter
     /// <summary>Delete (or revert) a content definition — <c>(entity, id)</c>.</summary>
     public event Action<string, string>? EntityDeleteRequested;
 
+    /// <summary>List the available playback soundfonts (+ the persisted selection) back to the WebView.</summary>
+    public event Action? ListSoundFontsRequested;
+
+    /// <summary>Persist a new global playback soundfont choice — <c>(id)</c>.</summary>
+    public event Action<string>? SetSoundFontRequested;
+
     /// <summary>Deserialize one inbound message string and dispatch it to subscribers.</summary>
     public void Dispatch(string message)
     {
@@ -180,6 +186,15 @@ public sealed class WebMessageRouter
                     EntityDeleteRequested?.Invoke(delEntity, delId);
                 }
                 break;
+            case "listSoundFonts":
+                ListSoundFontsRequested?.Invoke();
+                break;
+            case "setSoundFont":
+                if (envelope.SoundFontId is { } soundFontId)
+                {
+                    SetSoundFontRequested?.Invoke(soundFontId);
+                }
+                break;
             // Unknown / null types are ignored — forward-compatible.
         }
     }
@@ -220,6 +235,8 @@ public sealed class WebMessageRouter
         // Content-CRUD fields: Entity discriminator, the string content id (distinct from the int Id used by
         // loadExercise), and the editor's Name/Dsl payload.
         string? Entity, string? EntityId, string? Name, string? Dsl,
+        // setSoundFont: the chosen soundfont id (file name). A string, distinct from the int Id / string EntityId.
+        string? SoundFontId,
         // Optional render-time presentation options on the render-producing verbs (generate/loadExercise/entityPreview).
         InboundRenderOptions? RenderOptions);
 

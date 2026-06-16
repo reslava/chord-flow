@@ -26,6 +26,8 @@ public sealed class ChordFlowDbContext : DbContext
 
     public DbSet<VoicingEntity> Voicings => Set<VoicingEntity>();
 
+    public DbSet<AppSettingEntity> AppSettings => Set<AppSettingEntity>();
+
     /// <summary>
     /// Default on-disk database path: <c>%LOCALAPPDATA%\ChordFlow\chordflow.db</c>.
     /// Lives in the user profile (survives rebuilds), not next to the executable.
@@ -96,6 +98,12 @@ public sealed class ChordFlowDbContext : DbContext
             e.HasKey(x => new { x.Id, x.Origin });
             e.Property(x => x.Origin).HasConversion<string>();
             e.Property(x => x.Tags).HasDefaultValue("[]");
+        });
+
+        modelBuilder.Entity<AppSettingEntity>(e =>
+        {
+            // Plain string-keyed key/value table for global app preferences (not content — no Origin tiering).
+            e.HasKey(x => x.Key);
         });
     }
 }

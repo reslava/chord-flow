@@ -3,16 +3,19 @@ using System;
 using ChordFlow.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace ChordFlow.Persistence.Migrations
+namespace ChordFlow.Core.Persistence.Migrations
 {
     [DbContext(typeof(ChordFlowDbContext))]
-    partial class ChordFlowDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260616074544_AddAppSettings")]
+    partial class AddAppSettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.8");

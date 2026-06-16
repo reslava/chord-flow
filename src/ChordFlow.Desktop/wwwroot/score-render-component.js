@@ -49,8 +49,15 @@ window.ChordFlowScore = (function () {
   // is the global control that works for single- AND multi-track alike: 4 = fixed four bars per row, -1 =
   // automatic (fit to width, alphaTab's default). "Auto layout" toggles between them.
   function layoutDisplay(auto) {
-    return { layoutMode: alphaTab.LayoutMode.Page, barsPerRow: auto ? -1 : 4 };
+    // justifyLastSystem: fixed 4-bar layout stretches the last (partial) row to full width;
+    // auto (fit-to-width) leaves it natural.
+    return { layoutMode: alphaTab.LayoutMode.Page, barsPerRow: auto ? -1 : 4, justifyLastSystem: !auto };
   }
+
+  // The soundfont shipped in the repo — the boot default and the fallback the host falls back to when no
+  // choice is stored. The picker lists whatever the host discovers; ids are file names under soundfont/.
+  const DEFAULT_SOUNDFONT = "sonivox.sf2";
+  function fontUrl(id) { return "soundfont/" + id; }
 
   // The single alphaTab settings source of truth. Player settings are added only in player mode so a
   // lite preview never pays the soundfont/worker-player cost.
@@ -69,7 +76,7 @@ window.ChordFlowScore = (function () {
         enableCursor: true,
         enableAnimatedBeatCursor: true,
         enableElementHighlighting: true,
-        soundFont: "soundfont/sonivox.sf2",
+        soundFont: fontUrl(DEFAULT_SOUNDFONT),   // boot default; replaced live once the host reports the saved choice
         scrollMode: alphaTab.ScrollMode.Off,
       };
     }
@@ -133,7 +140,44 @@ window.ChordFlowScore = (function () {
     });
 
     // Control refs, populated by buildControls when a strip is rendered.
-    const ui = { play: null, stop: null, tempo: null, toggles: {} };
+    const ui = { play: null, stop: null, tempo: null, soundFont: null, toggles: {} };
+
+    // Playback soundfont. The choice is a global host setting; this component requests the list on init and
+    // applies the host's persisted selection live. `currentSoundFont` mirrors what's loaded so we skip a
+    // redundant reload when the saved choice already matches the boot default.
+    let currentSoundFont = DEFAULT_SOUNDFONT;
+    let disposed = false;
+    const bridge = (typeof window !== "undefined" && window.ChordFlowBridge) || null;
+
+    // Swap the active synth soundfont live (no re-render, no persist). The bundled alphaTab loads a font by
+    // URL via loadSoundFontFromUrl(url, append=false); updating settings.player.soundFont keeps any internal
+    // reload consistent.
+    function applySoundFont(id) {
+      if (!id || disposed) return;
+      currentSoundFont = id;
+      if (api.settings && api.settings.player) api.settings.player.soundFont = fontUrl(id);
+      if (typeof api.loadSoundFontFromUrl === "function") api.loadSoundFontFromUrl(fontUrl(id), false);
+    }
+
+    // Host reply: fill the picker (if shown) and apply the persisted selection (even without a picker).
+    function onSoundFontsListed(msg) {
+      if (disposed) return;
+      const fonts = (msg && msg.fonts) || [];
+      if (ui.soundFont) {
+        ui.soundFont.innerHTML = "";
+        for (const f of fonts) {
+          const opt = document.createElement("option");
+          opt.value = f.id;
+          opt.textContent = f.name;
+          ui.soundFont.appendChild(opt);
+        }
+      }
+      const selected = msg && msg.selectedId;
+      if (selected) {
+        if (ui.soundFont) ui.soundFont.value = selected;
+        if (selected !== currentSoundFont) applySoundFont(selected);
+      }
+    }
 
     function applyPlayerOption(name, value) {
       if (!player) return;
@@ -170,6 +214,11 @@ window.ChordFlowScore = (function () {
       setTrackVolume(which, value) {
         trackVolumes[which] = value;
         applyTrackVolume(which);
+      },
+      // User picked a soundfont: apply it live and persist the new global choice host-side.
+      setSoundFont(id) {
+        applySoundFont(id);
+        if (bridge) bridge.send({ type: "setSoundFont", id });
       },
       // Player-kind → applied locally; content-kind → ask the consumer to re-render with the new options.
       setOption(name, value) {
@@ -211,6 +260,7 @@ window.ChordFlowScore = (function () {
         return shown || baseTempo;
       },
       dispose() {
+        disposed = true;   // a late soundFontsListed fan-out must not touch a destroyed api
         try { api.destroy(); } catch (_) { /* already torn down */ }
         container.innerHTML = "";
         container.classList.remove("cf-score");
@@ -245,6 +295,18 @@ window.ChordFlowScore = (function () {
       // Apply the initial player-kind option state (content-kind already rides the first render request).
       applyPlayerOption("metronome", options.metronome);
       applyPlayerOption("countIn", options.countIn);
+
+      // Ask the host which soundfonts exist + which is the saved choice; the reply fills the picker and applies
+      // the selection. Feature-detected: in a plain browser (no host) the boot default stays in effect.
+      if (bridge && bridge.available) {
+        bridge.onReceive((data) => {
+          let msg;
+          try { msg = typeof data === "string" ? JSON.parse(data) : data; }
+          catch (_) { return; }
+          if (msg && msg.type === "soundFontsListed") onSoundFontsListed(msg);
+        });
+        bridge.send({ type: "listSoundFonts" });
+      }
     }
 
     return handle;
@@ -285,6 +347,7 @@ window.ChordFlowScore = (function () {
         toggle("countIn", "Count-in", options, handle, ui),
         volumeSlider("rhythm", "Rhythm vol", handle, ui),
         volumeSlider("lead", "Lead vol", handle, ui),
+        soundFontPicker(handle, ui),
       );
     }
 
@@ -324,6 +387,19 @@ window.ChordFlowScore = (function () {
     input.addEventListener("change", () => handle.setOption(name, input.checked));
     wrap.append(input, document.createTextNode(" " + label));
     ui.toggles[name] = input;
+    return wrap;
+  }
+
+  // The soundfont picker (player-kind, local apply + host persist). Starts empty; populated by the host's
+  // soundFontsListed reply. Hidden in plain-browser/no-host runs (no list ever arrives, options stay empty).
+  function soundFontPicker(handle, ui) {
+    const wrap = document.createElement("label");
+    wrap.className = "cf-toggle";
+    const select = document.createElement("select");
+    select.className = "cf-soundfont";
+    select.addEventListener("change", () => handle.setSoundFont(select.value));
+    wrap.append(document.createTextNode("Sound "), select);
+    ui.soundFont = select;
     return wrap;
   }
 

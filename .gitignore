@@ -48,7 +48,9 @@ coverage*.info
 *.db-shm
 *.db-wal
 *.sqlite
-# Soundfonts are bundled at build time, not committed (size + licensing)
+# Soundfonts are bundled at build time, not committed (size + licensing). The default
+# Sonivox font is fetched by the FetchSoundfont MSBuild target; any extra .sf2/.sf3 a user
+# drops in is auto-discovered by the in-app picker and intentionally stays out of the repo.
 src/**/wwwroot/soundfont/*.sf2
 src/**/wwwroot/soundfont/*.sf3
 

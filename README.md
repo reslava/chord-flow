@@ -52,6 +52,26 @@ dotnet run --project src/ChordFlow.Desktop
 > first time you build (it is not committed — see `.gitignore`). The first build
 > therefore needs network access; subsequent builds reuse the cached file.
 
+### Soundfonts
+
+Playback uses a **SoundFont (`.sf2`)**. The default **Sonivox** GM font is fetched at build
+time (above); you can add more and switch between them in-app:
+
+1. Drop any `.sf2` file into `src/ChordFlow.Desktop/wwwroot/soundfont/`.
+2. Pick it from the **Sound** dropdown in the player controls. The choice is a **global
+   setting** and is remembered across sessions.
+
+Added fonts are git-ignored (size + licensing) and **auto-discovered** — adding one is a
+drop-in with no code change. A few free, redistributable GM soundfonts:
+
+| SoundFont | License | Where to get it |
+|-----------|---------|-----------------|
+| Sonivox (default) | Apache-2.0 | fetched at build time |
+| FluidR3 GM | MIT | <https://musescore.org/en/handbook/3/soundfonts-and-sfz-files> |
+| GeneralUser GS | permissive (free, custom) | <https://schristiancollins.com/generaluser.php> |
+
+Some downloads are zipped — extract the `.sf2` and place it in the folder above.
+
 ## Tests
 
 ```sh
