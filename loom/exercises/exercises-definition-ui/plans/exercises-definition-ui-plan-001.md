@@ -3,7 +3,7 @@ type: plan
 id: pl_01KV6482DNFNKGX8R1MPMV6DXG
 title: Exercise keystone — record merge, two-track render, persistence
 status: done
-created: "2026-06-15T00:00:00.000Z"
+created: 2026-06-15
 updated: 2026-06-15
 version: 1
 design_version: 1
@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KTWE8B7WKRX7M681PM4P9JFP
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.5.0
 steps:
   - id: canonical-exercise-record-song-ofprogression-songexpander
     order: 1

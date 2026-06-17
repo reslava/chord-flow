@@ -3,7 +3,7 @@ type: plan
 id: pl_01KV6HBBY93VRRX8QP7YPGQ3SW
 title: Exercise workbench — consumption UI over the canonical Exercise
 status: done
-created: "2026-06-15T00:00:00.000Z"
+created: 2026-06-15
 updated: 2026-06-15
 version: 1
 design_version: 1
@@ -12,6 +12,7 @@ tags: []
 parent_id: null
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.5.0
 steps:
   - id: core-reference-resolving-generateexercisehandler
     order: 1

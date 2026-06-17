@@ -3,7 +3,7 @@ type: plan
 id: pl_01KTXKNDWB6S0EV90YGPMA8VMZ
 title: Content packages & catalog — model then tooling
 status: done
-created: "2026-06-12T00:00:00.000Z"
+created: 2026-06-12
 updated: 2026-06-13
 version: 1
 design_version: 1
@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KTXEQWS29T4T2S0GKP7C23AB
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.5.0
 steps:
   - id: catalog-metadata-model
     order: 1

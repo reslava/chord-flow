@@ -4,6 +4,70 @@ All notable changes to ChordFlow are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-06-17
+
+ChordFlow grows from a hardcoded 12-bar-blues demo into a **content-driven trainer**:
+progressions, songs, rhythms, and voicings are all authored in compact text DSLs,
+distributed as importable **content packs**, and assembled into exercises through an
+on-screen **workbench** — over a rebuilt rendering/UI layer. Plus a one-command,
+tag-driven **release pipeline** that ships a downloadable Windows build.
+
+### Added
+- **Song arrangement layer** — a pure arrangement of progressions (repetition, modulation,
+  section order) via `SongExpander`, a line-oriented **Song DSL**, and `Render(RealizedSong)`.
+  Harmony stays in the progression; the song layer slots in above `Transposer`.
+- **Rhythm DSL** — multi-bar rhythm patterns in an `X/./-` glyph DSL with `:n` subdivisions,
+  pickup measures, and triplet rendering (`{tu N}`), plus rhythm-pattern persistence and
+  DSL-derived (single-source-of-truth) seed patterns.
+- **Authored voicing content pillar** — canonical-C, inherently-movable voicings in a
+  **Voicing DSL** with CAGED-shape ranking, a stored-first `VoicingBook`, realize/transpose,
+  and persistence; a curated **default pack of 34 pitch-verified CAGED voicings**
+  (maj/min/dom7/maj7/m7 × full CAGED + m7b5/dim7/aug grips). New `Quality.Diminished7`.
+- **Content packs (open-core)** — data-only bundles (`manifest.json` + per-kind `.dsl`
+  folders) imported idempotently by a composite `(Id, Origin)` key with non-destructive
+  shadowing (UserDefined > Pack > BuiltIn); the built-in starter content now ships as the
+  default pack. Catalog metadata (genre/subgenre/tags) + `Origin` provenance.
+- **Exercise workbench** — generate over the canonical `Exercise` via content references:
+  harmony (song/progression) + comping + optional lead + params (key/tempo/difficulty/feel),
+  resolved through a shared `ExerciseRefs` seam. Harmony/comping/lead pickers, difficulty/feel
+  controls, and per-track volume sliders.
+- **Shared score render component + content-CRUD surface** — one `ChordFlowScore` JS
+  component owns the alphaTex → alphaTab render/transport (replacing two drifted instances);
+  a generic DSL-entity CRUD editor (`entity*` bridge family) with voicing fret-box diagrams;
+  a Practice ⇄ Content view toggle.
+- **Chord-diagram display toggles** — independent chord names, diagrams-over-staff, and
+  diagrams-on-top.
+- **alphaTex inspector (Debug view)** — show/edit the engine's emitted alphaTex and
+  render/play it through its own player.
+- **User-selectable soundfont library** — pick the playback soundfont (auto-discovered from
+  `wwwroot/soundfont`), a global persisted choice that switches the synth font live; backed
+  by a new Core `AppSettings` key/value store.
+- **Release pipeline** — a tag-driven GitHub Actions release (`guard → build-test → release`)
+  that publishes a self-contained, single-file **`ChordFlow.exe` + `wwwroot`** zip and cuts a
+  GitHub release with the changelog as notes; driven by a `/do-release` command and
+  [`RELEASING.md`](RELEASING.md).
+
+### Changed
+- **One canonical `Exercise`** — merged `Exercise`/`SongExercise` into a single
+  `Exercise(Song, Comping, Lead?, KeyOverride?, …)`; a bare progression is lifted via
+  `Song.OfProgression` so everything rides one Song → render path. The renderer stays pure
+  (Song expansion moved to a `Features` I/O seam). An optional lead renders as a second track
+  of dead notes.
+- **Shipped executable renamed to `ChordFlow.exe`** (`<AssemblyName>`); the default Sonivox
+  GM soundfont is now **committed/bundled** instead of fetched at build time, so builds are
+  hermetic.
+- Two-track exercises render both staves; bars-per-row layout is controllable (4/row default
+  + an Auto-layout toggle).
+
+### Fixed
+- The last partial system now stretches to full width in fixed 4-bar layout
+  (`justifyLastSystem`); previously only natural in Auto layout.
+- A render failure path and the saved-exercise load path (previously hard-wired to the seed
+  blues) now resolve through the shared reference seam like the generate path.
+
+### Tests
+- Full `ChordFlow.Core` xUnit suite green (verified in CI on every tagged release).
+
 ## [0.4.0] — 2026-06-10
 
 Harmonic rhythm + a clean engine/host split. Progressions gain multiple chords per
@@ -156,6 +220,7 @@ as tablature, and plays it back with a synchronized beat cursor.
   the next phase).
 - No audio-input accuracy detection (out of scope for v1).
 
+[0.5.0]: https://github.com/reslava/chord-flow/releases/tag/v0.5.0
 [0.4.0]: https://github.com/reslava/chord-flow/releases/tag/v0.4.0
 [0.3.0]: https://github.com/reslava/chord-flow/releases/tag/v0.3.0
 [0.2.0]: https://github.com/reslava/chord-flow/releases/tag/v0.2.0

@@ -5,25 +5,34 @@ guitarists practice **rhythm patterns over chord progressions**. The core is an
 exercise-generation engine (progressions × keys × rhythms × voicings), rendered as
 guitar tablature with **synchronized playback** via [alphaTab](https://www.alphatab.net/).
 
-> **Status:** v0.4.0 — a music-theory-first domain kernel, **multi-chord-per-bar
-> progressions** written in a simple text DSL, and a clean **Core / Desktop** split
-> (a host-agnostic engine + the WinForms/WebView2 host). Builds on v0.2.0's SQLite
-> persistence, saved-exercise library, practice tracking, and on-screen builder. This
-> MVP is the starting point for a broader rhythm/lead chord-progression trainer.
-> Windows-only for now.
+> **Status:** v0.5.0 — a **content-driven** trainer. Progressions, songs, rhythms, and
+> voicings are authored in compact **text DSLs**, shipped as importable **content packs**,
+> and assembled into exercises through an on-screen **workbench** — over a music-theory-first
+> domain kernel and a clean **Core / Desktop** split. The starting point for a broader
+> rhythm/lead chord-progression trainer. Windows-only for now (downloadable build below).
 
-## Features (v0.4.0)
+## Features (v0.5.0)
 
-- 12-bar blues, transposable to **all 12 keys** (computed movable shell voicing)
-- **Chord progressions** in a compact, key-independent **[Progression DSL](loom/refs/chordflow-dsl-reference.md)** — multiple chords per bar, with rich chord qualities
-- Rhythm patterns: beat 1 · beats 1 & 3 · quarters
-- On-screen **builder**: key picker, rhythm picker, tempo, Generate
-- Tablature rendering + audio playback with a **synchronized beat cursor** and
-  active-note highlighting
-- Play / stop / tempo transport
+- **Content authored in text DSLs** — a key-independent
+  **[Progression & Song DSL](loom/refs/chordflow-dsl-reference.md)** (multiple chords per
+  bar, rich qualities, arrangement with repeats + modulation), a **Rhythm DSL** (multi-bar
+  patterns, `:n` subdivisions, triplets, pickups), and a **Voicing DSL** (canonical-C,
+  CAGED-ranked shapes)
+- **Content packs (open-core)** — data-only bundles imported idempotently; the built-in
+  starter content ships as the **default pack**, and your own packs shadow built-ins
+  non-destructively. Includes a **34-voicing CAGED default pack** across chord qualities
+- **Exercise workbench** — pick harmony (song or progression) + comping + an optional lead +
+  key / tempo / difficulty / feel, then Generate
+- 12-bar blues transposable to **all 12 keys**
+- Tablature rendering + audio playback with a **synchronized beat cursor**, **two-track**
+  (comping + lead) staves, chord-name / chord-diagram toggles, and bars-per-row layout
+- **User-selectable soundfont** — auto-discovered from `wwwroot/soundfont`, a global choice
+  that switches live and persists
+- **Content editor** — CRUD for progressions/songs/rhythms/voicings (with fret-box diagrams),
+  plus an **alphaTex inspector** (Debug view) over the engine's emitted alphaTex
 - **Save** exercise definitions to SQLite, reload them from a **saved-exercise list**
-  (alphaTex is regenerated on load, never stored)
-- **Mark practiced** — records a practice event (✅ marker + count in the list)
+  (alphaTex is regenerated on load, never stored), and **mark practiced**
+- Play / stop / tempo transport
 
 ## Download & install
 
@@ -90,7 +99,8 @@ Some downloads are zipped — extract the `.sf2` and place it in the folder abov
 dotnet test
 ```
 
-39 xUnit tests cover the `Domain` kernel and `AlphaTexRenderer`.
+399 xUnit tests cover the `Domain` kernel, the content DSLs/parsers, packs, persistence,
+and `AlphaTexRenderer`.
 
 ## Project layout
 

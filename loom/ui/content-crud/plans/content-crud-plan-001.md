@@ -3,7 +3,7 @@ type: plan
 id: pl_01KV551H40R2DG2S89BX78HP6G
 title: Content-definition CRUD UI — Plan
 status: done
-created: "2026-06-15T00:00:00.000Z"
+created: 2026-06-15
 updated: 2026-06-15
 version: 1
 design_version: 1
@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KV54ENW26AVDKP72VKY39ZEK
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.5.0
 steps:
   - id: store-write-path-songstore
     order: 1

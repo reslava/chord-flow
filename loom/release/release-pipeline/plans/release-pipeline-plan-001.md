@@ -11,6 +11,7 @@ tags: []
 parent_id: de_01KVB4K1PTQ437QZHX8PWX0N63
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.5.0
 steps:
   - id: commit-sonivox-sf2-drop-fetchsoundfont
     order: 1

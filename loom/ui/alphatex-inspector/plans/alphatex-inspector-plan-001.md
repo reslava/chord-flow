@@ -3,14 +3,15 @@ type: plan
 id: pl_01KV7G516WXBHC3ZACT70ZGBEH
 title: alphaTex inspector — Debug view + diagnostics-driven render fixes
 status: done
-created: "2026-06-16T00:00:00.000Z"
-updated: "2026-06-16T00:00:00.000Z"
+created: 2026-06-16
+updated: 2026-06-16
 version: 1
 design_version: 1
 tags: []
 parent_id: id_01KV6MNTQMPZXM49TM3GQWCN5K
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.5.0
 steps:
   - id: debug-view-mvp
     order: 1

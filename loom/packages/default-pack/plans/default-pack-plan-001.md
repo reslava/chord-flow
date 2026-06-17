@@ -3,7 +3,7 @@ type: plan
 id: pl_01KV1NRXEQ3YJWJE6WQDKQE75Z
 title: Default pack — author the CAGED voicing content
 status: done
-created: "2026-06-13T00:00:00.000Z"
+created: 2026-06-13
 updated: 2026-06-14
 version: 1
 design_version: 1
@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KV1NEPYM2Y7FQ3J7J523Q2BA
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.5.0
 steps:
   - id: core-qualities-maj-min-dom7
     order: 1

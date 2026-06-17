@@ -3,7 +3,7 @@ type: plan
 id: pl_01KTXQD6EYEV6FVZJET4K7E4FB
 title: Song — first slice
 status: done
-created: "2026-06-12T00:00:00.000Z"
+created: 2026-06-12
 updated: 2026-06-12
 version: 1
 design_version: 1
@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KTVTNZPYS36K23R5Z9MYDB54
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.5.0
 steps:
   - id: domain-model
     order: 1

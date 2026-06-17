@@ -3,8 +3,8 @@ type: plan
 id: pl_01KTXTT2HTACTHQDK6VSVC425D
 title: Rhythm DSL — first slice
 status: done
-created: "2026-06-12T00:00:00.000Z"
-updated: "2026-06-12T00:00:00.000Z"
+created: 2026-06-12
+updated: 2026-06-12
 version: 1
 design_version: 1
 req_version: 1
@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KTVVTS9HG5X2C39TC1X1KP94
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.5.0
 steps:
   - id: multi-bar-rhythmpattern-type
     order: 1

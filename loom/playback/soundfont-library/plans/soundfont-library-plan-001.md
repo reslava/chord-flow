@@ -3,7 +3,7 @@ type: plan
 id: pl_01KV7NP49XN0CE351Q7YRAVJM3
 title: SoundFont library — implementation
 status: done
-created: "2026-06-16T00:00:00.000Z"
+created: 2026-06-16
 updated: 2026-06-16
 version: 1
 design_version: 1
@@ -11,6 +11,7 @@ tags: []
 parent_id: de_01KV7NET48R277ZA3EWC9ZR6ZY
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.5.0
 steps:
   - id: add-a-core-appsettings-key-value
     order: 1

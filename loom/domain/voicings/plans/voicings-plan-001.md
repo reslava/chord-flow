@@ -3,7 +3,7 @@ type: plan
 id: pl_01KTZWZPKHS2BHNAR7RABZPDDX
 title: Voicings — authored content pillar (slice 1)
 status: done
-created: "2026-06-13T00:00:00.000Z"
+created: 2026-06-13
 updated: 2026-06-13
 version: 1
 design_version: 1
@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KTXERD54E8GFPPNE19GMCPB1
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.5.0
 steps:
   - id: dsl-parser-canonical-c-normalize
     order: 1
