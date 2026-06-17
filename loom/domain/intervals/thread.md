@@ -3,13 +3,13 @@ type: thread
 id: th_01KV3X9Z08WBZ7M4S9WXNCYWV7
 title: Intervals — the theory substrate (deferred, captured)
 status: active
-created: "2026-06-14T00:00:00.000Z"
-updated: 2026-06-14
+created: 2026-06-14
+updated: 2026-06-17
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 40
+priority: 20
 depends_on: []
 ---
 # Intervals — the theory substrate (deferred, captured)

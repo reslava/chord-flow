@@ -3,13 +3,13 @@ type: thread
 id: th_01KV3X9YY4WJ5KPW9W7401NJVS
 title: Chord qualities — the interval formulas (engine input)
 status: active
-created: "2026-06-14T00:00:00.000Z"
-updated: 2026-06-16
+created: 2026-06-14
+updated: 2026-06-17
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 60
+priority: 40
 depends_on: [th_01KV3X9Z08WBZ7M4S9WXNCYWV7]
 ---
 # Chord qualities — the interval formulas (engine input)
