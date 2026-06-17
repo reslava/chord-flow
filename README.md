@@ -25,6 +25,18 @@ guitar tablature with **synchronized playback** via [alphaTab](https://www.alpha
   (alphaTex is regenerated on load, never stored)
 - **Mark practiced** — records a practice event (✅ marker + count in the list)
 
+## Download & install
+
+**[Download the latest Windows release →](https://github.com/reslava/chord-flow/releases/latest)**
+
+Grab the `ChordFlow-vX.Y.Z-win-x64.zip` asset, unzip it anywhere, and run **`ChordFlow.exe`**.
+It's a **self-contained** build — no .NET install needed. (Windows 10/11; the WebView2
+Runtime is preinstalled on Windows 11 and current Microsoft Edge.)
+
+> **First run:** the build is unsigned, so Windows **SmartScreen** shows an "unknown
+> publisher" prompt — choose **More info → Run anyway**. This is expected and clears as the
+> download gains reputation.
+
 ## Tech stack
 
 - **C# / .NET 10** engine — a pure `Domain/` music kernel + `Rendering/AlphaTexRenderer`
@@ -48,16 +60,16 @@ dotnet build
 dotnet run --project src/ChordFlow.Desktop
 ```
 
-> The GM soundfont (`wwwroot/soundfont/sonivox.sf2`) is **fetched at build time** the
-> first time you build (it is not committed — see `.gitignore`). The first build
-> therefore needs network access; subsequent builds reuse the cached file.
+> The GM soundfont (`wwwroot/soundfont/sonivox.sf2`, Apache-2.0) is **bundled** (committed
+> to the repo), so builds are offline/hermetic — there is no download step.
 
 ### Soundfonts
 
-Playback uses a **SoundFont (`.sf2`)**. The default **Sonivox** GM font is fetched at build
-time (above); you can add more and switch between them in-app:
+Playback uses a **SoundFont (`.sf2`)**. The default **Sonivox** GM font is bundled; you can
+add more and switch between them in-app:
 
-1. Drop any `.sf2` file into `src/ChordFlow.Desktop/wwwroot/soundfont/`.
+1. Drop any `.sf2` file into `src/ChordFlow.Desktop/wwwroot/soundfont/` (in a downloaded
+   release, that's the `wwwroot/soundfont/` folder next to `ChordFlow.exe`).
 2. Pick it from the **Sound** dropdown in the player controls. The choice is a **global
    setting** and is remembered across sessions.
 
@@ -66,7 +78,7 @@ drop-in with no code change. A few free, redistributable GM soundfonts:
 
 | SoundFont | License | Where to get it |
 |-----------|---------|-----------------|
-| Sonivox (default) | Apache-2.0 | fetched at build time |
+| Sonivox (default) | Apache-2.0 | bundled (committed) |
 | FluidR3 GM | MIT | <https://musescore.org/en/handbook/3/soundfonts-and-sfz-files> |
 | GeneralUser GS | permissive (free, custom) | <https://schristiancollins.com/generaluser.php> |
 

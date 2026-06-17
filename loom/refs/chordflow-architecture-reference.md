@@ -3,9 +3,9 @@ type: reference
 id: rf_01KTSAPAT132QTEY5BEPRKS3MB
 title: ChordFlow Architecture
 status: active
-created: "2026-06-10T00:00:00.000Z"
-updated: 2026-06-16
-version: 14
+created: 2026-06-10
+updated: 2026-06-17
+version: 15
 tags: []
 parent_id: null
 requires_load: []
@@ -76,6 +76,8 @@ Stores exercise **definitions** and practice events, **never alphaTex** (it's re
 ## 4. The desktop host (Desktop)
 
 A WinForms `Form` hosts a dock-filled `WebView2` control (windowed controller — the path that renders on the .NET 10 + WebView2-149 stack, where Photino's composition controller rendered black; see `photino-net-desktop-host-reference.md`). `wwwroot` is served over an in-process `https://chordflow.local/` virtual host via `SetVirtualHostNameToFolderMapping` — **no HTTP server, no localhost port**, and a real `https` origin so alphaTab's soundfont fetch isn't CORS-blocked. `WebView2Bridge` (the one type touching `CoreWebView2`) implements `IBridge` and forwards inbound messages to the Core `WebMessageRouter`.
+
+**Packaging / distribution.** The host ships as a **self-contained, single-file `ChordFlow.exe`** (`<AssemblyName>ChordFlow</AssemblyName>`; `win-x64`) with its `wwwroot/` tree as **loose files beside the exe** — single-file embeds only the .NET runtime, *not* `Content`, which is required: the host serves `wwwroot` from disk and the soundfont catalog scans `wwwroot/soundfont` at runtime, so embedding would break both. The small default GM soundfont (`sonivox.sf2`, Apache-2.0) is **committed** and copied to the publish output (no build-time download — the build is hermetic); larger banks stay out of the repo and are user-added. The release artifact is that `ChordFlow.exe` + `wwwroot/` zipped and attached to a GitHub release by the tag-driven `release` workflow (see `RELEASING.md`).
 
 ---
 

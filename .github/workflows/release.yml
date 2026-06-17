@@ -1,0 +1,167 @@
+name: release
+
+# Tag-driven release spine for ChordFlow. The maintainer bumps the csproj <Version> +
+# writes CHANGELOG locally and pushes a vX.Y.Z tag; CI reacts. CI never pushes to main
+# and never owns the bump. ChordFlow publishes to no registry — the release is a
+# downloadable Windows artifact attached to a GitHub release. See RELEASING.md.
+#
+# Job graph:  guard -> build-test -> release
+#
+# Runs on windows-latest: ChordFlow.Desktop is net10.0-windows (WinForms), so the whole
+# solution can only build/test/publish on Windows.
+#
+# Dry-run: trigger manually via workflow_dispatch (dry_run: true, the default) to exercise
+# guard + build-test (build, tests, and the packaged zip) WITHOUT cutting a release —
+# version is read from the csproj since there's no tag.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Exercise guard + build-test (build, tests, zip) without cutting a release'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  CSPROJ: src/ChordFlow.Desktop/ChordFlow.Desktop.csproj
+  DOTNET_VERSION: '10.0.x'
+
+jobs:
+  # -- guard: derive the version, assert csproj <Version> + CHANGELOG section agree -------
+  guard:
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Resolve version and assert sync
+        id: parse
+        run: |
+          set -euo pipefail
+          # The single authoritative version source (C1) is <Version> in the Desktop csproj.
+          CSPROJ_VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' "$CSPROJ" | head -1)"
+          if [ -z "$CSPROJ_VERSION" ]; then
+            echo "::error file=$CSPROJ::no <Version> found"; exit 1
+          fi
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            # No tag on a manual run — take the version from the csproj.
+            VERSION="$CSPROJ_VERSION"
+            echo "Manual run  ->  version from csproj: $VERSION"
+          else
+            TAG="${GITHUB_REF_NAME}"
+            VERSION="${TAG#v}"
+            echo "Release tag: $TAG  ->  version: $VERSION"
+            if [ "$VERSION" != "$CSPROJ_VERSION" ]; then
+              echo "::error file=$CSPROJ::csproj <Version> ($CSPROJ_VERSION) does not match tag $VERSION — bump it before tagging."
+              exit 1
+            fi
+          fi
+          # Assert a dated "## [VERSION]" section exists in CHANGELOG.md before anything is
+          # built. Index-based (literal) matching — a dynamic regex would treat [X.Y.Z] as a
+          # character class and never match. Runs on dry-runs too.
+          section="$(awk -v hdr="## [$VERSION]" '
+            index($0, hdr) == 1 { capture=1; next }
+            capture && index($0, "## [") == 1 { exit }
+            capture { print }
+          ' CHANGELOG.md)"
+          if [ -z "$(printf '%s' "$section" | tr -d '[:space:]')" ]; then
+            echo "::error file=CHANGELOG.md::No [$VERSION] section in CHANGELOG.md — add it before tagging."
+            exit 1
+          fi
+          echo "ok: csproj + CHANGELOG agree on $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  # -- build-test: build, test, then publish the self-contained zip artifact -------------
+  build-test:
+    needs: guard
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Restore
+        run: dotnet restore
+      - name: Build (Release)
+        run: dotnet build -c Release --no-restore
+      - name: Test (Release)
+        run: dotnet test -c Release --no-build
+      - name: Publish self-contained single-file Windows build
+        run: |
+          set -euo pipefail
+          dotnet publish "$CSPROJ" -c Release -r win-x64 --self-contained \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+            -o publish
+      - name: Package the release zip
+        shell: pwsh
+        run: |
+          $version = "${{ needs.guard.outputs.version }}"
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          Compress-Archive -Path publish/* -DestinationPath "artifacts/ChordFlow-v$version-win-x64.zip" -Force
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-artifact
+          path: artifacts/
+          retention-days: 7
+          if-no-files-found: error
+
+  # -- release: tag pushes only — cut the GitHub release with the CHANGELOG as notes -----
+  release:
+    needs: [guard, build-test]
+    # A manual/dry-run never cuts a GitHub release.
+    if: github.event_name == 'push'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download release artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: release-artifact
+          path: artifacts
+      - name: Extract CHANGELOG section for this version
+        id: notes
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.guard.outputs.version }}"
+          # Capture everything under "## [VERSION]" up to the next "## [" header. Literal
+          # (index-based) matching — a dynamic regex would treat [X.Y.Z] as a character class.
+          section="$(awk -v hdr="## [$VERSION]" '
+            index($0, hdr) == 1 { capture=1; next }
+            capture && index($0, "## [") == 1 { exit }
+            capture { print }
+          ' CHANGELOG.md)"
+          if [ -z "$(printf '%s' "$section" | tr -d '[:space:]')" ]; then
+            echo "::error::No CHANGELOG.md section found for [$VERSION]."; exit 1
+          fi
+          {
+            echo "body<<__CF_EOF__"
+            printf '%s\n' "$section"
+            echo "__CF_EOF__"
+          } >> "$GITHUB_OUTPUT"
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Pass the notes through env (data), never inline ${{ }} into the shell:
+          # interpolating the CHANGELOG body straight into the run script lets any
+          # backtick / $(...) in the notes execute as a command (script injection). (C4)
+          RELEASE_NOTES: ${{ steps.notes.outputs.body }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$RELEASE_NOTES" > "$RUNNER_TEMP/release-notes.md"
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            "artifacts/ChordFlow-${GITHUB_REF_NAME}-win-x64.zip"

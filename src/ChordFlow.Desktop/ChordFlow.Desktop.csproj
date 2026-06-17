@@ -11,6 +11,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Version>0.4.0</Version>
+    <!-- Ship as ChordFlow.exe (not ChordFlow.Desktop.exe) — the end-user-facing name. -->
+    <AssemblyName>ChordFlow</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,23 +28,16 @@
 
   <!-- The WebView2 host serves the UI from disk via SetVirtualHostNameToFolderMapping
        (no HTTP server, C2). Copy the whole wwwroot tree — index.html, app.js,
-       alphaTab.min.js, the Bravura music font, and the GM soundfont — to the output. -->
+       alphaTab.min.js, the Bravura music font, and the committed GM soundfont
+       (wwwroot/soundfont/sonivox.sf2) — to the output (and to the publish folder, so the
+       release zip carries it with no build-time download). Single-file publish keeps these
+       as loose Content files beside the exe, which is required: the soundfont catalog
+       auto-discovers .sf2 files from this folder at runtime. -->
   <ItemGroup>
     <Content Include="wwwroot\**\*" Exclude="wwwroot\.gitkeep">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </Content>
   </ItemGroup>
-
-  <!-- The GM soundfont is fetched at build time, not committed (size + licensing —
-       see .gitignore). Downloads the Apache-2.0 Sonivox sf2 from the pinned alphaTab
-       release on first build if it isn't already present; offline builds reuse it. -->
-  <Target Name="FetchSoundfont" BeforeTargets="BeforeBuild">
-    <PropertyGroup>
-      <SoundfontDir>$(MSBuildProjectDirectory)\wwwroot\soundfont</SoundfontDir>
-      <SoundfontUrl>https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.3/dist/soundfont/sonivox.sf2</SoundfontUrl>
-    </PropertyGroup>
-    <DownloadFile Condition="!Exists('$(SoundfontDir)\sonivox.sf2')" SourceUrl="$(SoundfontUrl)" DestinationFolder="$(SoundfontDir)" SkipUnchangedFiles="true" />
-  </Target>
 
 </Project>

@@ -3,6 +3,10 @@
 [Oo]bj/
 [Dd]ebug/
 [Rr]elease/
+# Exception: loom/release/ is a Loom weave (Markdown workflow docs), not .NET build output —
+# don't let the [Rr]elease/ rule above swallow it.
+!loom/release/
+!loom/release/**
 x64/
 x86/
 [Aa][Rr][Mm]/
@@ -48,11 +52,13 @@ coverage*.info
 *.db-shm
 *.db-wal
 *.sqlite
-# Soundfonts are bundled at build time, not committed (size + licensing). The default
-# Sonivox font is fetched by the FetchSoundfont MSBuild target; any extra .sf2/.sf3 a user
-# drops in is auto-discovered by the in-app picker and intentionally stays out of the repo.
+# Soundfont banks are large + license-varied, so they stay out of the repo — EXCEPT the
+# small default Sonivox font (Apache-2.0), which is committed so the build is hermetic (no
+# build-time download). Any extra .sf2/.sf3 a user drops in is auto-discovered by the in-app
+# picker and intentionally stays out of the repo.
 src/**/wwwroot/soundfont/*.sf2
 src/**/wwwroot/soundfont/*.sf3
+!src/ChordFlow.Desktop/wwwroot/soundfont/sonivox.sf2
 
 # ----- Claude Code -----
 .claude/settings.local.json
