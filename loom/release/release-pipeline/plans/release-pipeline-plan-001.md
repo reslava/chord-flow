@@ -2,7 +2,7 @@
 type: plan
 id: pl_01KVB53F79XSMPYDHNY6KEP72K
 title: Release pipeline — implementation
-status: implementing
+status: done
 created: 2026-06-17
 updated: 2026-06-17
 version: 1
@@ -63,7 +63,7 @@ steps:
     satisfies: [C8]
   - id: dry-run-validation
     order: 8
-    status: pending
+    status: done
     description: Validate end-to-end with a dry-run before the first real tag
     files_touched: []
     blocked_by: [1, 2, 3]
@@ -88,7 +88,7 @@ Implement the ChordFlow release pipeline per the design: a tag-driven GitHub Act
 | ✅ | 5 | Add the /do-release X.Y.Z slash command adapted from Loom | .claude/commands/do-release.md | 3 | IN1, IN7 |
 | ✅ | 6 | Update README: add a Download/Install section and flip the soundfont docs from 'fetched at build' to 'bundled' | README.md | 1 | IN3, IN10 |
 | ✅ | 7 | Doc/ref sync: update the architecture reference (and any doc) describing the soundfont fetch | loom/refs/chordflow-architecture-reference.md | 1 | C8 |
-| 🔳 | 8 | Validate end-to-end with a dry-run before the first real tag | — | 1, 2, 3 | IN6, C6 |
+| ✅ | 8 | Validate end-to-end with a dry-run before the first real tag | — | 1, 2, 3 | IN6, C6 |
 ---
 
 ### Legend

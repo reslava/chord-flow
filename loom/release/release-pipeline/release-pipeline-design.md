@@ -2,10 +2,10 @@
 type: design
 id: de_01KVB4K1PTQ437QZHX8PWX0N63
 title: Release pipeline — automate ChordFlow releases (adapted from Loom)
-status: draft
+status: done
 created: 2026-06-17
 updated: 2026-06-17
-version: 2
+version: 3
 tags: []
 parent_id: null
 requires_load: []

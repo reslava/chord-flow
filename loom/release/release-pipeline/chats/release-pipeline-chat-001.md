@@ -2,13 +2,14 @@
 type: chat
 id: ch_01KVB1Y63DJ6GBRYZVRVEZ868Z
 title: release-pipeline Chat
-status: active
+status: done
 created: 2026-06-17
-version: 1
+updated: 2026-06-17
+version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 20
+last_ai_block: 22
 ---
 # release-pipeline Chat
 
@@ -316,3 +317,27 @@ We forgot to generate requirements
 - ammend the plan
 - start plan
 - do whole plan
+
+## AI:
+
+**Whole plan done — all 8 steps ✅, validated by a green dry-run, shipped to `main` (`0b12ae8`).**
+
+Reqs (you locked them) → satisfies handles wired onto every step → plan started → executed straight through:
+
+1. ✅ Committed `sonivox.sf2`, removed `FetchSoundfont` — build verified hermetic.
+2. ✅ `<AssemblyName>ChordFlow</AssemblyName>` — output is now `ChordFlow.exe`.
+3. ✅ `.github/workflows/release.yml` — guard → build-test → release, windows-latest.
+4. ✅ `RELEASING.md` runbook.
+5. ✅ `/do-release` command.
+6. ✅ README — Download & install section + soundfont docs flipped to "bundled".
+7. ✅ Architecture ref — added the packaging/distribution note (§4).
+8. ✅ Dry-run [run 27703746183](https://github.com/reslava/chord-flow/actions/runs/27703746183): **guard ✓ 11s · build-test ✓ 2m3s (zip artifact produced) · release skipped** on the dispatch. The pipeline is green.
+
+### One finding worth flagging
+The repo's standard .NET `[Rr]elease/` ignore in `.gitignore` was **swallowing the entire `loom/release/` weave** — this thread's chat/design/plan/req had never been git-tracked. I added a `!loom/release/` exception so it's committable; that's why they landed in this commit. Only `loom/release/` collided; other weaves were fine.
+
+### Note on uncommitted state
+The commit `0b12ae8` carries the code + pipeline + the v1 Loom docs. The *post-execution* Loom updates (plan steps marked done, the `…-done.md` doc, these chat appends) are **uncommitted** — they're still-active workflow state. Want me to drop a `chore: loom` commit for them, or let them fold into the first real `/do-release`?
+
+### Ready for the first real release
+When you want to actually ship: `/do-release 0.5.0` (or whatever the bump is). Deferred by design: code signing, store/registry publishing, and the user guide (its own `docs/user-guide` thread — stub created).
