@@ -2,9 +2,10 @@
 type: chat
 id: ch_01KV7N19WZS1MM8JCHR9ZN69KT
 title: soundfont-library Chat
-status: active
-created: "2026-06-16T00:00:00.000Z"
-version: 1
+status: done
+created: 2026-06-16
+updated: 2026-06-16
+version: 2
 tags: []
 parent_id: null
 requires_load: []
