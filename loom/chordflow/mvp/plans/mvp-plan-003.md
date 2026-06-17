@@ -3,8 +3,8 @@ type: plan
 id: pl_01KTHKJ10P2215FZ5RP9VC1H27
 title: Phase 3 — Persistence & UI
 status: done
-created: "2026-06-07T00:00:00.000Z"
-updated: "2026-06-08T00:00:00.000Z"
+created: 2026-06-07
+updated: 2026-06-08
 version: 2
 design_version: 1
 req_version: 1
@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KTHJD3QTBGRVX3BBRD29PKAW
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.1.0
 steps:
   - id: add-sqlite-via-ef-core-chordflowdbcontext
     order: 1

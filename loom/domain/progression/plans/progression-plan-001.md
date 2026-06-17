@@ -3,8 +3,8 @@ type: plan
 id: pl_01KTP2EG1HXQXR7DKM0G8QCHTP
 title: Multi-chord-per-bar progressions — Implementation Plan
 status: done
-created: "2026-06-09T00:00:00.000Z"
-updated: "2026-06-09T00:00:00.000Z"
+created: 2026-06-09
+updated: 2026-06-09
 version: 2
 design_version: 1
 req_version: 2
@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KTP11T7JCSDK6PN2FEXDR5CW
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.4.0
 steps:
   - id: domain-model-guarded-progression
     order: 1
@@ -86,6 +87,7 @@ Implement the harmonic-rhythm layer from `req.md`: a `Progression` of `HarmonicB
 
 ---
 
+<!-- step:domain-model-guarded-progression -->
 ### Step 1 — Domain model + guarded factory + keep green
 
 - New `Domain/ChordSpan.cs` — `readonly record struct ChordSpan(RomanDegree Degree, int DurationTicks)`.
@@ -96,6 +98,7 @@ Implement the harmonic-rhythm layer from `req.md`: a `Progression` of `HarmonicB
 - `Rendering/AlphaTexRenderer.cs` — iterate realized bars; **single-span fast path** reproduces today's output (one chord group for the whole bar). Multi-span rendering lands in Step 4.
 - **Done when:** solution builds; existing renderer/transposer/seed tests pass unchanged (golden alphaTex for 12-bar blues identical).
 
+<!-- step:m1-dsl-quality-suffix-table-bar -->
 ### Step 2 — `ProgressionParser` (M1 DSL)
 
 - New `Domain/ProgressionParser.cs` — pure `static Progression Parse(string id, string name, string dsl, TimeSignature ts)`.
@@ -106,18 +109,21 @@ Implement the harmonic-rhythm layer from `req.md`: a `Progression` of `HarmonicB
 - Errors: `FormatException` naming the offending token.
 - **Tests:** `17_67`→Half/Half; `17:2_67:1_27:1`→[96,48,48]; `2-7 57 17_67 2-7_57` turnaround; every quality suffix; each error case; blues string round-trips to `SeedData.TwelveBarBlues`.
 
+<!-- step:rhythmslot -->
 ### Step 3 — Quantizer: `StartTick` + span-boundary splitting
 
 - `Rendering/RhythmSlot.cs` — add `int StartTick` (bar-relative tick of the slot's onset).
 - `Rendering/RhythmQuantizer.cs` — populate `StartTick` (already tracked as `p`/`q` in `EmitSpan`). Add a param taking the bar's span boundaries; split at those as well as beat lines. At a chord boundary a continuing note re-attacks (`TiedToPrevious=false`); a rest stays a rest.
 - **Tests:** boundaries at 96 (2-chord) and 48/96/144 (4-chord) produce correctly split slots with right `StartTick`; note across a chord boundary re-attacks, not ties; rest across a boundary stays one rest; single-span bar unchanged.
 
+<!-- step:multi-chord-harmonicbar -->
 ### Step 4 — Renderer multi-chord
 
 - `Domain/HarmonicBar.cs` — confirm `SpanCovering` maps the realized bar too.
 - `Rendering/AlphaTexRenderer.cs` — replace the single-span fast path: per realized bar, quantize with that bar's span boundaries (Step 3), then for each slot pick the chord via covering-span lookup on `slot.StartTick`; format that chord group (`r` for rests). Header/feel/pickup logic unchanged.
 - **Tests:** 2-chord (`17_67` + Quarters), 3-chord `[96,48,48]`, 4-chord (`17_27_37_47`); 12-bar-blues golden output identical; audibility behaviour asserted.
 
+<!-- step:persistence-id-name-dsl-origin-createdutc -->
 ### Step 5 — Persistence
 
 - New `Infrastructure/Entities/ProgressionEntity.cs` — `Id` (string PK), `Name`, `Dsl`, `Origin`, `CreatedUtc`.
@@ -127,6 +133,7 @@ Implement the harmonic-rhythm layer from `req.md`: a `Progression` of `HarmonicB
 - EF migration adding the `Progressions` table.
 - **Tests:** context creates the table; save/load round-trips `Dsl` + `Origin`.
 
+<!-- step:seeding-example-progressions-blues-jazz-blues -->
 ### Step 6 — Seeding + round-trip
 
 - `Domain/SeedData.cs` — add example progressions `(Id, Name, Dsl, Origin=BuiltIn)`, including blues `"17 17 17 17 47 47 17 17 57 47 17 57"` and turnaround `2-7 57 17_67 2-7_57`.

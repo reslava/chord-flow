@@ -3,14 +3,15 @@ type: plan
 id: pl_01KTM0Z0RPTP75F7CWBCZC8AZ1
 title: Music-Theory Domain Model — Implementation Plan
 status: done
-created: "2026-06-08T00:00:00.000Z"
-updated: "2026-06-08T00:00:00.000Z"
+created: 2026-06-08
+updated: 2026-06-08
 version: 3
 design_version: 1
 tags: []
 parent_id: de_01KTM0DRF3Q7F4X35RMCBX6DDT
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.1.0
 steps:
   - id: quality-interval-sets-chordtone-back-the
     order: 1

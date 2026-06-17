@@ -3,8 +3,8 @@ type: plan
 id: pl_01KTKBD869200M81FCSWES0Q8A
 title: "Phase 2b — Host migration: Photino → WinForms + WebView2"
 status: done
-created: "2026-06-08T00:00:00.000Z"
-updated: "2026-06-08T00:00:00.000Z"
+created: 2026-06-08
+updated: 2026-06-08
 version: 1
 design_version: 1
 req_version: 2
@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KTHJD3QTBGRVX3BBRD29PKAW
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.1.0
 steps:
   - id: repoint-the-host-project-csproj-targetframework
     order: 1

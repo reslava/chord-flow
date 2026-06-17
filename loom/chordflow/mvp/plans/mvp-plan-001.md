@@ -3,8 +3,8 @@ type: plan
 id: pl_01KTHKHSCQE2D3CZFRHQG6KVPD
 title: Phase 1 — Engine & Renderer
 status: done
-created: "2026-06-07T00:00:00.000Z"
-updated: "2026-06-08T00:00:00.000Z"
+created: 2026-06-07
+updated: 2026-06-08
 version: 2
 design_version: 1
 req_version: 1
@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KTHJD3QTBGRVX3BBRD29PKAW
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.1.0
 steps:
   - id: scaffold-the-solution-chordflow
     order: 1
