@@ -2,10 +2,10 @@
 type: chat
 id: ch_01KTZRJCFWGBW5Q1XMN6WZMGYY
 title: guitar-voicings Chat
-status: active
+status: done
 created: 2026-06-13
 updated: 2026-06-18
-version: 3
+version: 4
 tags: []
 parent_id: null
 requires_load: []
