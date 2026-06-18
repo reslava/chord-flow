@@ -11,6 +11,7 @@ req_version: 1
 tags: []
 parent_id: de_01KVBSHF54Q2AMJESSQAKVV97W
 requires_load: []
+actual_release: 0.6.0
 steps:
   - id: core-marker-model-voicing-producer-recast
     order: 1

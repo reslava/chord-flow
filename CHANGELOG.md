@@ -4,6 +4,33 @@ All notable changes to ChordFlow are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-06-18
+
+A reusable **fretboard diagram** rendering layer. Chord/scale shapes are now drawn by a
+single dumb SVG component over a Core-computed marker model — the spatial twin of the
+shared `ChordFlowScore` notation component — replacing the old one-off chord-diagram view
+and laying the groundwork for the interval-derived shape engine.
+
+### Added
+- **`ChordFlowFretboard` SVG component** (`fretboard-render-component.js`) — a dumb SVG view
+  over a Core-computed `FretboardDiagram` marker model: a flat, many-per-string marker list
+  where **color = interval** (default function palette or a per-interval override), **shape =
+  layer**, with an owned label toggle + auto legend, open/muted/barre rendering, and an
+  auto-fit fret window. The spatial counterpart to `ChordFlowScore`.
+- **Core `FretboardDiagram` marker model** — new `Domain/Diagrams/FretboardDiagram`
+  (`FretboardDiagram` / `FretboardMarker` / `MarkerShape`); `Function` is a string color-key
+  (`root`…`tension`).
+- **`fretboard-sandbox.html`** — a hand-fed harness for the new component.
+
+### Changed
+- **`VoicingDiagram.Build` recast onto `FretboardDiagram`** as its first producer; the old
+  `DiagramModel` / `DiagramString` parallel path is removed and
+  `EntityPreviewEnvelope.Diagram` retyped. The Content/Voicings preview is retrofitted onto
+  the new component and the old `chord-diagram.js` is deleted (no drifting second path).
+
+### Tests
+- Full `ChordFlow.Core` xUnit suite green (399/399).
+
 ## [0.5.0] — 2026-06-17
 
 ChordFlow grows from a hardcoded 12-bar-blues demo into a **content-driven trainer**:
@@ -220,6 +247,7 @@ as tablature, and plays it back with a synchronized beat cursor.
   the next phase).
 - No audio-input accuracy detection (out of scope for v1).
 
+[0.6.0]: https://github.com/reslava/chord-flow/releases/tag/v0.6.0
 [0.5.0]: https://github.com/reslava/chord-flow/releases/tag/v0.5.0
 [0.4.0]: https://github.com/reslava/chord-flow/releases/tag/v0.4.0
 [0.3.0]: https://github.com/reslava/chord-flow/releases/tag/v0.3.0
