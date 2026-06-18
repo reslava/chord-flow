@@ -23,14 +23,15 @@ public sealed record EntityLoadedEnvelope(string Entity, string Id, string Name,
 /// <summary>
 /// A live preview of an unsaved DSL. <see cref="Kind"/> is <c>score</c> (progression/song/rhythm — carries
 /// <see cref="Tex"/> + <see cref="Tempo"/> for a small alphaTab render) or <c>diagram</c> (voicing — the
-/// <see cref="Diagram"/> fret-box model is populated in step 3). Strategy-shaped so the one editor switches on it.
+/// <see cref="Diagram"/> <see cref="FretboardDiagram"/> marker model the JS fret-box draws). Strategy-shaped so
+/// the one editor switches on it.
 /// </summary>
 public sealed record EntityPreviewEnvelope(
     string Entity,
     string Kind,
     string? Tex = null,
     int? Tempo = null,
-    DiagramModel? Diagram = null,
+    FretboardDiagram? Diagram = null,
     string Type = "entityPreview");
 
 /// <summary>An invalid DSL: the parser's located message, shown inline (IN3). <c>{"type":"entityParseError","entity":"…","message":"…"}</c>.</summary>

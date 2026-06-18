@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ChordFlow — Fretboard Sandbox</title>
+  <!--
+    Hand-fed dev harness for window.ChordFlowFretboard (IN8). NOT wired into the app nav — open it directly
+    (https://chordflow.local/fretboard-sandbox.html) to render arbitrary FretboardDiagram marker sets before any
+    derivation-engine producer exists. Every fixture below is plain JSON in the SAME camelCase shape the C#
+    FretboardDiagram serializes to, so what renders here is exactly what a real producer would feed the component.
+  -->
+  <style>
+    body { margin: 0; padding: 1.5rem; background: #1e1e20; color: #e6e6e6; font-family: system-ui, sans-serif; }
+    h1 { font-size: 1.1rem; font-weight: 600; }
+    p.note { color: #9aa0a6; font-size: .8rem; max-width: 46rem; }
+    .row { display: flex; flex-wrap: wrap; gap: 1.5rem; margin-top: 1rem; }
+    .cell { background: #2a2a2d; border: 1px solid #3a3a3d; border-radius: 8px; padding: .4rem; min-width: 190px; }
+    .cell > h2 { font-size: .8rem; font-weight: 600; color: #9aa0a6; margin: .2rem .4rem; }
+  </style>
+</head>
+<body>
+  <h1>Fretboard render component — sandbox</h1>
+  <p class="note">
+    Fixtures are hand-fed marker models. <b>Voicing</b> is one circle per string (the chord case).
+    <b>C-major scale</b> shows <i>many markers per string</i> as squares — the generalization the voicing model
+    can't express. <b>Layered overlay</b> mixes all four shapes (ring root, circle chord tones, square scale,
+    diamond target) and passes an override per-interval palette, so the legend keys on interval tokens.
+    Toggle Intervals/Notes on each diagram.
+  </p>
+  <div class="row" id="row"></div>
+
+  <script src="fretboard-render-component.js"></script>
+  <script>
+    "use strict";
+
+    // m(string, fret, note, interval, function, shape) — shape default 0 (Circle). Matches FretboardMarker.
+    function m(string, fret, note, interval, fn, shape) {
+      return { string, fret, note, interval, function: fn, shape: shape || 0 };
+    }
+
+    // 1) Open C major voicing — exactly what VoicingDiagram.Build emits for "x 3 2 0 1 0".
+    const cMajorVoicing = {
+      title: "C",
+      markers: [
+        m(5, 3, "C", "R", "root"),
+        m(4, 2, "E", "3", "third"),
+        m(3, 0, "G", "5", "fifth"),
+        m(2, 1, "C", "R", "root"),
+        m(1, 0, "E", "3", "third"),
+      ],
+      mutedStrings: [6],
+      barreFret: null,
+      fretMin: 0,
+      fretMax: null,
+    };
+
+    // 2) C-major scale, open position — MANY markers per string, drawn as squares (shape 1, the "scale" layer).
+    const cMajorScale = {
+      title: "C major scale",
+      markers: [
+        m(6, 0, "E", "3", "third", 1), m(6, 1, "F", "11", "tension", 1), m(6, 3, "G", "5", "fifth", 1),
+        m(5, 0, "A", "13", "tension", 1), m(5, 2, "B", "7", "seventh", 1), m(5, 3, "C", "R", "root", 1),
+        m(4, 0, "D", "9", "tension", 1), m(4, 2, "E", "3", "third", 1), m(4, 3, "F", "11", "tension", 1),
+        m(3, 0, "G", "5", "fifth", 1), m(3, 2, "A", "13", "tension", 1),
+        m(2, 0, "B", "7", "seventh", 1), m(2, 1, "C", "R", "root", 1), m(2, 3, "D", "9", "tension", 1),
+        m(1, 0, "E", "3", "third", 1), m(1, 1, "F", "11", "tension", 1), m(1, 3, "G", "5", "fifth", 1),
+      ],
+      mutedStrings: [],
+      barreFret: null,
+      fretMin: 0,
+      fretMax: null,
+    };
+
+    // 3) Layered overlay around the 7th position — all four shapes + a non-nut fret window (auto-fit → "7fr").
+    const overlay = {
+      title: "Overlay (ring / circle / square / diamond)",
+      markers: [
+        m(6, 8, "C", "R", "root", 3),   // ring  = root
+        m(5, 7, "E", "3", "third", 0),  // circle = chord tone
+        m(5, 10, "G", "5", "fifth", 0),
+        m(4, 9, "B", "7", "seventh", 0),
+        m(4, 7, "A", "13", "tension", 1), // square = scale tone
+        m(3, 9, "E", "3", "third", 2),  // diamond = target / guide tone
+        m(3, 7, "D", "9", "tension", 1),
+        m(2, 8, "G", "5", "fifth", 0),
+        m(1, 8, "C", "R", "root", 3),
+      ],
+      mutedStrings: [],
+      barreFret: null,
+      fretMin: null,
+      fretMax: null,
+    };
+    // Override palette keyed on the interval token (design §3) — the legend now reads by interval.
+    const intervalPalette = {
+      R: "#e2574c", 3: "#f59e0b", 5: "#22a06b", 7: "#a855f7", 9: "#3b82f6", 13: "#14b8a6",
+    };
+
+    function add(title, model, opts) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      const h = document.createElement("h2");
+      h.textContent = title;
+      const host = document.createElement("div");
+      cell.appendChild(h);
+      cell.appendChild(host);
+      document.getElementById("row").appendChild(cell);
+      ChordFlowFretboard.create(host, opts || {}).render(model);
+    }
+
+    add("Voicing (chord case)", cMajorVoicing);
+    add("Scale (many per string)", cMajorScale);
+    add("Layered overlay (interval palette)", overlay, { palette: intervalPalette });
+  </script>
+</body>
+</html>

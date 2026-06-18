@@ -5,8 +5,8 @@
 // chosen entity's definitions (with origin badges). Right: a name field + DSL
 // textarea with live parse + preview, and Save / Delete. The only per-entity
 // divergence is the PREVIEW STRATEGY — the shared ChordFlowScore render component (full player + toggles)
-// for progression/song/rhythm, an SVG fret-box (window.ChordFlowDiagram, chord-diagram.js)
-// for voicing. Lazily initialized the first time the Content view is shown.
+// for progression/song/rhythm, the shared ChordFlowFretboard SVG fret-box (window.ChordFlowFretboard,
+// fretboard-render-component.js) for voicing. Lazily initialized the first time the Content view is shown.
 "use strict";
 
 window.ChordFlowContent = (function () {
@@ -41,6 +41,7 @@ window.ChordFlowContent = (function () {
   let editingId = null;        // id being edited (null = a new, unsaved definition)
   let items = [];              // last-rendered list summaries, for Delete/Revert labeling
   let scoreView = null;        // lazy ChordFlowScore handle (full player + toggles) for the score strategy
+  let diagramView = null;      // lazy ChordFlowFretboard handle for the voicing fret-box strategy
   let debounceTimer = null;
 
   // DOM refs (set in buildDom)
@@ -282,8 +283,9 @@ window.ChordFlowContent = (function () {
     if (msg.kind === "diagram") {
       scoreEl.hidden = true;
       diagramEl.hidden = false;
-      if (window.ChordFlowDiagram && msg.diagram) {
-        window.ChordFlowDiagram.render(diagramEl, msg.diagram);
+      if (window.ChordFlowFretboard && msg.diagram) {
+        if (!diagramView) diagramView = window.ChordFlowFretboard.create(diagramEl, { labelMode: "interval" });
+        diagramView.render(msg.diagram);
       } else {
         diagramEl.textContent = "";
       }

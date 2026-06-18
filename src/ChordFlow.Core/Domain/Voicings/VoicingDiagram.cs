@@ -1,19 +1,21 @@
 namespace ChordFlow.Domain;
 
 /// <summary>
-/// Builds a <see cref="DiagramModel"/> from a canonical-C <see cref="VoicingShape"/> — the music-theory side of
-/// the voicing preview (IN5/IN6). For each sounding string it resolves the pitch class (<see cref="Fretboard"/>),
+/// The voicing <b>producer</b> of the general <see cref="FretboardDiagram"/> carrier — the music-theory side of
+/// the voicing preview (IN5/IN6/IN7). For each sounding string it resolves the pitch class (<see cref="Fretboard"/>),
 /// its interval against the chord root (canonical anchor = C, so the interval is just the pitch class), the
 /// chord-tone function (root/third/fifth/seventh, by the tertian position in <see cref="QualityIntervals"/>) or
-/// <c>tension</c> for a note outside the quality, the interval label, and the spelled note (<see cref="NoteSpeller"/>).
-/// The diagram is shown at the canonical-C anchor (EX2: no root-picker in v1) — movability is a later add.
+/// <c>tension</c> for a note outside the quality, the interval label, and the spelled note (<see cref="NoteSpeller"/>),
+/// and emits one <see cref="MarkerShape.Circle"/> marker (fret 0 ⇒ an open marker). Muted strings become
+/// diagram-level chrome (<see cref="FretboardDiagram.MutedStrings"/>), not markers. The diagram is shown at the
+/// canonical-C anchor (EX2: no root-picker in v1) — movability is a later add.
 /// </summary>
 public static class VoicingDiagram
 {
     private static readonly Key CAnchor = new(new PitchClass(0), IsMinor: false);
 
-    /// <summary>Compute the diagram model for <paramref name="shape"/> at its canonical-C anchor.</summary>
-    public static DiagramModel Build(VoicingShape shape)
+    /// <summary>Compute the fretboard diagram for <paramref name="shape"/> at its canonical-C anchor.</summary>
+    public static FretboardDiagram Build(VoicingShape shape)
     {
         ArgumentNullException.ThrowIfNull(shape);
 
@@ -22,12 +24,13 @@ public static class VoicingDiagram
         var muted = voicing.MutedStrings is { } m ? new HashSet<int>(m) : new HashSet<int>();
         Dictionary<int, ChordToneFunction> roleByInterval = RoleByInterval(shape.Quality);
 
-        var strings = new List<DiagramString>();
+        var markers = new List<FretboardMarker>();
+        var mutedStrings = new List<int>();
         for (int s = Fretboard.StringCount; s >= 1; s--) // low-E(6) → high-E(1)
         {
             if (muted.Contains(s) || !fretByString.TryGetValue(s, out int fret))
             {
-                strings.Add(new DiagramString(s, "muted", null, null, null, null));
+                mutedStrings.Add(s);
                 continue;
             }
 
@@ -35,17 +38,18 @@ public static class VoicingDiagram
             int semitone = pc.Value; // root is C (0), so the interval equals the pitch class
             ChordToneFunction? role = roleByInterval.TryGetValue(semitone, out ChordToneFunction f) ? f : null;
 
-            strings.Add(new DiagramString(
+            markers.Add(new FretboardMarker(
                 s,
-                fret == 0 ? "open" : "fretted",
                 fret,
                 NoteSpeller.Name(pc, CAnchor),
                 IntervalLabel(semitone, role),
-                FunctionName(role)));
+                FunctionName(role),
+                MarkerShape.Circle));
         }
 
         int firstFret = voicing.FirstFret ?? (fretByString.Count == 0 ? 0 : fretByString.Values.Min());
-        return new DiagramModel(firstFret, voicing.BarreFret, strings);
+        string title = ChordSymbol.Format(new Chord(new PitchClass(0), shape.Quality), CAnchor);
+        return new FretboardDiagram(title, markers, mutedStrings, voicing.BarreFret, FretMin: firstFret, FretMax: null);
     }
 
     // Map each chord-tone semitone to its function by its tertian position (root, third, fifth, seventh). Every
@@ -68,7 +72,7 @@ public static class VoicingDiagram
         return map;
     }
 
-    private static string? FunctionName(ChordToneFunction? role) => role switch
+    private static string FunctionName(ChordToneFunction? role) => role switch
     {
         ChordToneFunction.Root => "root",
         ChordToneFunction.Third => "third",

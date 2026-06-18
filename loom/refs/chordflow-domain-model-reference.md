@@ -3,9 +3,9 @@ type: reference
 id: rf_01KTM41K36DYJ0CE44FE7TMCGH
 title: ChordFlow Domain Model
 status: active
-created: "2026-06-08T00:00:00.000Z"
-updated: 2026-06-15
-version: 28
+created: 2026-06-08
+updated: 2026-06-18
+version: 29
 tags: []
 parent_id: null
 requires_load: []
@@ -85,7 +85,8 @@ Even split: `17_67` → I7 half · VI7 half. Explicit slots: `17:2_67:1_27:1` �
 | `VoicingRealizer.Realize(shape, targetRoot)` | **voicings slice.** Slide a canonical-C shape to any root: +semis to every fretted string, octave-fold into the **0–15** window, `null` if none fits. Open↔barre is just where the shape lands (no separate open form). Reuses the existing `Voicing` type. |
 | `VoicingBook(stored)` | **voicings slice — now an instance** built with the authored library (was a static strategy dispatcher). `Candidates(chord, difficulty)` → exact-quality stored voicings realized to the root, ranked by neck position then familiarity (may be empty); `Lookup(chord, difficulty)` → the one to play: top candidate, else the strategy shape, throwing if neither covers it. Stored authored voicings **shadow** generated. |
 | `Fretboard` | Standard-tuning geometry. `PositionsFor(pc, maxFret=12)` → every fret that sounds a pitch class; `PitchClassAt(string, fret)` → the pitch class sounding at a position (the inverse, used to label a voicing's notes). |
-| `DiagramModel` / `VoicingDiagram` | **content-crud thread.** A presentation-ready chord-diagram model computed in Core (IN6: theory stays in the kernel; the JS fret-box just draws it). `VoicingDiagram.Build(shape)` → `DiagramModel(FirstFret, BarreFret?, Strings)` where each `DiagramString` is `(String, State muted/open/fretted, Fret?, Note, Interval, Function)`. Function (root/third/fifth/seventh, by tertian position in `QualityIntervals`, else `tension`) drives the dot color; labels are role-aware (dim7's 9 = `bb7`, aug's 8 = `#5`). Computed at the canonical-C anchor (EX2: no root-picker yet). |
+| `FretboardDiagram` / `FretboardMarker` / `MarkerShape` (`Domain/Diagrams/`) | **The general spatial carrier** the `ChordFlowFretboard` JS view draws — the spatial twin of the alphaTex string (IN6: theory stays in the kernel; the JS is a dumb drawer). `FretboardDiagram(Title, Markers, MutedStrings, BarreFret?, FretMin?, FretMax?)` is a **flat marker list** (not per-string slots) so many markers may share a string — the generalization that makes it reusable for scales/arpeggios/the interval lattice. `FretboardMarker(String, Fret, Note, Interval, Function, Shape)`: `Function` is a **string** colour-key (`root/third/fifth/seventh/tension` — a string, not `ChordToneFunction`, because `tension` is no chord-tone function and the Web serializer emits enums as numbers); `Shape` (`MarkerShape` Circle/Square/Diamond/Ring) is the layer channel. Open strings are fret-0 markers; muted strings are diagram chrome (`MutedStrings`), not markers. |
+| `VoicingDiagram` (`Domain/Voicings/`) | **The voicing producer of `FretboardDiagram`** — one of (eventually) several producers (recast from the removed `DiagramModel`/`DiagramString`; no parallel voicing path). `VoicingDiagram.Build(shape)` emits one `Circle` marker per sounding string (fret 0 ⇒ open marker), muted/unsounded strings → `MutedStrings`, barre preserved, `FretMin = firstFret`, `Title` from `ChordSymbol`. Function (root/third/fifth/seventh, by tertian position in `QualityIntervals`, else `tension`) → the colour-key; labels are role-aware (dim7's 9 = `bb7`, aug's 8 = `#5`). Computed at the canonical-C anchor (EX2: no root-picker yet). |
 
 ---
 

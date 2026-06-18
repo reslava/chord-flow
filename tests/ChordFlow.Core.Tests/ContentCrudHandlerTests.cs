@@ -137,7 +137,8 @@ public class ContentCrudHandlerTests
             EntityPreviewEnvelope preview = handler.Preview("voicing", "voicing Cmaj shape:C root:5 frets: x 3 2 0 1 0");
             Assert.Equal("diagram", preview.Kind);
             Assert.NotNull(preview.Diagram);
-            Assert.Equal(6, preview.Diagram!.Strings.Count);
+            Assert.Equal(5, preview.Diagram!.Markers.Count); // five sounding strings (low E muted)
+            Assert.Equal(new[] { 6 }, preview.Diagram.MutedStrings);
         }
     }
 
