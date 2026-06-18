@@ -2,13 +2,14 @@
 type: chat
 id: ch_01KVCPZHPD5FBMENZTFRH4FD0J
 title: Music theory - Instruments adapters - UI components
-status: active
+status: done
 created: 2026-06-18
-version: 1
+updated: 2026-06-18
+version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 23
+last_ai_block: 26
 ---
 # Music theory - Instruments adapters - UI components
 
@@ -576,3 +577,18 @@ I think we can close `guitar-voicings` marking all done, correct?
 when all is done
 if no pending tasks
 commit, push
+
+## AI:
+
+All done and pushed. ✅
+
+**Refs (option A) — forward-looking notes added:**
+- `chordflow-architecture-reference` → new **"Planned: theory ↔ instrument boundary"** subsection under §7, with the reviewed diagram, explicitly marked *designed-not-built* and "replaced by §2 when the threads ship."
+- `chordflow-domain-model-reference` → a forward note atop §2 (Voicing layer) flagging those types as slated to move to `Instruments/Guitar/`.
+- The full structural rewrite stays owned by `instrument-boundary` (keeps the refs mirroring live code).
+
+**Roadmap** — confirmed your three changes are correct: `instrument-rendering` → p80 (parked, behind the derivation cluster); `guitar-voicings` `depends_on: []` and idea/design/plan all `done` (slice 1 shipped v0.5.0, slice 2 was always out-of-scope); the three new-code guitar threads now depend on `instrument-boundary`. Nothing for me to fix there.
+
+**Commit:** `6e3c08d` → `main` — 29 files, git tracked the folder moves as renames (history preserved). Message records the full reorg with this chat as the design origin.
+
+That closes the loop on the instrument-separation design. Want to `close` this chat?

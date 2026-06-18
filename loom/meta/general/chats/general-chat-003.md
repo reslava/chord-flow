@@ -2,9 +2,10 @@
 type: chat
 id: ch_01KV131Q22SJQ72K3Z1MCKB5GC
 title: roadmap
-status: active
-created: "2026-06-13T00:00:00.000Z"
-version: 1
+status: done
+created: 2026-06-13
+updated: 2026-06-18
+version: 2
 tags: []
 parent_id: null
 requires_load: []
