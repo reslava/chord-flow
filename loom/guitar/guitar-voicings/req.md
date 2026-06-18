@@ -1,7 +1,7 @@
 ---
 type: req
 id: rq_01KTZWXSJ6PS9CFX8AJHENNXDB
-title: Voicings — the fourth content pillar (authored, stored, movable) — Requirements
+title: Guitar voicings — the fourth content pillar (authored, stored, movable) — Requirements
 status: locked
 created: "2026-06-13T00:00:00.000Z"
 updated: 2026-06-13

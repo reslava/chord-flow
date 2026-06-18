@@ -4,7 +4,8 @@ id: id_01KV2WWAZDDC1XWFF5AGTJX197
 title: Chord qualities — the interval formulas (engine input)
 status: draft
 created: 2026-06-14
-version: 1
+updated: 2026-06-18
+version: 2
 tags: []
 parent_id: null
 requires_load: []
@@ -15,7 +16,7 @@ requires_load: []
 
 Every chord quality is just a **formula of intervals** over a root. Formalize that table
 as the source the [[caged-system]] engine reads: pick a quality, get its intervals, lay
-them onto an [[octave-shapes|octave shape]] via the [[intervals]] fretboard lattice → the
+them onto an [[octave-shapes|octave shape]] via the [[interval-lattice]] fretboard lattice → the
 CAGED chord shape. This is the data layer behind today's `Quality` enum + `QualityIntervals`
 (which the engine should eventually *derive from*, not duplicate).
 
@@ -53,7 +54,7 @@ makes the **formula** the authoritative form and the semitone set a derived proj
 
 ## Validation
 
-Through [[caged-system]], these formulas + [[octave-shapes]] + [[intervals]] must
+Through [[caged-system]], these formulas + [[octave-shapes]] + [[interval-lattice]] must
 reproduce the 34 hand-authored CAGED voicings (`packages/default-pack`) — golden oracle.
 
-Related: [[caged-system]], [[intervals]], [[octave-shapes]], [[interval-derivation-engine-vision]], [[dim7-not-in-domain]], [[chordflow-domain-model-reference]], the `voicings` & `packages/default-pack` threads.
+Related: [[caged-system]], [[intervals]], [[interval-lattice]], [[octave-shapes]], [[interval-derivation-engine-vision]], [[dim7-not-in-domain]], [[chordflow-domain-model-reference]], the `guitar-voicings` & `packages/default-pack` threads.

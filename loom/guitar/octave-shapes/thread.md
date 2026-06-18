@@ -1,17 +1,17 @@
 ---
 type: thread
-id: th_01KV3X9Z19GNEJSPZXW7VSBY32
-title: Voicings — the fourth content pillar (authored, stored, movable)
+id: th_01KV3X9Z0KFRM2R2NYFG4BMY17
+title: Octave shapes — the 5 CAGED root maps (engine skeleton)
 status: active
 created: 2026-06-14
-updated: 2026-06-17
+updated: 2026-06-18
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 60
-depends_on: [th_01KV3X9Z08WBZ7M4S9WXNCYWV7]
+priority: 30
+depends_on: [th_01KVCTCBFPMRJHQPDQBVEXDV8P, th_01KV3X9Z08WBZ7M4S9WXNCYWV7]
 ---
-# Voicings — the fourth content pillar (authored, stored, movable)
+# Octave shapes — the 5 CAGED root maps (engine skeleton)
 
 Thread manifest — authored roadmap metadata only (`priority` + `depends_on`). The thread's roadmap status and history are *derived* (`buildRoadmap`), never stored here.

@@ -1,7 +1,7 @@
 ---
 type: plan
 id: pl_01KTZWZPKHS2BHNAR7RABZPDDX
-title: Voicings — authored content pillar (slice 1)
+title: Guitar voicings — authored content pillar (slice 1)
 status: done
 created: 2026-06-13
 updated: 2026-06-13

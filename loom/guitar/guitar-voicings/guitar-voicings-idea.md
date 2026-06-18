@@ -1,18 +1,23 @@
 ---
 type: idea
 id: id_01KTXEQ5F1R316J3RCF5CMBDTW
-title: Voicings — the fourth content pillar (authored, stored, movable)
-status: draft
-created: "2026-06-12T00:00:00.000Z"
-updated: 2026-06-13
-version: 6
+title: Guitar voicings — the fourth content pillar (authored, stored, movable)
+status: done
+created: 2026-06-12
+updated: 2026-06-18
+version: 8
 tags: []
 parent_id: null
 requires_load: []
 ---
-# Voicings — the fourth content pillar (authored, stored, movable)
+# Guitar voicings — the fourth content pillar (authored, stored, movable)
 
 ## The idea
+
+This is the **guitar instrument adapter's authored-voicing layer** — it lives in the
+`guitar` weave, and its code moves to `Instruments/Guitar/` per [[instrument-boundary]].
+A "voicing" here is a concrete **fret shape**, not an instrument-agnostic concept (see the
+deferred abstract-voicing note in *Out of scope*).
 
 Today voicings are **strategy-generated** (`BeginnerShellStrategy`), not authored.
 Adding **CRUD** makes voicings **data** — exactly like `Progression` / `Song` /
@@ -77,5 +82,10 @@ voicing Cmin  shape:A  root:5  frets: x 3 1 0 1 3
   overlaps alternate tunings.
 - Alternate tunings (the `Fretboard` is fixed-tuning in v1).
 - Pitched lead/target-note voicings (the `domain/intervals` + LeadTargets work).
+- **Abstract (instrument-agnostic) voicings** — chord-tone selection + register/octave/
+  inversion → pitches, independent of frets. Not modeled today and not required by the
+  current roadmap; would become a `domain/voicings` substrate only when a second
+  instrument or the agnostic-notation path needs it (origin: chat `general-chat-005`).
+  Deferred per the no-speculative-abstraction principle.
 
-Related: [[chordflow-domain-model-reference]], [[design-philosophy-durable-over-minimal]], the `packages` thread, `domain/intervals`.
+Related: [[instrument-boundary]], [[chordflow-domain-model-reference]], [[design-philosophy-durable-over-minimal]], the `packages` thread, `domain/intervals`.

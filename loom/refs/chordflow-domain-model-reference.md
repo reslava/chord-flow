@@ -5,7 +5,7 @@ title: ChordFlow Domain Model
 status: active
 created: 2026-06-08
 updated: 2026-06-18
-version: 29
+version: 30
 tags: []
 parent_id: null
 requires_load: []
@@ -72,6 +72,8 @@ Even split: `17_67` → I7 half · VI7 half. Explicit slots: `17:2_67:1_27:1` �
 ---
 
 ## 2. Voicing layer (`Domain/`)
+
+> **Planned (designed, not yet built — `guitar/instrument-boundary`):** every type in this section, plus the `Diagrams/` carrier, is guitar-specific and is slated to move from `Domain/` to a new `Instruments/Guitar/` area, leaving `Domain/` pure music theory. Until that thread ships they remain in `Domain/` as mapped below. See the architecture ref's "Planned: theory ↔ instrument boundary".
 
 | Type | Role |
 |------|------|

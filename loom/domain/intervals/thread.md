@@ -4,7 +4,7 @@ id: th_01KV3X9Z08WBZ7M4S9WXNCYWV7
 title: Intervals — the theory substrate (deferred, captured)
 status: active
 created: 2026-06-14
-updated: 2026-06-17
+updated: 2026-06-18
 version: 1
 tags: []
 parent_id: null

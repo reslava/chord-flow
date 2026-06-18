@@ -1,16 +1,16 @@
 ---
 type: design
 id: de_01KTXERD54E8GFPPNE19GMCPB1
-title: Voicings — the fourth content pillar (authored, stored, movable)
-status: draft
-created: "2026-06-12T00:00:00.000Z"
-updated: 2026-06-13
-version: 10
+title: Guitar voicings — the fourth content pillar (authored, stored, movable)
+status: done
+created: 2026-06-12
+updated: 2026-06-18
+version: 11
 tags: []
 parent_id: id_01KTXEQ5F1R316J3RCF5CMBDTW
 requires_load: []
 ---
-# Voicings — the fourth content pillar (authored, stored, movable)
+# Guitar voicings — the fourth content pillar (authored, stored, movable)
 
 Design for the authored-voicing content pillar: the DSL, `VoicingEntity`, the
 `Realize` transpose, and stored-first `VoicingBook` integration. Builds on

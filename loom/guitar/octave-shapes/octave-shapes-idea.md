@@ -4,7 +4,8 @@ id: id_01KV2WVWE75SPHV91HX03J4DTG
 title: Octave shapes — the 5 CAGED root maps (engine skeleton)
 status: draft
 created: 2026-06-14
-version: 1
+updated: 2026-06-18
+version: 2
 tags: []
 parent_id: null
 requires_load: []
@@ -17,7 +18,7 @@ Each of the five CAGED shapes is anchored by where the **same note** (the root a
 octaves) sits in that shape's neck zone. These five **octave shapes** are the skeleton
 the [[caged-system]] engine hangs everything on: place the root on its octave-shape
 strings, then find each [[chord-qualities|quality]] interval nearby using the
-[[intervals]] fretboard lattice → the chord shape falls out.
+[[interval-lattice]] fretboard lattice → the chord shape falls out.
 
 ## The 5 octave shapes (Rafa's maps)
 
@@ -34,8 +35,8 @@ Root strings per shape, with the secondary-root fret offset relative to the prim
 (strings numbered 6 = low E … 1 = high E, matching `Fretboard`/the voicing DSL.) The
 string-1 roots in G and E are the string-6 root an octave up on the same string family.
 
-These offsets are the unison/octave special case of the [[intervals]] fretboard lattice —
-the lattice generalizes them to every degree.
+These offsets are the unison/octave special case of the [[interval-lattice]] fretboard
+lattice — the lattice generalizes them to every degree.
 
 ## In scope (when scheduled)
 
@@ -52,7 +53,8 @@ the lattice generalizes them to every degree.
 
 ## Validation
 
-Through [[caged-system]], these maps + [[intervals]] + [[chord-qualities]] must reproduce
-the 34 hand-authored CAGED voicings (`packages/default-pack`) exactly — the golden oracle.
+Through [[caged-system]], these maps + [[interval-lattice]] + [[chord-qualities]] must
+reproduce the 34 hand-authored CAGED voicings (`packages/default-pack`) exactly — the
+golden oracle.
 
-Related: [[caged-system]], [[intervals]], [[chord-qualities]], [[interval-derivation-engine-vision]], [[chordflow-domain-model-reference]], the `voicings` & `packages/default-pack` threads.
+Related: [[caged-system]], [[interval-lattice]], [[intervals]], [[chord-qualities]], [[interval-derivation-engine-vision]], [[chordflow-domain-model-reference]], the `guitar-voicings` & `packages/default-pack` threads.

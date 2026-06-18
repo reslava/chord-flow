@@ -5,7 +5,7 @@ title: ChordFlow Architecture
 status: active
 created: 2026-06-10
 updated: 2026-06-18
-version: 18
+version: 19
 tags: []
 parent_id: null
 requires_load: []
@@ -114,6 +114,54 @@ Saving persists the **definition** only; reloading regenerates the alphaTex.
 - **Rendering is a single seam** → new export formats are new `IScoreRenderer`s.
 - **Content is data, not code** → built-in/library content loads from importable definition bundles, not hardcoded seed. The free starter set ships as the on-disk **default pack** (`Content/default-pack/`) imported on first run via `PackReader`/`PackImporter`; curated/paid packs are the same shape, an additive data drop. See `loom/ctx.md` and the `Packs` Features slice (§3).
 - **Slices are independent** → a new feature (new progression, syncopation, difficulty auto-advance, audio-in accuracy) is a new class + data, touching one seam.
+
+### Planned: theory ↔ instrument boundary (designed, not yet built)
+
+A decided-but-unbuilt evolution (threads in the `guitar` weave; origin chat `loom/meta/general/chats/general-chat-005.md`). **Today** the guitar-specific kernel (`Voicing`/`FretPosition`/`Fretboard`, `VoicingBook`/CAGED/`VoicingShape`/`VoicingRealizer`, the `Diagrams/` carrier) lives in `Domain/` next to pure theory. The plan splits them:
+
+- **`Domain/`** stays **pure, instrument-agnostic music theory** (harmony, the rhythm grid, scales, the interval *vocabulary*, progression/song, lead targets).
+- **`Instruments/Guitar/`** (new) holds everything guitar — tuning/`Fretboard` geometry, fret voicings, CAGED, fretboard diagrams.
+- Enforced by an **architecture test**: no type under `ChordFlow.Core.Domain` may reference `ChordFlow.Core.Instruments` (`Rendering → Instruments` stays *allowed* — the tab renderer consumes fret positions).
+- A concrete **`GuitarInstrument`** adapter surface is built first; the polymorphic **`IInstrument`** interface is deferred until its first real caller exists (the notation/tab renderer fork).
+
+Target shape (arrows point up; only the `Domain → Instruments` edge is test-enforced):
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ Domain/   PURE MUSIC THEORY — instrument-agnostic                  │
+│   harmony · rhythm (48-PPQ) · scales · intervals (vocabulary) ·    │
+│   progression/song · lead targets                                  │
+│   output vocabulary → ChordTones / PitchClasses / Pitch(pc+octave) │
+│   RULE: references nothing below.   ◄── architecture test guards   │
+└───────────────┬────────────────────────────────────────────────────┘
+                │ theory in; never referenced back by Domain
+                ▼
+┌──────────────────────────────────────────────────────────────────┐
+│ Instruments/                                                       │
+│   IInstrument  (thin: Realize → pitches)  [deferred until a caller]│
+│   Guitar/   ← the only real adapter today                          │
+│     geometry: tuning · Fretboard                                   │
+│     realize:  Voicing · VoicingBook · CAGED · VoicingRealizer      │
+│     diagram:  FretboardDiagram · VoicingDiagram                    │
+│   « Piano/ — extension point, not built »                          │
+└───────────────┬────────────────────────────────────────────────────┘
+                │ agnostic pitches + guitar fret positions
+                ▼
+┌──────────────────────────────────────────────────────────────────┐
+│ Rendering/   export seam (IScoreRenderer)                          │
+│   AlphaTexRenderer → guitar tab today                              │
+│     · notation/staff = agnostic    · tab = guitar fret positions   │
+│     « future fork: agnostic-notation ∥ instrument-tab »            │
+└───────────────┬────────────────────────────────────────────────────┘
+                ▼  alphaTex string + FretboardDiagram  (Bridge DTOs)
+┌──────────────────────────────────────────────────────────────────┐
+│ UI (JS) — dumb views                                               │
+│   score-render-component       (notation, any instrument)          │
+│   fretboard-render-component   (guitar spatial SVG)                │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+Lands with `guitar/instrument-boundary` (the structural move) and `chordflow/instrument-rendering` (the renderer fork + `IInstrument`). **This subsection is replaced by the live structure (§2) when those threads ship** — per the refs-mirror-live-code rule.
 
 ---
 

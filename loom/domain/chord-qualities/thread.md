@@ -4,12 +4,12 @@ id: th_01KV3X9YY4WJ5KPW9W7401NJVS
 title: Chord qualities — the interval formulas (engine input)
 status: active
 created: 2026-06-14
-updated: 2026-06-17
+updated: 2026-06-18
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 40
+priority: 50
 depends_on: [th_01KV3X9Z08WBZ7M4S9WXNCYWV7]
 ---
 # Chord qualities — the interval formulas (engine input)

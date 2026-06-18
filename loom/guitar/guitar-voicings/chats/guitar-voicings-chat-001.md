@@ -1,16 +1,17 @@
 ---
 type: chat
 id: ch_01KTZRJCFWGBW5Q1XMN6WZMGYY
-title: voicings Chat
+title: guitar-voicings Chat
 status: active
-created: "2026-06-13T00:00:00.000Z"
-version: 1
+created: 2026-06-13
+updated: 2026-06-18
+version: 3
 tags: []
 parent_id: null
 requires_load: []
 last_ai_block: 25
 ---
-# voicings Chat
+# guitar-voicings Chat
 
 ## Rafa:
 

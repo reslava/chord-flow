@@ -4,7 +4,8 @@ id: id_01KV2WWWZ6PYT4Y4VCT4A5KD8N
 title: CAGED system — the derivation engine (subsumes authored voicings)
 status: draft
 created: 2026-06-14
-version: 1
+updated: 2026-06-18
+version: 2
 tags: []
 parent_id: null
 requires_load: []
@@ -18,7 +19,7 @@ The capstone: **derive** CAGED chord shapes instead of hand-typing frets. Given 
 
 1. takes the quality's interval formula ([[chord-qualities]]),
 2. anchors the shape's root(s) via its [[octave-shapes|octave shape]] in a neck zone,
-3. finds each interval near those anchors using the [[intervals]] fretboard lattice
+3. finds each interval near those anchors using the [[interval-lattice]] fretboard lattice
    (Zone/Area rule — stay inside the shape's octave zone),
 4. emits the fret shape.
 
@@ -53,8 +54,8 @@ engine is built behind them and validated against them, never blocking content.
 
 ## Dependencies
 
-Builds on [[intervals]] (vocabulary + fretboard lattice), [[octave-shapes]] (root maps),
-[[chord-qualities]] (formulas). This thread is the integrator; design it after the three
-substrates have ideas locked.
+Builds on [[intervals]] (vocabulary), [[interval-lattice]] (fretboard positions),
+[[octave-shapes]] (root maps), [[chord-qualities]] (formulas). This thread is the
+integrator; design it after the four substrates have ideas locked.
 
-Related: [[interval-derivation-engine-vision]], [[caged-c-full-include-all-shapes]], [[chordflow-domain-model-reference]], the `voicings` & `packages/default-pack` threads.
+Related: [[interval-derivation-engine-vision]], [[caged-c-full-include-all-shapes]], [[interval-lattice]], [[chordflow-domain-model-reference]], the `guitar-voicings` & `packages/default-pack` threads.
