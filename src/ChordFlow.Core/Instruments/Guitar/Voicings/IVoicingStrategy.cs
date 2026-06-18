@@ -1,4 +1,6 @@
-namespace ChordFlow.Domain;
+using ChordFlow.Domain;
+
+namespace ChordFlow.Instruments.Guitar;
 
 /// <summary>
 /// Chooses a chord shape for a difficulty tier (ctx IN7: voicing selection is a strategy, not a

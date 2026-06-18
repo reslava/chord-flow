@@ -1,4 +1,6 @@
-namespace ChordFlow.Domain;
+using ChordFlow.Domain;
+
+namespace ChordFlow.Instruments.Guitar;
 
 /// <summary>
 /// The voicing <b>producer</b> of the general <see cref="FretboardDiagram"/> carrier — the music-theory side of

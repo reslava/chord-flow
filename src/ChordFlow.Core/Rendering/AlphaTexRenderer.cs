@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Text;
 using ChordFlow.Domain;
 
+using ChordFlow.Instruments.Guitar;
+
 namespace ChordFlow.Rendering;
 
 /// <summary>

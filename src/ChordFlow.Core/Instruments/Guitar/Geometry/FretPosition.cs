@@ -1,4 +1,6 @@
-namespace ChordFlow.Domain;
+using ChordFlow.Domain;
+
+namespace ChordFlow.Instruments.Guitar;
 
 /// <summary>
 /// A single fretted note: <paramref name="String"/> uses alphaTab numbering

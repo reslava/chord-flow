@@ -1,6 +1,8 @@
 using System.Text;
 
-namespace ChordFlow.Domain;
+using ChordFlow.Domain;
+
+namespace ChordFlow.Instruments.Guitar;
 
 /// <summary>
 /// Serializes a <see cref="VoicingShape"/> back to its canonical DSL line — the inverse of

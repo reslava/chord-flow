@@ -1,6 +1,8 @@
 using System.Globalization;
 
-namespace ChordFlow.Domain;
+using ChordFlow.Domain;
+
+namespace ChordFlow.Instruments.Guitar;
 
 /// <summary>
 /// Pure DSL parser for authored voicings — the harmonic peer of <see cref="ProgressionParser"/> /

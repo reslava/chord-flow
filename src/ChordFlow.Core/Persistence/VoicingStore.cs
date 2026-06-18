@@ -1,6 +1,8 @@
 using ChordFlow.Domain;
 using Microsoft.EntityFrameworkCore;
 
+using ChordFlow.Instruments.Guitar;
+
 namespace ChordFlow.Persistence;
 
 /// <summary>

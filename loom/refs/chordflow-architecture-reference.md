@@ -5,7 +5,7 @@ title: ChordFlow Architecture
 status: active
 created: 2026-06-10
 updated: 2026-06-18
-version: 19
+version: 23
 tags: []
 parent_id: null
 requires_load: []
@@ -30,7 +30,8 @@ A **host-agnostic C# engine** turns a compact exercise definition into an **alph
 ChordFlow.sln
   src/
     ChordFlow.Core/       net10.0          — the engine. ZERO UI/host references.
-      Domain/             pure music kernel (no I/O, no UI)
+      Domain/             pure music kernel — instrument-agnostic (no I/O, no UI)
+      Instruments/Guitar/ the guitar adapter: Fretboard geometry, voicings/CAGED, diagrams, GuitarInstrument
       Rendering/          AlphaTexRenderer + RhythmQuantizer (only alphaTex-aware code)
       Features/           GenerateExercise, PracticeSession, ExerciseLibrary, Progress
       Bridge/             C#↔JS envelope DTOs + inbound WebMessageRouter (host-agnostic)
@@ -57,7 +58,10 @@ ChordFlow.Desktop ──► ChordFlow.Core ◄── ChordFlow.Core.Tests
 ## 3. Layers inside Core
 
 ### Domain/ — the music kernel
-Pure, immutable, fully unit-tested, **no I/O**. Harmony (PitchClass, interval-backed Quality, Chord, Scale + diatonic generation, NoteSpeller, Transposer), voicings (Voicing + strategy, VoicingBook, Fretboard), a **48-PPQ tick-grid rhythm model** (multi-bar RhythmPattern/PatternBar/RhythmEvent/TimeSignature) with feel/accent/stroke overlays, harmonic bars/spans for multi-chord-per-bar progressions, a **parser family** (`ProgressionParser`, `SongParser`, and the Rhythm-DSL `RhythmPatternParser`), and lead TargetZones. Full map: `chordflow-domain-model-reference.md`.
+Pure, immutable, fully unit-tested, **no I/O**, and **instrument-agnostic** (references nothing under `Instruments/` — compiler-IL-enforced by an architecture test, §7). Harmony (PitchClass, interval-backed Quality, Chord, Scale + diatonic generation, NoteSpeller, Transposer), a **48-PPQ tick-grid rhythm model** (multi-bar RhythmPattern/PatternBar/RhythmEvent/TimeSignature) with feel/accent/stroke overlays, harmonic bars/spans for multi-chord-per-bar progressions, a **parser family** (`ProgressionParser`, `SongParser`, and the Rhythm-DSL `RhythmPatternParser`), and lead targets (`LeadTargets` derives guide-tone `TargetZone`s as **pitch classes** — resolving them to frets is a guitar concern, on `GuitarInstrument.ResolveLead`). Full map: `chordflow-domain-model-reference.md`.
+
+### Instruments/Guitar/ — the guitar adapter
+Everything guitar-specific, kept out of the kernel so `Domain/` stays provably instrument-agnostic. Geometry (`Fretboard`, `FretPosition`), realization (`Voicing` + `IVoicingStrategy`/`BeginnerShellStrategy`, `VoicingBook`, the CAGED voicing types `VoicingShape`/`CagedShape`/`VoicingRealizer` + DSL, `VoicingDiagram`), and the spatial `FretboardDiagram` carrier. The concrete **`GuitarInstrument`** facade is the deliberate public surface over these (`Realize` a chord → a fret `Voicing`, `Diagram` a shape → `FretboardDiagram`, `ResolveLead` a target zone → fret positions). A namespace boundary inside Core, **not** a separate assembly (one real instrument needs no project split). The polymorphic `IInstrument` is deferred until its first caller (`instrument-rendering`). Full map: `chordflow-domain-model-reference.md`.
 
 ### Rendering/ — the only alphaTex-aware code
 `AlphaTexRenderer : IScoreRenderer` maps a `RealizedSong → string` (alphaTex) and is **pure/store-free**: the `Exercise → RealizedSong` expansion (the one I/O seam — it needs the `IProgressionStore`) lives in Features (`ExerciseRendering`), so the renderer never resolves references (merge decision (a); there is no `Render(Exercise)` overload). The `RhythmQuantizer` collapses the tick grid into `:N` duration slots. This isolation is the **exporter seam**: a future MIDI/GuitarPro/MusicXML exporter is a new `IScoreRenderer`, not a rewrite.
@@ -115,16 +119,16 @@ Saving persists the **definition** only; reloading regenerates the alphaTex.
 - **Content is data, not code** → built-in/library content loads from importable definition bundles, not hardcoded seed. The free starter set ships as the on-disk **default pack** (`Content/default-pack/`) imported on first run via `PackReader`/`PackImporter`; curated/paid packs are the same shape, an additive data drop. See `loom/ctx.md` and the `Packs` Features slice (§3).
 - **Slices are independent** → a new feature (new progression, syncopation, difficulty auto-advance, audio-in accuracy) is a new class + data, touching one seam.
 
-### Planned: theory ↔ instrument boundary (designed, not yet built)
+### Theory ↔ instrument boundary (live — `guitar/instrument-boundary`)
 
-A decided-but-unbuilt evolution (threads in the `guitar` weave; origin chat `loom/meta/general/chats/general-chat-005.md`). **Today** the guitar-specific kernel (`Voicing`/`FretPosition`/`Fretboard`, `VoicingBook`/CAGED/`VoicingShape`/`VoicingRealizer`, the `Diagrams/` carrier) lives in `Domain/` next to pure theory. The plan splits them:
+The kernel is split into **pure theory** and a **guitar adapter**, so `Domain/` is provably instrument-agnostic and guitar is an opt-in adapter (origin chat `loom/meta/general/chats/general-chat-005.md`):
 
-- **`Domain/`** stays **pure, instrument-agnostic music theory** (harmony, the rhythm grid, scales, the interval *vocabulary*, progression/song, lead targets).
-- **`Instruments/Guitar/`** (new) holds everything guitar — tuning/`Fretboard` geometry, fret voicings, CAGED, fretboard diagrams.
-- Enforced by an **architecture test**: no type under `ChordFlow.Core.Domain` may reference `ChordFlow.Core.Instruments` (`Rendering → Instruments` stays *allowed* — the tab renderer consumes fret positions).
-- A concrete **`GuitarInstrument`** adapter surface is built first; the polymorphic **`IInstrument`** interface is deferred until its first real caller exists (the notation/tab renderer fork).
+- **`Domain/`** is **pure, instrument-agnostic music theory** (harmony, the rhythm grid, scales, the interval *vocabulary*, progression/song, lead targets as pitch classes).
+- **`Instruments/Guitar/`** holds everything guitar — tuning/`Fretboard` geometry, fret voicings, CAGED, fretboard diagrams — behind the concrete **`GuitarInstrument`** facade. A **namespace boundary inside `ChordFlow.Core`**, not a separate assembly.
+- Enforced by an **architecture test** (`NetArchTest.Rules`, IL-level): no type under `ChordFlow.Domain` may reference `ChordFlow.Instruments`. `Rendering → Instruments` and `Persistence → Instruments` stay *allowed* — the tab renderer and voicing store consume fret positions; only the **Domain edge** is guarded.
+- The concrete **`GuitarInstrument`** adapter is the live surface; the polymorphic **`IInstrument`** interface is still deferred until its first real caller exists (the notation/tab renderer fork — `instrument-rendering`).
 
-Target shape (arrows point up; only the `Domain → Instruments` edge is test-enforced):
+Shape (arrows point up; only the `Domain → Instruments` edge is test-enforced):
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -161,7 +165,7 @@ Target shape (arrows point up; only the `Domain → Instruments` edge is test-en
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-Lands with `guitar/instrument-boundary` (the structural move) and `chordflow/instrument-rendering` (the renderer fork + `IInstrument`). **This subsection is replaced by the live structure (§2) when those threads ship** — per the refs-mirror-live-code rule.
+The structural move + `GuitarInstrument` adapter landed in `guitar/instrument-boundary`; the renderer fork + the polymorphic `IInstrument` are still to come in `chordflow/instrument-rendering`. The diagram's future-fork annotations (`« future fork… »`, `IInstrument [deferred…]`) mark what that thread adds.
 
 ---
 

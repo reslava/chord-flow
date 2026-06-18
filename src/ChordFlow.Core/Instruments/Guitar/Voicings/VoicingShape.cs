@@ -1,4 +1,6 @@
-namespace ChordFlow.Domain;
+using ChordFlow.Domain;
+
+namespace ChordFlow.Instruments.Guitar;
 
 /// <summary>
 /// An authored voicing entry: a CAGED chord shape captured at the canonical <b>C</b> anchor and

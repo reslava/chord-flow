@@ -1,4 +1,6 @@
-namespace ChordFlow.Domain;
+using ChordFlow.Domain;
+
+namespace ChordFlow.Instruments.Guitar;
 
 /// <summary>
 /// The authored-voicing library plus generated fallback. Built with the stored <see cref="VoicingShape"/>

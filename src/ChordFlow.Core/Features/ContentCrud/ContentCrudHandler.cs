@@ -4,6 +4,8 @@ using ChordFlow.Persistence;
 using ChordFlow.Rendering;
 using Microsoft.EntityFrameworkCore;
 
+using ChordFlow.Instruments.Guitar;
+
 namespace ChordFlow.Features.ContentCrud;
 
 /// <summary>

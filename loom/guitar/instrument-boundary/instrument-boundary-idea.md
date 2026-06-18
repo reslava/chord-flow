@@ -2,10 +2,10 @@
 type: idea
 id: id_01KVCTCBE0AXZH6FX2HJ9ZA1YH
 title: Theory / Instrument boundary + concrete Guitar adapter
-status: draft
+status: done
 created: 2026-06-18
 updated: 2026-06-18
-version: 2
+version: 3
 tags: []
 parent_id: null
 requires_load: []

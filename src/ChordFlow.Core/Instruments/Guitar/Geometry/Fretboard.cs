@@ -1,4 +1,6 @@
-namespace ChordFlow.Domain;
+using ChordFlow.Domain;
+
+namespace ChordFlow.Instruments.Guitar;
 
 /// <summary>
 /// A standard-tuning guitar fretboard: maps a <see cref="PitchClass"/> to every <see cref="FretPosition"/>

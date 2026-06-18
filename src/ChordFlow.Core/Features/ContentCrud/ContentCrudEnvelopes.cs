@@ -1,5 +1,7 @@
 using ChordFlow.Domain;
 
+using ChordFlow.Instruments.Guitar;
+
 namespace ChordFlow.Features.ContentCrud;
 
 /// <summary>

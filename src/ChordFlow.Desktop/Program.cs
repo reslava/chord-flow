@@ -1,3 +1,4 @@
+using ChordFlow.Instruments.Guitar;
 using ChordFlow.Domain;
 using ChordFlow.Features.ContentCrud;
 using ChordFlow.Features.ExerciseLibrary;

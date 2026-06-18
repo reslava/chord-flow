@@ -1,9 +1,11 @@
 namespace ChordFlow.Domain;
 
 /// <summary>
-/// Derives lead-training <see cref="TargetZone"/>s for a chord and resolves them to the fretboard
-/// (ctx IN14). Guide tones (the 3rd &amp; 7th) come straight from the chord's interval set — no
-/// per-chord authoring — so e.g. a ii–V–I produces its guide-tone line automatically.
+/// Derives lead-training <see cref="TargetZone"/>s for a chord as pitch classes (ctx IN14) — pure and
+/// instrument-agnostic. Guide tones (the 3rd &amp; 7th) come straight from the chord's interval set — no
+/// per-chord authoring — so e.g. a ii–V–I produces its guide-tone line automatically. Resolving a zone to
+/// concrete guitar frets is an instrument concern and lives on <c>GuitarInstrument.ResolveLead</c>
+/// (Instruments/Guitar), keeping <c>Domain</c> free of any fretboard reference.
 /// </summary>
 public static class LeadTargets
 {
@@ -27,11 +29,4 @@ public static class LeadTargets
         ArgumentNullException.ThrowIfNull(chord);
         return zone.Tone.PitchClassFor(chord.Root);
     }
-
-    /// <summary>
-    /// Every fretboard <see cref="FretPosition"/> (0..<paramref name="maxFret"/>) that sounds
-    /// <paramref name="zone"/> over <paramref name="chord"/>.
-    /// </summary>
-    public static IReadOnlyList<FretPosition> Resolve(Chord chord, TargetZone zone, int maxFret = Fretboard.DefaultMaxFret) =>
-        Fretboard.PositionsFor(PitchClassOf(chord, zone), maxFret);
 }

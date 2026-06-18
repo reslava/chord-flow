@@ -1,4 +1,6 @@
-namespace ChordFlow.Domain;
+using ChordFlow.Domain;
+
+namespace ChordFlow.Instruments.Guitar;
 
 /// <summary>
 /// The <b>layer</b> channel of a <see cref="FretboardMarker"/> — which overlaid entity a dot belongs to, so

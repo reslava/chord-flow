@@ -5,7 +5,7 @@ title: ChordFlow Domain Model
 status: active
 created: 2026-06-08
 updated: 2026-06-18
-version: 30
+version: 34
 tags: []
 parent_id: null
 requires_load: []
@@ -71,9 +71,9 @@ Even split: `17_67` → I7 half · VI7 half. Explicit slots: `17:2_67:1_27:1` �
 
 ---
 
-## 2. Voicing layer (`Domain/`)
+## 2. Voicing layer (`Instruments/Guitar/`)
 
-> **Planned (designed, not yet built — `guitar/instrument-boundary`):** every type in this section, plus the `Diagrams/` carrier, is guitar-specific and is slated to move from `Domain/` to a new `Instruments/Guitar/` area, leaving `Domain/` pure music theory. Until that thread ships they remain in `Domain/` as mapped below. See the architecture ref's "Planned: theory ↔ instrument boundary".
+> **Guitar adapter (live — `guitar/instrument-boundary`):** every type in this section, plus the `Diagrams/` carrier, is guitar-specific and lives under `Instruments/Guitar/` (namespace `ChordFlow.Instruments.Guitar`), **not** `Domain/` — so the kernel stays provably instrument-agnostic (enforced by a `NetArchTest.Rules` architecture test on the `Domain → Instruments` edge). The concrete **`GuitarInstrument`** facade is the public surface over these (`Realize` chord → fret `Voicing`, `Diagram` shape → `FretboardDiagram`, `ResolveLead` target zone → fret positions). See the architecture ref's "Theory ↔ instrument boundary (live)".
 
 | Type | Role |
 |------|------|
@@ -81,14 +81,14 @@ Even split: `17_67` → I7 half · VI7 half. Explicit slots: `17:2_67:1_27:1` �
 | `Voicing(Positions, BarreFret?, FirstFret?, MutedStrings?)` | A list of fret positions + optional **diagram metadata** (presentation hints for `\chord (...)`; positions stay authoritative). |
 | `IVoicingStrategy` | `Difficulty Difficulty`, `Voice(chord) → Voicing`. Selection is a strategy, not a table. |
 | `BeginnerShellStrategy` | Movable dom7 shell (root + maj3 + min7 on strings 5/4/3); covers all 12 roots; emits FirstFret + muted {1,2,6}. |
-| `VoicingShape(Quality, CagedShape Shape, int RootString, Voicing Canonical)` | **voicings slice (`Domain/Voicings/`).** An authored voicing entry: a CAGED shape captured at the canonical **C** anchor (`Canonical` holds C-anchored frets). Inherently movable — there is **no `fixed` flag**. |
+| `VoicingShape(Quality, CagedShape Shape, int RootString, Voicing Canonical)` | **voicings slice (`Instruments/Guitar/Voicings/`).** An authored voicing entry: a CAGED shape captured at the canonical **C** anchor (`Canonical` holds C-anchored frets). Inherently movable — there is **no `fixed` flag**. |
 | `CagedShape` (enum C/A/G/E/D) + `CagedShapeRanking.FamiliarityRank()` | CAGED family (diagram label + ranked-list tiebreak). Familiarity order **E A G C D** (barre-roots first); pack-overridable later. |
 | `VoicingDslParser` / `VoicingDslWriter` | **voicings slice.** Parse `voicing <Chord> shape:<C\|A\|G\|E\|D> root:<6..1> frets: <s6…s1>` → `VoicingShape`, **normalizing any anchor to the lowest non-negative C placement** so `(Quality, Shape)` dedups; the writer serializes the canonical-C DSL back (round-trips). See `chordflow-dsl-reference`. |
 | `VoicingRealizer.Realize(shape, targetRoot)` | **voicings slice.** Slide a canonical-C shape to any root: +semis to every fretted string, octave-fold into the **0–15** window, `null` if none fits. Open↔barre is just where the shape lands (no separate open form). Reuses the existing `Voicing` type. |
 | `VoicingBook(stored)` | **voicings slice — now an instance** built with the authored library (was a static strategy dispatcher). `Candidates(chord, difficulty)` → exact-quality stored voicings realized to the root, ranked by neck position then familiarity (may be empty); `Lookup(chord, difficulty)` → the one to play: top candidate, else the strategy shape, throwing if neither covers it. Stored authored voicings **shadow** generated. |
 | `Fretboard` | Standard-tuning geometry. `PositionsFor(pc, maxFret=12)` → every fret that sounds a pitch class; `PitchClassAt(string, fret)` → the pitch class sounding at a position (the inverse, used to label a voicing's notes). |
-| `FretboardDiagram` / `FretboardMarker` / `MarkerShape` (`Domain/Diagrams/`) | **The general spatial carrier** the `ChordFlowFretboard` JS view draws — the spatial twin of the alphaTex string (IN6: theory stays in the kernel; the JS is a dumb drawer). `FretboardDiagram(Title, Markers, MutedStrings, BarreFret?, FretMin?, FretMax?)` is a **flat marker list** (not per-string slots) so many markers may share a string — the generalization that makes it reusable for scales/arpeggios/the interval lattice. `FretboardMarker(String, Fret, Note, Interval, Function, Shape)`: `Function` is a **string** colour-key (`root/third/fifth/seventh/tension` — a string, not `ChordToneFunction`, because `tension` is no chord-tone function and the Web serializer emits enums as numbers); `Shape` (`MarkerShape` Circle/Square/Diamond/Ring) is the layer channel. Open strings are fret-0 markers; muted strings are diagram chrome (`MutedStrings`), not markers. |
-| `VoicingDiagram` (`Domain/Voicings/`) | **The voicing producer of `FretboardDiagram`** — one of (eventually) several producers (recast from the removed `DiagramModel`/`DiagramString`; no parallel voicing path). `VoicingDiagram.Build(shape)` emits one `Circle` marker per sounding string (fret 0 ⇒ open marker), muted/unsounded strings → `MutedStrings`, barre preserved, `FretMin = firstFret`, `Title` from `ChordSymbol`. Function (root/third/fifth/seventh, by tertian position in `QualityIntervals`, else `tension`) → the colour-key; labels are role-aware (dim7's 9 = `bb7`, aug's 8 = `#5`). Computed at the canonical-C anchor (EX2: no root-picker yet). |
+| `FretboardDiagram` / `FretboardMarker` / `MarkerShape` (`Instruments/Guitar/Diagrams/`) | **The general spatial carrier** the `ChordFlowFretboard` JS view draws — the spatial twin of the alphaTex string (IN6: theory stays in the kernel; the JS is a dumb drawer). `FretboardDiagram(Title, Markers, MutedStrings, BarreFret?, FretMin?, FretMax?)` is a **flat marker list** (not per-string slots) so many markers may share a string — the generalization that makes it reusable for scales/arpeggios/the interval lattice. `FretboardMarker(String, Fret, Note, Interval, Function, Shape)`: `Function` is a **string** colour-key (`root/third/fifth/seventh/tension` — a string, not `ChordToneFunction`, because `tension` is no chord-tone function and the Web serializer emits enums as numbers); `Shape` (`MarkerShape` Circle/Square/Diamond/Ring) is the layer channel. Open strings are fret-0 markers; muted strings are diagram chrome (`MutedStrings`), not markers. |
+| `VoicingDiagram` (`Instruments/Guitar/Voicings/`) | **The voicing producer of `FretboardDiagram`** — one of (eventually) several producers (recast from the removed `DiagramModel`/`DiagramString`; no parallel voicing path). `VoicingDiagram.Build(shape)` emits one `Circle` marker per sounding string (fret 0 ⇒ open marker), muted/unsounded strings → `MutedStrings`, barre preserved, `FretMin = firstFret`, `Title` from `ChordSymbol`. Function (root/third/fifth/seventh, by tertian position in `QualityIntervals`, else `tension`) → the colour-key; labels are role-aware (dim7's 9 = `bb7`, aug's 8 = `#5`). Computed at the canonical-C anchor (EX2: no root-picker yet). |
 
 ---
 
@@ -125,7 +125,7 @@ The old sequential `Beat(Duration, IsHit)` model was **removed**; rhythm is now 
 |------|------|
 | `Importance` (enum) | Primary (guide tones) / Secondary. |
 | `TargetZone(ChordTone Tone, Importance)` | A chord-relative "sweet spot"; resolves to pitch classes / frets late. |
-| `LeadTargets` | `GuideTones(chord)` → the 3rd & 7th as Primary; `PitchClassOf(chord, zone)`; `Resolve(chord, zone, maxFret)` → fret positions. ii–V–I guide-tone lines fall out of the interval sets — no per-chord authoring. |
+| `LeadTargets` | `GuideTones(chord)` → the 3rd & 7th as Primary; `PitchClassOf(chord, zone)` → pitch class. **Pure/instrument-agnostic** — resolving a zone to frets is a guitar concern, on `GuitarInstrument.ResolveLead` (`Instruments/Guitar`). ii–V–I guide-tone lines fall out of the interval sets — no per-chord authoring. |
 
 ---
 

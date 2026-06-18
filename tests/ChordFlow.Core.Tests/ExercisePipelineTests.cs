@@ -2,6 +2,8 @@ using ChordFlow.Domain;
 using ChordFlow.Rendering;
 using Xunit;
 
+using ChordFlow.Instruments.Guitar;
+
 namespace ChordFlow.Core.Tests;
 
 /// <summary>
@@ -63,8 +65,10 @@ public class ExercisePipelineTests
     [Fact]
     public void Pipeline_LeadTargetBranch_ResolvesGuideTonesForEveryChordOfTheProgression()
     {
-        // The other content branch: resolve each realized chord's guide tones to the fretboard.
+        // The other content branch: resolve each realized chord's guide tones to the fretboard
+        // (fret resolution is now a guitar concern — GuitarInstrument.ResolveLead).
         var bb = new Key(new PitchClass(10), false);
+        var guitar = new GuitarInstrument(new VoicingBook(Array.Empty<VoicingShape>()));
 
         foreach (Chord chord in Transposer.Realize(SeedData.TwelveBarBlues, bb))
         {
@@ -73,7 +77,7 @@ public class ExercisePipelineTests
 
             foreach (TargetZone zone in guides)
             {
-                var positions = LeadTargets.Resolve(chord, zone);
+                var positions = guitar.ResolveLead(chord, zone);
                 int wantPc = LeadTargets.PitchClassOf(chord, zone).Value;
                 Assert.NotEmpty(positions);
                 Assert.All(positions, p => Assert.Equal(wantPc, NotePc(p)));

@@ -1,6 +1,8 @@
 using ChordFlow.Domain;
 using Xunit;
 
+using ChordFlow.Instruments.Guitar;
+
 namespace ChordFlow.Core.Tests;
 
 /// <summary>

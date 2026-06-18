@@ -5,6 +5,8 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
+using ChordFlow.Instruments.Guitar;
+
 namespace ChordFlow.Core.Tests;
 
 /// <summary>

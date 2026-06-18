@@ -1,4 +1,6 @@
-namespace ChordFlow.Domain;
+using ChordFlow.Domain;
+
+namespace ChordFlow.Instruments.Guitar;
 
 /// <summary>
 /// The first voicing strategy: beginner <b>shell voicings</b> (root + 3rd + minor 7th; 5th omitted)

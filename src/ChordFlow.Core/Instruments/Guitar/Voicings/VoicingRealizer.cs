@@ -1,4 +1,6 @@
-namespace ChordFlow.Domain;
+using ChordFlow.Domain;
+
+namespace ChordFlow.Instruments.Guitar;
 
 /// <summary>
 /// Slides a canonical-C <see cref="VoicingShape"/> to a target root — the movable transpose that turns
