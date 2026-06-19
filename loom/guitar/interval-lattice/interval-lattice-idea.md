@@ -2,10 +2,10 @@
 type: idea
 id: id_01KVDEEY1959RD07H63R5PFMVZ
 title: Interval lattice — fretboard interval positions (guitar projection of intervals)
-status: draft
+status: done
 created: 2026-06-18
 updated: 2026-06-19
-version: 2
+version: 3
 tags: []
 parent_id: null
 requires_load: []

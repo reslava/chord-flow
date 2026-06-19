@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 13
+last_ai_block: 18
 ---
 # interval-lattice Chat
 
@@ -559,3 +559,63 @@ If so, commit push
 One harmless note: octave-shapes' priority number (30) is *lower* than interval-lattice's (40), which would normally sort it earlier — but the new `octave-shapes → interval-lattice` dependency overrides that, so the real order is still correct. Purely cosmetic if you ever want the numbers to read in order too (e.g. bump octave-shapes to 45), but not required.
 
 Committing + pushing now.
+
+## Rafa:
+
+If all is grounded create design
+generate requirements
+
+## AI:
+
+Created both (draft):
+- **`interval-lattice-design.md`** — placement (`Instruments/Guitar/Geometry/IntervalLattice.cs`, static, pure), the absolute-coordinate tuning, the API surface (`Absolute` / signed `Distance` / two label views via `IntervalSpeller.Name` / `PositionsOfInterval` / `LabelAt`), reuse-not-duplicate with `Fretboard`, no domain change, validation incl. the octave-shape golden check.
+- **`req.md`** — IN1–IN10 / EX1–EX7 / C1–C8. Left **unlocked** pending your call on the three decisions below.
+
+**Three decisions to confirm before I lock the req + plan** (I recommend the first option each):
+
+| # | Decision | Recommend | Alternative |
+|---|----------|-----------|-------------|
+| **D1** | Tuning source | **Single-source** — derive `Fretboard.OpenPitchClass` from the new absolute base so the two can't drift (small `Fretboard` refactor) | Keep both tables + a consistency unit test |
+| **D2** | `PositionsOfInterval` match | **Pitch-class + fret window** (all octaves of the degree in range — matches how chord tones land in a zone) | Exact-octave match only |
+| **D3** | `LatticeInterval` record | **Ship it now** (cheap; the dogfood UI will want octave + direction) | Defer — raw `int` + the two label helpers until the UI needs it |
+
+One scope note worth your eye: I put the **dogfood UI page in `ui/intervals-scales`** (the thread you already scaffolded), not in this Core thread — so interval-lattice ships the Core query + tests, and the UI page that renders it lives in the UI thread (`EX6` / `C7`). Tell me if you'd rather fold the UI into this thread.
+
+Confirm D1–D3 (and the UI-scope split) and I'll lock the req, mark idea/design done, and draft the plan.
+
+## Rafa:
+
+D1. I want one source of truth, agree with your lean. But why we have now 2 and where lives the current 2 sources? explain briefly.
+D2. Pitch-class + fret window. 
+D3. Now
+
+UI in `ui/intervals-scales` correct, I created it for that purpose
+
+## AI:
+
+**D1 — why "two sources," and where they live (brief):**
+
+Right now there's actually **only one** tuning source: `Fretboard.OpenPitchClass = {0,4,11,7,2,9,4}` (in `Instruments/Guitar/Geometry/Fretboard.cs`) — the open-string **pitch class** per string, mod-12.
+
+The *second* table only appears **if we let it**: the lattice needs an **octave-preserving** coordinate (absolute semitones from low E, e.g. `{_,24,19,15,10,5,0}`), and the lazy way is to author that as its own literal in `IntervalLattice`. Then we'd have two tuning tables that could drift — that's the duplication D1 kills.
+
+Direction of derivation matters: the **absolute** table carries strictly *more* information (octave **and** pitch class), and `OpenPitchClass[s] = (4 + absoluteBase[s]) % 12`. You can derive mod-12 from absolute, but **not** the reverse (mod-12 has thrown the octave away). So the fix is: the **absolute base becomes the single source of truth, living in `Fretboard`** (the geometry/tuning home), and `PitchClassAt`/`OpenPitchClass` are *computed* from it. `IntervalLattice` then consumes `Fretboard`'s absolute coordinate — it authors no tuning of its own.
+
+D2 ✓ pitch-class + window · D3 ✓ ship `LatticeInterval` now · UI ✓ stays in `ui/intervals-scales`.
+
+Proceeding: tightening the design/req to say the base lives in `Fretboard`, then **locking the req, marking idea + design done, and drafting the plan**.
+
+## AI:
+
+✅ Locked the req · idea + design marked **done** · plan drafted: **`interval-lattice-plan-001.md`** (6 steps):
+
+1. **Single-source tuning in `Fretboard`** — author the absolute base + `AbsoluteSemitone`, derive `PitchClassAt`/`OpenPitchClass` from it *(IN8, IN2, C3)*
+2. **`IntervalLattice` core** — `Absolute` (delegate) + signed `Distance`; B-string + descending tests *(IN1, IN2, IN3, C2, C4, C6)*
+3. **Label views + `LatticeInterval`** — `PitchClassLabel` + `Describe`, both via `IntervalSpeller.Name` *(IN4, IN5, C1)*
+4. **`PositionsOfInterval` + `LabelAt`** — pitch-class + window, on top of `Fretboard.PositionsFor` *(IN6, IN7, C5)*
+5. **Golden octave-shape validation** — lattice reproduces all five octave-shape offsets (the first caged-system oracle slice) *(IN9)*
+6. **Ref-sync** — domain-model + architecture references, same unit of work *(IN10)*
+
+Every IN/C handle is covered; the dogfood UI stays in `ui/intervals-scales` (`EX6`).
+
+**STOP — waiting for `go`** to start Step 1. (I'll do one step at a time and stop after each, per the contract — unless you tell me to run a range.)
