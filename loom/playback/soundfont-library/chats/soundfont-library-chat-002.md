@@ -9,7 +9,7 @@ version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 3
+last_ai_block: 5
 ---
 # sf3 libraries
 
@@ -55,3 +55,17 @@ All done — README updated, committed, and pushed to `main` (`00ebc03`).
 - Added a thin link under the font table: "More to download: the [MuseScore soundfont list](https://musescore.org/en/handbook/3/soundfonts-and-sfz-files#list)" (your `#list` anchor). The existing FluidR3 GM row already points at the same handbook page, so this just gives the broader list a direct entry point.
 
 **Commit** `00ebc03` — `feat(playback): discover .sf3 soundfonts alongside .sf2` — bundles the catalog change + README in one unit. Pushed to `origin/main`.
+
+## Rafa:
+
+Create a simple / minimal plan, 1 step done, for this tweak including .sf3
+
+## AI:
+
+Created a minimal follow-up plan for the `.sf3` tweak: **`soundfont-library-plan-002.md`** (`pl_01KVFN4ASF6C768EEQSW4W1B54`).
+
+- **1 step, marked ✅ done** — the plan auto-completed to `done`.
+- **Goal**: extend catalog discovery to recognize alphaTab's Ogg-compressed `.sf3` variant alongside `.sf2`, and document it. No Domain/renderer/req/design change — the discovery seam is format-agnostic; only the host catalog enumeration was still hardcoded to `.sf2`.
+- **Step 1** — *Discover .sf3 alongside .sf2 + document* · files `WwwrootSoundFontCatalog.cs`, `README.md` · satisfies `IN2`, `EX4` · shipped in commit `00ebc03`.
+
+This sits alongside the original `plan-001` (the full soundfont-library feature) as a small, self-contained record of the format extension.
