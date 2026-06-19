@@ -2,13 +2,14 @@
 type: chat
 id: ch_01KVGEBB2QN9J13H1YG4TX5JYP
 title: interval-lattice Chat
-status: active
+status: done
 created: 2026-06-19
-version: 1
+updated: 2026-06-19
+version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 18
+last_ai_block: 20
 ---
 # interval-lattice Chat
 
@@ -619,3 +620,23 @@ Proceeding: tightening the design/req to say the base lives in `Fretboard`, then
 Every IN/C handle is covered; the dogfood UI stays in `ui/intervals-scales` (`EX6`).
 
 **STOP — waiting for `go`** to start Step 1. (I'll do one step at a time and stop after each, per the contract — unless you tell me to run a range.)
+
+## Rafa:
+
+I started plan
+Do whole plan
+
+## AI:
+
+✅ **Whole plan done — all 6 steps, full Core suite green (491 passed / 0 failed)**, including the `NetArchTest` Domain↛Instruments guard.
+
+1. ✅ **Single-source tuning** — `Fretboard` now authors the octave-preserving `AbsoluteSemitone(string,fret)`; `PitchClassAt`/`PositionsFor` derive from it (the literal `OpenPitchClass` is gone). Test proves the derivation reproduces the old table for every (string, fret).
+2. ✅ **`IntervalLattice` core** — `Absolute` (delegate) + signed `Distance` (B-string = 4, descending negative, two-octave = 24).
+3. ✅ **Label views + `LatticeInterval`** — `PitchClassLabel` (1…7) and `Describe` (8/9/15 + octave + direction), both via `IntervalSpeller.Name`.
+4. ✅ **`PositionsOfInterval` + `LabelAt`** — pitch-class + window on `Fretboard.PositionsFor`.
+5. ✅ **Golden octave-shape oracle** — all five offsets (C −2, A +2, G −3 & 6→1 same fret, E +2 & 6→1 same fret, D +3) verified as same-pitch anchors. The lattice math reproduces the octave shapes. 🎯
+6. ✅ **Ref-sync** — domain-model + architecture references updated in the same unit of work.
+
+New files: `Geometry/IntervalLattice.cs`, `Geometry/LatticeInterval.cs`, `tests/IntervalLatticeTests.cs`, `tests/FretboardTuningTests.cs`. Done doc written. Plan status → **done**.
+
+**Not committed yet** — say `commit` and I'll push. Next thread up the roadmap is **octave-shapes** (now a thin partition layer on this).

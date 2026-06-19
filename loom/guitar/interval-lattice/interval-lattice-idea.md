@@ -5,7 +5,7 @@ title: Interval lattice — fretboard interval positions (guitar projection of i
 status: done
 created: 2026-06-18
 updated: 2026-06-19
-version: 3
+version: 4
 tags: []
 parent_id: null
 requires_load: []

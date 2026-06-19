@@ -2,8 +2,9 @@
 type: plan
 id: pl_01KVGJYB6CSG4XS6DDJYB90NBW
 title: Interval lattice — implementation
-status: active
+status: done
 created: 2026-06-19
+updated: 2026-06-19
 version: 1
 design_version: 1
 req_version: 4
@@ -14,42 +15,42 @@ target_version: 0.1.0
 steps:
   - id: single-source-tuning-in-fretboard
     order: 1
-    status: pending
+    status: done
     description: "Single-source the tuning in Fretboard: author the octave-preserving absolute base and derive the mod-12 lookups from it"
     files_touched: [src/ChordFlow.Core/Instruments/Guitar/Geometry/Fretboard.cs, tests/ChordFlow.Core.Tests/FretboardTuningTests.cs]
     blocked_by: []
     satisfies: [IN8, IN2, C3]
   - id: intervallattice-core-absolute-distance
     order: 2
-    status: pending
+    status: done
     description: IntervalLattice core — static class with Absolute (delegate) and signed Distance
     files_touched: [src/ChordFlow.Core/Instruments/Guitar/Geometry/IntervalLattice.cs, tests/ChordFlow.Core.Tests/IntervalLatticeTests.cs]
     blocked_by: []
     satisfies: [IN1, IN2, IN3, C2, C4, C6]
   - id: label-views-latticeinterval
     order: 3
-    status: pending
+    status: done
     description: Label views over the canonical distance, both via IntervalSpeller.Name; add the LatticeInterval record
     files_touched: [src/ChordFlow.Core/Instruments/Guitar/Geometry/LatticeInterval.cs, src/ChordFlow.Core/Instruments/Guitar/Geometry/IntervalLattice.cs, tests/ChordFlow.Core.Tests/IntervalLatticeTests.cs]
     blocked_by: []
     satisfies: [IN4, IN5, C1]
   - id: positionsofinterval-labelat
     order: 4
-    status: pending
+    status: done
     description: "Consumer queries: PositionsOfInterval (pitch-class + window, on Fretboard.PositionsFor) and LabelAt"
     files_touched: [src/ChordFlow.Core/Instruments/Guitar/Geometry/IntervalLattice.cs, tests/ChordFlow.Core.Tests/IntervalLatticeTests.cs]
     blocked_by: []
     satisfies: [IN6, IN7, C5]
   - id: golden-octave-shape-validation
     order: 5
-    status: pending
+    status: done
     description: "Golden oracle test: the lattice reproduces the five octave-shape root offsets"
     files_touched: [tests/ChordFlow.Core.Tests/IntervalLatticeTests.cs]
     blocked_by: []
     satisfies: [IN9]
   - id: ref-sync
     order: 6
-    status: pending
+    status: done
     description: "Ref-sync: domain-model + architecture references"
     files_touched: [loom/refs/chordflow-domain-model-reference.md, loom/refs/chordflow-architecture-reference.md]
     blocked_by: []
@@ -67,12 +68,12 @@ Implement `IntervalLattice` — the base guitar interval primitive that projects
 
 | Done | # | Step | Files touched | Blocked by | Satisfies |
 |---|---|---|---|---|---|
-| 🔳 | 1 | Single-source the tuning in Fretboard: author the octave-preserving absolute base and derive the mod-12 lookups from it | src/ChordFlow.Core/Instruments/Guitar/Geometry/Fretboard.cs, tests/ChordFlow.Core.Tests/FretboardTuningTests.cs | — | IN8, IN2, C3 |
-| 🔳 | 2 | IntervalLattice core — static class with Absolute (delegate) and signed Distance | src/ChordFlow.Core/Instruments/Guitar/Geometry/IntervalLattice.cs, tests/ChordFlow.Core.Tests/IntervalLatticeTests.cs | — | IN1, IN2, IN3, C2, C4, C6 |
-| 🔳 | 3 | Label views over the canonical distance, both via IntervalSpeller.Name; add the LatticeInterval record | src/ChordFlow.Core/Instruments/Guitar/Geometry/LatticeInterval.cs, src/ChordFlow.Core/Instruments/Guitar/Geometry/IntervalLattice.cs, tests/ChordFlow.Core.Tests/IntervalLatticeTests.cs | — | IN4, IN5, C1 |
-| 🔳 | 4 | Consumer queries: PositionsOfInterval (pitch-class + window, on Fretboard.PositionsFor) and LabelAt | src/ChordFlow.Core/Instruments/Guitar/Geometry/IntervalLattice.cs, tests/ChordFlow.Core.Tests/IntervalLatticeTests.cs | — | IN6, IN7, C5 |
-| 🔳 | 5 | Golden oracle test: the lattice reproduces the five octave-shape root offsets | tests/ChordFlow.Core.Tests/IntervalLatticeTests.cs | — | IN9 |
-| 🔳 | 6 | Ref-sync: domain-model + architecture references | loom/refs/chordflow-domain-model-reference.md, loom/refs/chordflow-architecture-reference.md | — | IN10 |
+| ✅ | 1 | Single-source the tuning in Fretboard: author the octave-preserving absolute base and derive the mod-12 lookups from it | src/ChordFlow.Core/Instruments/Guitar/Geometry/Fretboard.cs, tests/ChordFlow.Core.Tests/FretboardTuningTests.cs | — | IN8, IN2, C3 |
+| ✅ | 2 | IntervalLattice core — static class with Absolute (delegate) and signed Distance | src/ChordFlow.Core/Instruments/Guitar/Geometry/IntervalLattice.cs, tests/ChordFlow.Core.Tests/IntervalLatticeTests.cs | — | IN1, IN2, IN3, C2, C4, C6 |
+| ✅ | 3 | Label views over the canonical distance, both via IntervalSpeller.Name; add the LatticeInterval record | src/ChordFlow.Core/Instruments/Guitar/Geometry/LatticeInterval.cs, src/ChordFlow.Core/Instruments/Guitar/Geometry/IntervalLattice.cs, tests/ChordFlow.Core.Tests/IntervalLatticeTests.cs | — | IN4, IN5, C1 |
+| ✅ | 4 | Consumer queries: PositionsOfInterval (pitch-class + window, on Fretboard.PositionsFor) and LabelAt | src/ChordFlow.Core/Instruments/Guitar/Geometry/IntervalLattice.cs, tests/ChordFlow.Core.Tests/IntervalLatticeTests.cs | — | IN6, IN7, C5 |
+| ✅ | 5 | Golden oracle test: the lattice reproduces the five octave-shape root offsets | tests/ChordFlow.Core.Tests/IntervalLatticeTests.cs | — | IN9 |
+| ✅ | 6 | Ref-sync: domain-model + architecture references | loom/refs/chordflow-domain-model-reference.md, loom/refs/chordflow-architecture-reference.md | — | IN10 |
 ---
 
 ### Legend
