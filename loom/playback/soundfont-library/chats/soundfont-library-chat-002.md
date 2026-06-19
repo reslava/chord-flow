@@ -2,13 +2,14 @@
 type: chat
 id: ch_01KVFJVHVPJYT6HRPP0VKAMK81
 title: sf3 libraries
-status: active
+status: done
 created: 2026-06-19
-version: 1
+updated: 2026-06-19
+version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 1
+last_ai_block: 3
 ---
 # sf3 libraries
 
@@ -43,3 +44,14 @@ Also add thin link to download soundFonts libraries
 https://musescore.org/en/handbook/3/soundfonts-and-sfz-files#list
 
 commit push
+
+## AI:
+
+All done — README updated, committed, and pushed to `main` (`00ebc03`).
+
+**README (`### Soundfonts`):**
+- Opening line now reads "**SoundFont (`.sf2` or `.sf3`)** — alphaTab loads SoundFont2 and its Ogg-compressed `.sf3` variant interchangeably."
+- Step 1 ("Drop any `.sf2` / `.sf3` file…") and the closing "extract the `.sf2` / `.sf3`" line updated to cover both.
+- Added a thin link under the font table: "More to download: the [MuseScore soundfont list](https://musescore.org/en/handbook/3/soundfonts-and-sfz-files#list)" (your `#list` anchor). The existing FluidR3 GM row already points at the same handbook page, so this just gives the broader list a direct entry point.
+
+**Commit** `00ebc03` — `feat(playback): discover .sf3 soundfonts alongside .sf2` — bundles the catalog change + README in one unit. Pushed to `origin/main`.
