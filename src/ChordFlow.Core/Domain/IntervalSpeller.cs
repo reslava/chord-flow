@@ -44,6 +44,70 @@ public static class IntervalSpeller
         return $"{accidental}{number}";
     }
 
+    // Semitone of each natural scale degree (1..7) within one octave — the major-scale steps.
+    // Compound degrees (8..) unfold from this by +12 per octave; the inverse of Name's +7-per-octave formula.
+    private static readonly int[] NaturalDegreeSemitone = { 0, 2, 4, 5, 7, 9, 11 };
+
+    /// <summary>
+    /// The <b>inverse</b> of <see cref="Name"/>: the semitone distance of an interval label such as
+    /// <c>"1"</c>, <c>"b3"</c>, <c>"#4"</c>, <c>"5"</c>, <c>"b7"</c>, or a compound <c>"9"/"11"/"13"</c>.
+    /// Accepts <b>flats (<c>b</c>), sharps (<c>#</c>), and naturals</b>, including <b>repeated accidentals</b>
+    /// (<c>bb7</c> the dim7 double-flat seventh) — so it parses the scale/chord spellings (<c>#4</c> lydian,
+    /// <c>#5</c>, <c>#9</c>, <c>#11</c>, <c>bb7</c>) that <see cref="Name"/> (single-flats-only) never emits.
+    /// Compound degrees are <b>unfolded</b> (<c>9→14, 11→17, 13→21</c>), mirroring <see cref="Name"/>'s domain,
+    /// so <c>Parse(Name(n)) == n</c> for every non-negative <c>n</c>. A token is an optional run of <c>b</c>/<c>#</c>
+    /// (each ∓1 semitone) followed by a degree number ≥ 1. The vocabulary lives here, never re-authored by callers.
+    /// </summary>
+    /// <exception cref="FormatException"><paramref name="token"/> is empty or not a valid interval label.</exception>
+    public static int Parse(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            throw new FormatException("An interval token cannot be empty.");
+        }
+
+        string t = token.Trim();
+        int accidental = 0;
+        int i = 0;
+        for (; i < t.Length && (t[i] == 'b' || t[i] == '#'); i++)
+        {
+            accidental += t[i] == 'b' ? -1 : 1;
+        }
+
+        if (i == t.Length || !int.TryParse(t.AsSpan(i), out int degree) || degree < 1)
+        {
+            throw new FormatException(
+                $"'{token}' is not a valid interval label (expected an optional run of 'b'/'#' then a degree number ≥ 1).");
+        }
+
+        int step = (degree - 1) % 7;
+        int octave = (degree - 1) / 7;
+        return 12 * octave + NaturalDegreeSemitone[step] + accidental;
+    }
+
+    /// <summary>
+    /// Parse a whitespace/comma-separated interval set (e.g. <c>"1 b3 4 5 b7"</c>) into its distinct semitones,
+    /// in input order — the entry point a scale/interval-set producer parses user text through.
+    /// </summary>
+    /// <exception cref="FormatException">Any token is not a valid interval label (see <see cref="Parse"/>).</exception>
+    public static IReadOnlyList<int> ParseSet(string tokens)
+    {
+        ArgumentNullException.ThrowIfNull(tokens);
+
+        var result = new List<int>();
+        foreach (string token in tokens.Split(
+            new[] { ' ', '\t', '\n', '\r', ',' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            int semitone = Parse(token);
+            if (!result.Contains(semitone))
+            {
+                result.Add(semitone);
+            }
+        }
+
+        return result;
+    }
+
     // The conventional compound-tension names for a note that is NOT a chord tone (role-free fallback).
     private static readonly string[] Tension =
     {

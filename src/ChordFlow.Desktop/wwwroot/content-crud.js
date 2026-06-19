@@ -284,7 +284,10 @@ window.ChordFlowContent = (function () {
       scoreEl.hidden = true;
       diagramEl.hidden = false;
       if (window.ChordFlowFretboard && msg.diagram) {
-        if (!diagramView) diagramView = window.ChordFlowFretboard.create(diagramEl, { labelMode: "interval" });
+        // Voicings are vertical chord-boxes with an auto-fit window — hide the orientation + fret-window controls.
+        if (!diagramView) diagramView = window.ChordFlowFretboard.create(diagramEl, {
+          labelMode: "interval", controls: { orientation: false, fretWindow: false },
+        });
         diagramView.render(msg.diagram);
       } else {
         diagramEl.textContent = "";

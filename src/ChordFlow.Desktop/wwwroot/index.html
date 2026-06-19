@@ -176,6 +176,7 @@
     <nav class="nav" id="viewNav">
       <button id="navPractice" type="button" class="active">Practice</button>
       <button id="navContent" type="button">Content</button>
+      <button id="navScales" type="button">Scales</button>
       <button id="navDebug" type="button">Debug</button>
     </nav>
     <span id="status">starting…</span>
@@ -218,6 +219,20 @@
   <!-- Content view: the generic CRUD editor for DSL-backed entities (populated by content-crud.js). -->
   <div id="content-view" hidden></div>
 
+  <!-- Scales view: type an interval set + pick a root → the host lights it on the neck (scales.js). The
+       interval-lattice dogfood page; the shared ChordFlowFretboard draws it (horizontal, root-red/rest-black). -->
+  <div id="scales-view" hidden>
+    <section class="toolbar" id="scaleBuilder">
+      <label for="scaleRoot">Root</label>
+      <select id="scaleRoot"></select>
+      <label for="scaleIntervals">Intervals</label>
+      <input id="scaleIntervals" type="text" size="28" placeholder="1 b3 4 5 b7" />
+      <span class="cc-help">e.g. <code>1 b3 4 5 b7</code> minor pentatonic · <code>1 2 3 5 6</code> major pentatonic</span>
+    </section>
+    <div id="scaleError" class="cc-error" style="padding:.2rem 1rem;"></div>
+    <div id="scale-diagram" class="cc-preview" style="margin:0 1rem 1rem;"></div>
+  </div>
+
   <!-- Debug view: the alphaTex inspector — show / edit / render the engine's emitted alphaTex (alphatex-inspector.js). -->
   <div id="debug-view" hidden></div>
 
@@ -227,6 +242,7 @@
   <script src="score-render-component.js"></script>
   <script src="fretboard-render-component.js"></script>
   <script src="content-crud.js"></script>
+  <script src="scales.js"></script>
   <script src="alphatex-inspector.js"></script>
   <script src="app.js"></script>
 </body>

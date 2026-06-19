@@ -14,12 +14,16 @@
 //   • shape   layer channel, MarkerShape ordinal: 0 Circle, 1 Square, 2 Diamond, 3 Ring (a name string is tolerated).
 //
 //   const view = ChordFlowFretboard.create(containerEl, {
-//     orientation: "vertical",  // "vertical" = chord box. "horizontal" accepted but deferred to vertical in v1.
+//     orientation: "vertical",  // "vertical" = chord box (strings as columns) | "horizontal" = neck (frets left→right).
 //     labelMode:   "interval",  // "interval" | "note" — toggled by the component's own toolbar.
 //     showLegend:  true,
-//     palette:     null,        // null = default 5-color function palette; or { "b3": "#…", … } keyed on interval.
+//     palette:     null,        // null = default 5-color function palette; or { "b3":"#…", "*":"#000" } keyed on
+//                               //   interval, with an optional "*" fallback color for any interval not listed.
+//     controls:    {},          // per-control visibility, all true by default; a consumer hides what it fixes:
+//                               //   { orientation, fretWindow, label, legend }. e.g. a scale page locks horizontal
+//                               //   with controls:{ orientation:false }; a voicing hides controls:{ fretWindow:false }.
 //   });
-//   view.render(model); view.setLabelMode("note"); view.dispose();
+//   view.render(model); view.setLabelMode("note"); view.setOrientation("horizontal"); view.dispose();
 "use strict";
 
 window.ChordFlowFretboard = (function () {
@@ -65,14 +69,21 @@ window.ChordFlowFretboard = (function () {
 
   function create(container, opts) {
     opts = opts || {};
-    const palette = opts.palette || null; // override, keyed on interval token
+    const palette = opts.palette || null; // override, keyed on interval token (with an optional "*" fallback)
+    const controls = opts.controls || {}; // per-control visibility; every control defaults visible (!== false)
     let labelMode = opts.labelMode === "note" ? "note" : "interval";
-    const showLegend = opts.showLegend !== false;
+    let orientation = opts.orientation === "horizontal" ? "horizontal" : "vertical";
+    const showLegend = opts.showLegend !== false && controls.legend !== false;
+    let userFretMin = null; // fret-window overrides set via the toolbar (null = honor the model / auto-fit)
+    let userFretMax = null;
     let model = null;
 
-    // Color = interval. An override palette (keyed on the interval token) wins; otherwise the function default.
+    // Color = interval. An override palette wins: the exact interval token, else a "*" fallback, else the function default.
     function colorFor(marker) {
-      if (palette && marker.interval in palette) return palette[marker.interval];
+      if (palette) {
+        if (marker.interval in palette) return palette[marker.interval];
+        if ("*" in palette) return palette["*"];
+      }
       return FUNCTION_COLORS[marker.function] || FUNCTION_COLORS.tension;
     }
     // Legend key/label for a marker: the interval token under an override palette, else the function bucket.
@@ -91,8 +102,39 @@ window.ChordFlowFretboard = (function () {
       if (!model || !model.markers) return;
 
       container.appendChild(buildToolbar());
-      container.appendChild(buildSvg());
+      container.appendChild(orientation === "horizontal" ? buildSvgHorizontal() : buildSvg());
       if (showLegend) container.appendChild(buildLegend());
+    }
+
+    // The fret window honored by both orientations: a toolbar override wins, else the model's, else auto-fit (null).
+    function effectiveWindow() {
+      return {
+        fretMin: userFretMin != null ? userFretMin : model.fretMin,
+        fretMax: userFretMax != null ? userFretMax : model.fretMax,
+      };
+    }
+
+    // Orientation-independent window math: the lowest shown fret (with nut when ≤1) and the fret-cell count.
+    function computeWindow() {
+      const w = effectiveWindow();
+      const frettedFrets = model.markers.filter((m) => m.fret > 0).map((m) => m.fret);
+      const windowMin = w.fretMin != null ? w.fretMin : frettedFrets.length ? Math.min(...frettedFrets) : 1;
+      const showNut = windowMin <= 1;
+      const topFret = showNut ? 1 : windowMin;
+      const windowMax = w.fretMax != null ? w.fretMax : frettedFrets.length ? Math.max(...frettedFrets) : topFret;
+      const fretCount = Math.max(4, windowMax - topFret + 1);
+      return { showNut, topFret, fretCount };
+    }
+
+    // A small toolbar button (the shared style for the label/orientation toggles).
+    function toolbarButton(text, onClick) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = text;
+      btn.style.cssText =
+        "font:inherit;font-size:.75rem;padding:.15rem .55rem;border:1px solid #4a4a4f;border-radius:4px;background:#3a3a3d;color:#e6e6e6;cursor:pointer;";
+      btn.addEventListener("click", onClick);
+      return btn;
     }
 
     function buildToolbar() {
@@ -108,29 +150,54 @@ window.ChordFlowFretboard = (function () {
       spacer.style.cssText = "flex:1;";
       bar.appendChild(spacer);
 
-      const label = document.createElement("span");
-      label.textContent = "Labels:";
-      label.style.cssText = "font-size:.75rem;color:#9aa0a6;";
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.textContent = labelMode === "interval" ? "Intervals" : "Notes";
-      btn.style.cssText =
-        "font:inherit;font-size:.75rem;padding:.15rem .55rem;border:1px solid #4a4a4f;border-radius:4px;background:#3a3a3d;color:#e6e6e6;cursor:pointer;";
-      btn.addEventListener("click", () => setLabelMode(labelMode === "interval" ? "note" : "interval"));
-      bar.appendChild(label);
-      bar.appendChild(btn);
+      // Fret-window controls (min/max). Blank = auto-fit; honored by both orientations via effectiveWindow().
+      if (controls.fretWindow !== false) {
+        const mk = (placeholder, get, set) => {
+          const input = document.createElement("input");
+          input.type = "number";
+          input.min = "0";
+          input.placeholder = placeholder;
+          input.value = get() != null ? String(get()) : "";
+          input.style.cssText =
+            "font:inherit;font-size:.75rem;width:3.2rem;padding:.1rem .3rem;border:1px solid #4a4a4f;border-radius:4px;background:#2c2c2f;color:#e6e6e6;";
+          input.addEventListener("change", () => {
+            const v = input.value.trim();
+            set(v === "" ? null : Math.max(0, parseInt(v, 10) || 0));
+            render();
+          });
+          return input;
+        };
+        const fretsLabel = document.createElement("span");
+        fretsLabel.textContent = "Frets:";
+        fretsLabel.style.cssText = "font-size:.75rem;color:#9aa0a6;";
+        bar.appendChild(fretsLabel);
+        bar.appendChild(mk("min", () => userFretMin, (v) => (userFretMin = v)));
+        bar.appendChild(mk("max", () => userFretMax, (v) => (userFretMax = v)));
+      }
+
+      // Orientation toggle (vertical chord box ↔ horizontal neck).
+      if (controls.orientation !== false) {
+        bar.appendChild(toolbarButton(
+          orientation === "horizontal" ? "Horizontal" : "Vertical",
+          () => setOrientation(orientation === "horizontal" ? "vertical" : "horizontal")));
+      }
+
+      // Label toggle (interval ↔ note).
+      if (controls.label !== false) {
+        const label = document.createElement("span");
+        label.textContent = "Labels:";
+        label.style.cssText = "font-size:.75rem;color:#9aa0a6;";
+        bar.appendChild(label);
+        bar.appendChild(toolbarButton(
+          labelMode === "interval" ? "Intervals" : "Notes",
+          () => setLabelMode(labelMode === "interval" ? "note" : "interval")));
+      }
       return bar;
     }
 
     function buildSvg() {
       const muted = new Set(model.mutedStrings || []);
-      const frettedFrets = model.markers.filter((m) => m.fret > 0).map((m) => m.fret);
-
-      const windowMin = model.fretMin != null ? model.fretMin : frettedFrets.length ? Math.min(...frettedFrets) : 1;
-      const showNut = windowMin <= 1;
-      const topFret = showNut ? 1 : windowMin;
-      const windowMax = model.fretMax != null ? model.fretMax : frettedFrets.length ? Math.max(...frettedFrets) : topFret;
-      const rows = Math.max(4, windowMax - topFret + 1);
+      const { showNut, topFret, fretCount: rows } = computeWindow();
 
       const boxLeft = colX(0);
       const boxRight = colX(STRINGS - 1);
@@ -209,6 +276,87 @@ window.ChordFlowFretboard = (function () {
       return svg;
     }
 
+    // Horizontal neck: strings as rows (1 = high E on top .. 6 = low E at bottom), frets left→right from the nut.
+    // The first many-per-string producer (scales) needs this; the marker model is orientation-agnostic.
+    function buildSvgHorizontal() {
+      const muted = new Set(model.mutedStrings || []);
+      const { showNut, topFret, fretCount } = computeWindow();
+
+      const stringGap = 22; // vertical spacing between strings
+      const fretW = 36; // horizontal width of one fret cell
+      const padTop = 16;
+      const padLeft = 34; // room for open/mute markers + the position label
+      const padRight = 12;
+      const padBottom = 20; // room for fret numbers
+
+      const nutX = padLeft;
+      const rightX = nutX + fretCount * fretW;
+      const topY = padTop;
+      const bottomY = topY + (STRINGS - 1) * stringGap;
+      const width = rightX + padRight;
+      const height = bottomY + padBottom;
+
+      const stringY = (s) => topY + (s - 1) * stringGap;
+      const cellCenterX = (fret) => nutX + (fret - topFret + 0.5) * fretW;
+
+      const svg = el("svg", {
+        width, height, viewBox: `0 0 ${width} ${height}`,
+        style: "display:block;margin:.2rem auto;font-family:system-ui,sans-serif;",
+      });
+
+      // Nut (thick at the open position) or a position label above it.
+      svg.appendChild(el("line", {
+        x1: nutX, y1: topY, x2: nutX, y2: bottomY, stroke: "#222", "stroke-width": showNut ? 4 : 1.5,
+      }));
+      if (!showNut) {
+        svg.appendChild(el("text", { x: nutX, y: topY - 5, "text-anchor": "middle", "font-size": 10, fill: "#555" }, `${topFret}fr`));
+      }
+
+      // Fret lines (vertical) + a fret number under each cell.
+      for (let k = 1; k <= fretCount; k++) {
+        const x = nutX + k * fretW;
+        svg.appendChild(el("line", { x1: x, y1: topY, x2: x, y2: bottomY, stroke: "#999", "stroke-width": 1 }));
+      }
+      for (let k = 0; k < fretCount; k++) {
+        svg.appendChild(el("text", {
+          x: nutX + (k + 0.5) * fretW, y: bottomY + 14, "text-anchor": "middle", "font-size": 9, fill: "#777",
+        }, String(topFret + k)));
+      }
+
+      // String lines (horizontal).
+      for (let s = 1; s <= STRINGS; s++) {
+        const y = stringY(s);
+        svg.appendChild(el("line", { x1: nutX, y1: y, x2: rightX, y2: y, stroke: "#999", "stroke-width": 1 }));
+      }
+
+      // Optional barre → a vertical bar at the fret column.
+      if (model.barreFret != null && model.barreFret >= topFret && model.barreFret < topFret + fretCount) {
+        const x = cellCenterX(model.barreFret);
+        svg.appendChild(el("rect", {
+          x: x - 6, y: stringY(1) - DOT_R, width: 12, height: bottomY - topY + 2 * DOT_R, rx: 6, fill: "#33333355",
+        }));
+      }
+
+      // Muted strings → ✕ left of the nut.
+      for (const s of muted) {
+        svg.appendChild(el("text", { x: nutX - 16, y: stringY(s) + 4, "text-anchor": "middle", "font-size": 12, fill: "#888" }, "✕"));
+      }
+
+      // Markers (many may share a string row). Open = a ringed dot left of the nut; out-of-window frets are clipped.
+      for (const marker of model.markers) {
+        const y = stringY(marker.string);
+        const color = colorFor(marker);
+        const text = labelMode === "note" ? marker.note : marker.interval;
+        if (marker.fret === 0) {
+          svg.appendChild(el("circle", { cx: nutX - 16, cy: y, r: 5, fill: "none", stroke: color, "stroke-width": 1.6 }));
+        } else if (marker.fret >= topFret && marker.fret < topFret + fretCount) {
+          drawMarker(svg, cellCenterX(marker.fret), y, color, shapeName(marker.shape), text);
+        }
+      }
+
+      return svg;
+    }
+
     // Shape = layer channel. Filled shapes carry the label in white; a ring is hollow with a colored label.
     function drawMarker(svg, x, cy, color, shape, text) {
       const r = DOT_R;
@@ -259,12 +407,17 @@ window.ChordFlowFretboard = (function () {
       render();
     }
 
+    function setOrientation(mode) {
+      orientation = mode === "horizontal" ? "horizontal" : "vertical";
+      render();
+    }
+
     function dispose() {
       container.innerHTML = "";
       model = null;
     }
 
-    return { render, setLabelMode, dispose };
+    return { render, setLabelMode, setOrientation, dispose };
   }
 
   return { create };

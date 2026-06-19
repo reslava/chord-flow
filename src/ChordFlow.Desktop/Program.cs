@@ -6,6 +6,7 @@ using ChordFlow.Features.GenerateExercise;
 using ChordFlow.Features.Packs;
 using ChordFlow.Features.PracticeSession;
 using ChordFlow.Features.Progress;
+using ChordFlow.Features.Scales;
 using ChordFlow.Features;
 using ChordFlow.Bridge;
 using ChordFlow.Persistence;
@@ -88,6 +89,7 @@ internal static class Program
                 var library = new ExerciseLibraryHandler(dbOptions, renderer);
                 var progress = new ProgressHandler(dbOptions);
                 var contentCrud = new ContentCrudHandler(dbOptions, renderer);
+                var scales = new ScalesHandler();
 
                 // Playback soundfont library: the catalog scans the served wwwroot/soundfont folder (host asset),
                 // and the global choice persists via the Core AppSettings store (C3). App-lifetime singletons.
@@ -268,6 +270,13 @@ internal static class Program
                         bridge.Send(contentCrud.List(entity));
                     }
                     catch (FormatException ex) { bridge.Send(new EntityParseErrorEnvelope(entity, ex.Message)); }
+                };
+
+                // Scales page: build the interval-set fretboard diagram; a bad token surfaces inline (scaleError).
+                router.ScalePreviewRequested += (intervals, rootPc) =>
+                {
+                    try { bridge.Send(scales.Preview(intervals, rootPc)); }
+                    catch (FormatException ex) { bridge.Send(new ScaleErrorEnvelope(ex.Message)); }
                 };
 
                 // Playback soundfont: list (fonts + persisted selection) on request; persist a new global choice.

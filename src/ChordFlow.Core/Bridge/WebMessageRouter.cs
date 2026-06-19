@@ -22,7 +22,7 @@ public sealed record GenerateRequest(
 /// <c>stop</c> / <c>setTempo</c> / <c>save</c> / <c>listExercises</c> /
 /// <c>loadExercise</c> / <c>markPracticed</c> / the generic content-CRUD family
 /// <c>entityList</c> / <c>entityGet</c> / <c>entityPreview</c> / <c>entitySave</c> /
-/// <c>entityDelete</c> (each carrying an <c>entity</c> discriminator).
+/// <c>entityDelete</c> (each carrying an <c>entity</c> discriminator) / <c>scalePreview</c>.
 /// </summary>
 public sealed class WebMessageRouter
 {
@@ -83,6 +83,9 @@ public sealed class WebMessageRouter
 
     /// <summary>Persist a new global playback soundfont choice — <c>(id)</c>.</summary>
     public event Action<string>? SetSoundFontRequested;
+
+    /// <summary>Preview an interval set on the fretboard (the Scales page) — <c>(intervals, rootPitchClass)</c>.</summary>
+    public event Action<string, int>? ScalePreviewRequested;
 
     /// <summary>Deserialize one inbound message string and dispatch it to subscribers.</summary>
     public void Dispatch(string message)
@@ -195,6 +198,12 @@ public sealed class WebMessageRouter
                     SetSoundFontRequested?.Invoke(soundFontId);
                 }
                 break;
+            case "scalePreview":
+                if (envelope.Intervals is { } scaleIntervals)
+                {
+                    ScalePreviewRequested?.Invoke(scaleIntervals, envelope.RootPitchClass ?? 0);
+                }
+                break;
             // Unknown / null types are ignored — forward-compatible.
         }
     }
@@ -237,6 +246,8 @@ public sealed class WebMessageRouter
         string? Entity, string? EntityId, string? Name, string? Dsl,
         // setSoundFont: the chosen soundfont id (file name). A string, distinct from the int Id / string EntityId.
         string? SoundFontId,
+        // scalePreview: the interval set text ("1 b3 4 5 b7") + the chosen root pitch class (0..11).
+        string? Intervals, int? RootPitchClass,
         // Optional render-time presentation options on the render-producing verbs (generate/loadExercise/entityPreview).
         InboundRenderOptions? RenderOptions);
 
