@@ -11,6 +11,7 @@ tags: []
 parent_id: de_01KVF92S3CBV2XT4B8N9SF3038
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.7.0
 steps:
   - id: intervalspeller-tests
     order: 1

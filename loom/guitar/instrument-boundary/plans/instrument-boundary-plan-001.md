@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVEASE6MHSWMVDER0AY0ZJPT
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.7.0
 steps:
   - id: structural-move-renamespace
     order: 1

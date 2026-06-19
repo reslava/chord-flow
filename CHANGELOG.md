@@ -4,6 +4,38 @@ All notable changes to ChordFlow are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] — 2026-06-19
+
+A foundation release that hardens the **theory ↔ instrument boundary**: the music kernel is
+now provably instrument-agnostic, guitar specifics sit behind a `GuitarInstrument` facade, and
+interval spelling is centralized in a single authority — groundwork for the interval-derived
+shape engine. Plus `.sf3` soundfont support.
+
+### Added
+- **`.sf3` soundfont discovery** — the soundfont picker now lists `.sf3` files alongside `.sf2`
+  (alphaTab loads the Ogg-compressed `.sf3` variant interchangeably). Drop either format into
+  `wwwroot/soundfont/` and it is auto-discovered. The README documents the dual-format support
+  and links the MuseScore soundfont list.
+
+### Changed
+- **Theory ↔ instrument boundary split.** Guitar-specific types (fretboard geometry,
+  `Voicing` / `VoicingBook` / CAGED / strategy realization, the fretboard & voicing diagrams)
+  moved out of `Domain/` into `Instruments/Guitar/` (namespace `ChordFlow.Instruments.Guitar`),
+  leaving `Domain/` a pure, instrument-agnostic theory kernel. A new **`GuitarInstrument`**
+  facade (`Realize` / `Diagram` / `ResolveLead`) is the public surface; `LeadTargets` is trimmed
+  to pitch-class output (fret resolution moves to `GuitarInstrument.ResolveLead`). The boundary
+  is enforced by a `NetArchTest.Rules` architecture test — `ChordFlow.Domain` must not depend on
+  `ChordFlow.Instruments`.
+- **`IntervalSpeller` — one interval-spelling authority.** A new `Domain/IntervalSpeller` (the
+  interval peer of `NoteSpeller`) centralizes interval naming: `Name(semitone)` is the computed,
+  unfolded flats **substrate vocabulary** (the 2nd octave yields `9/10/11/13…` for free);
+  `Label(semitone, role)` is the **role-keyed** chord-context spelling with conventional tensions
+  (`#9/#11/b13`). `VoicingDiagram` now delegates to it (its inline label logic removed) — diagram
+  labels are byte-for-byte unchanged.
+
+### Tests
+- Full `ChordFlow.Core` xUnit suite green (454), including the new architecture-boundary test.
+
 ## [0.6.0] — 2026-06-18
 
 A reusable **fretboard diagram** rendering layer. Chord/scale shapes are now drawn by a
@@ -247,6 +279,7 @@ as tablature, and plays it back with a synchronized beat cursor.
   the next phase).
 - No audio-input accuracy detection (out of scope for v1).
 
+[0.7.0]: https://github.com/reslava/chord-flow/releases/tag/v0.7.0
 [0.6.0]: https://github.com/reslava/chord-flow/releases/tag/v0.6.0
 [0.5.0]: https://github.com/reslava/chord-flow/releases/tag/v0.5.0
 [0.4.0]: https://github.com/reslava/chord-flow/releases/tag/v0.4.0
