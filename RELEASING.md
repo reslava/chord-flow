@@ -29,10 +29,13 @@ two items noted. Skipping a step ships a broken or inconsistent release.
       [`src/ChordFlow.Desktop/ChordFlow.Desktop.csproj`](src/ChordFlow.Desktop/ChordFlow.Desktop.csproj)
       — the **only** authoritative version source (no other file carries it).
       *(Machine-checked: `guard` asserts the csproj `<Version>` equals the tag.)*
-- [ ] **Review the docs** for accuracy at the new version: root [`README.md`](README.md)
-      and the three `loom/refs/` docs (architecture, domain-model, DSL). CI does **not**
-      verify docs; this is human judgment. *(The refs are kept current per code-change by
-      the CLAUDE.md "Reference-doc sync" rule — this is a release-time sanity glance.)*
+- [ ] **Update the README, review the refs.** Bring root [`README.md`](README.md) current with
+      what shipped — a **required edit**: the **Status** line, the **`## Features (vX.Y.Z)`**
+      section (a latest-release snapshot, not a running log), the **test count**, and the
+      **Project layout** if it changed. Then sanity-glance the three `loom/refs/` docs
+      (architecture, domain-model, DSL) — kept current per code-change by the CLAUDE.md
+      "Reference-doc sync" rule, so the README is the one doc that needs the release-time edit.
+      CI does **not** verify docs; this is human judgment.
 - [ ] **Build + test locally green:** `dotnet build -c Release && dotnet test -c Release`.
 - [ ] **Record the release in Loom:** `loom record-release X.Y.Z` — stamps `actual_release`
       onto this release's done plans so the roadmap owns "what shipped in vX.Y.Z" (idempotent;

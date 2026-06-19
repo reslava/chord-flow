@@ -50,9 +50,15 @@ version was given.
      `CHANGELOG.md` (the **GitHub release body verbatim**).
    - Add the bottom link reference:
      `[X.Y.Z]: https://github.com/reslava/chord-flow/releases/tag/vX.Y.Z`.
-4. **Review the docs** for accuracy at the new version: root `README.md` and the three
-   `loom/refs/` docs (architecture, domain-model, DSL). Note any that need an edit before
-   the release.
+4. **Update the README + review the refs.** Bring root `README.md` current with what shipped —
+   this is a required edit, not just a glance (the `loom/refs/` sync rule does *not* cover the
+   README's user-facing snapshot, so it silently drifts otherwise). Update: the **Status** line
+   (version + one-line framing), the **`## Features (vX.Y.Z)`** heading and its bullets (add the
+   newly shipped user-facing features — the section tracks the *latest release*, not a running
+   log), the **test count**, the **Project layout** if structure changed, and any
+   download/usage detail that changed. Then sanity-glance the three `loom/refs/` docs
+   (architecture, domain-model, DSL) — kept current per code-change, so this is just a check.
+   The README edits are part of the release commit (step 6 `git commit -am` picks them up).
 5. **STOP — show the proposed version + the `[X.Y.Z]` changelog section and wait for `go`.**
    The section is published verbatim as release notes, so it gets one human review.
 6. On `go`:

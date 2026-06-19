@@ -5,13 +5,15 @@ guitarists practice **rhythm patterns over chord progressions**. The core is an
 exercise-generation engine (progressions × keys × rhythms × voicings), rendered as
 guitar tablature with **synchronized playback** via [alphaTab](https://www.alphatab.net/).
 
-> **Status:** v0.5.0 — a **content-driven** trainer. Progressions, songs, rhythms, and
-> voicings are authored in compact **text DSLs**, shipped as importable **content packs**,
-> and assembled into exercises through an on-screen **workbench** — over a music-theory-first
-> domain kernel and a clean **Core / Desktop** split. The starting point for a broader
-> rhythm/lead chord-progression trainer. Windows-only for now (downloadable build below).
+> **Status:** v0.7.0 — a **content-driven** trainer over a music-theory-first kernel.
+> Progressions, songs, rhythms, and voicings are authored in compact **text DSLs**, shipped as
+> importable **content packs**, and assembled into exercises through an on-screen **workbench**.
+> Chord & voicing shapes render through a reusable **fretboard-diagram** layer, and the kernel is
+> now a provably **instrument-agnostic** theory core (guitar sits behind a `GuitarInstrument`
+> facade) — groundwork for a broader rhythm/lead chord-progression trainer. Windows-only for now
+> (downloadable build below).
 
-## Features (v0.5.0)
+## Features (v0.7.0)
 
 - **Content authored in text DSLs** — a key-independent
   **[Progression & Song DSL](loom/refs/chordflow-dsl-reference.md)** (multiple chords per
@@ -26,8 +28,11 @@ guitar tablature with **synchronized playback** via [alphaTab](https://www.alpha
 - 12-bar blues transposable to **all 12 keys**
 - Tablature rendering + audio playback with a **synchronized beat cursor**, **two-track**
   (comping + lead) staves, chord-name / chord-diagram toggles, and bars-per-row layout
-- **User-selectable soundfont** — auto-discovered from `wwwroot/soundfont`, a global choice
-  that switches live and persists
+- **Fretboard diagrams** — chord & voicing shapes drawn by a reusable SVG fretboard component
+  where **color = interval** and **shape = layer** (the spatial twin of the notation view), with
+  a label toggle, auto legend, open/muted/barre rendering, and an auto-fit fret window
+- **User-selectable soundfont** (`.sf2` / `.sf3`) — auto-discovered from `wwwroot/soundfont`, a
+  global choice that switches live and persists
 - **Content editor** — CRUD for progressions/songs/rhythms/voicings (with fret-box diagrams),
   plus an **alphaTex inspector** (Debug view) over the engine's emitted alphaTex
 - **Save** exercise definitions to SQLite, reload them from a **saved-exercise list**
@@ -102,14 +107,17 @@ Some downloads are zipped — extract the `.sf2` / `.sf3` and place it in the fo
 dotnet test
 ```
 
-399 xUnit tests cover the `Domain` kernel, the content DSLs/parsers, packs, persistence,
-and `AlphaTexRenderer`.
+454 xUnit tests cover the `Domain` kernel (incl. the `IntervalSpeller` interval-naming
+authority), the content DSLs/parsers, packs, persistence, `AlphaTexRenderer`, and a
+`NetArchTest` architecture-boundary test asserting `ChordFlow.Domain` stays instrument-agnostic.
 
 ## Project layout
 
 ```
 src/ChordFlow.Core/        host-agnostic engine (net10.0, zero UI refs)
-  Domain/          pure music kernel (no I/O, unit-tested)
+  Domain/          pure, instrument-agnostic music-theory kernel (no I/O, unit-tested)
+  Instruments/     instrument adapters over the kernel — Guitar/ (GuitarInstrument facade,
+                   fretboard geometry, voicings/CAGED, fret-box diagrams)
   Rendering/       AlphaTexRenderer (only alphaTex-aware code)
   Features/        GenerateExercise, PracticeSession, ExerciseLibrary, Progress
   Bridge/          C#↔JS envelope DTOs + inbound message router (host-agnostic)
