@@ -3,9 +3,9 @@ type: ctx
 id: loom-ctx
 title: Loom — Global Context
 status: active
-created: "2026-06-07T00:00:00.000Z"
-updated: 2026-06-12
-version: 8
+created: 2026-06-07
+updated: 2026-06-19
+version: 9
 tags: [ctx, summary]
 parent_id: null
 requires_load: []
@@ -49,3 +49,4 @@ source_hash: 61c479f6d5a2f19917ec21349afc4694cf705f66
 - All writes to `loom/**/*.md` go through MCP tools.
 - Chat docs are the conversation surface — reply inside them under `## AI:`.
 - After each step, state what was done and what is next, then STOP.
+- **Guitar-weave dogfood rule:** every new guitar feature ships with a fretboard UI page that visualizes it (built on the `fretboard-render-component`) — fast visual confirmation before building the next layer on top. Add a "dogfood: render on the fretboard UI page" line to each guitar idea's Validation section.
