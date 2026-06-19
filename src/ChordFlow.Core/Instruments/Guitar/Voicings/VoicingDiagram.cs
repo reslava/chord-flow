@@ -44,7 +44,7 @@ public static class VoicingDiagram
                 s,
                 fret,
                 NoteSpeller.Name(pc, CAnchor),
-                IntervalLabel(semitone, role),
+                IntervalSpeller.Label(semitone, role),
                 FunctionName(role),
                 MarkerShape.Circle));
         }
@@ -81,22 +81,5 @@ public static class VoicingDiagram
         ChordToneFunction.Fifth => "fifth",
         ChordToneFunction.Seventh => "seventh",
         _ => "tension",
-    };
-
-    // Chord tones get their precise role-aware label (a dim7's 9 = bb7, an aug's 8 = #5); a note outside the
-    // quality falls back to a generic interval name and is colored as a tension.
-    private static string IntervalLabel(int semitone, ChordToneFunction? role) => role switch
-    {
-        ChordToneFunction.Root => "R",
-        ChordToneFunction.Third => semitone == 3 ? "b3" : "3",
-        ChordToneFunction.Fifth => semitone switch { 6 => "b5", 8 => "#5", _ => "5" },
-        ChordToneFunction.Seventh => semitone switch { 9 => "bb7", 11 => "7", _ => "b7" },
-        _ => GenericLabel(semitone),
-    };
-
-    private static string GenericLabel(int semitone) => semitone switch
-    {
-        0 => "R", 1 => "b9", 2 => "9", 3 => "#9", 4 => "3", 5 => "11",
-        6 => "#11", 7 => "5", 8 => "b13", 9 => "13", 10 => "b7", _ => "7",
     };
 }
