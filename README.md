@@ -74,10 +74,11 @@ dotnet run --project src/ChordFlow.Desktop
 
 ### Soundfonts
 
-Playback uses a **SoundFont (`.sf2`)**. The default **Sonivox** GM font is bundled; you can
-add more and switch between them in-app:
+Playback uses a **SoundFont (`.sf2` or `.sf3`)** — alphaTab loads SoundFont2 and its
+Ogg-compressed `.sf3` variant interchangeably. The default **Sonivox** GM font is bundled;
+you can add more and switch between them in-app:
 
-1. Drop any `.sf2` file into `src/ChordFlow.Desktop/wwwroot/soundfont/` (in a downloaded
+1. Drop any `.sf2` / `.sf3` file into `src/ChordFlow.Desktop/wwwroot/soundfont/` (in a downloaded
    release, that's the `wwwroot/soundfont/` folder next to `ChordFlow.exe`).
 2. Pick it from the **Sound** dropdown in the player controls. The choice is a **global
    setting** and is remembered across sessions.
@@ -91,7 +92,9 @@ drop-in with no code change. A few free, redistributable GM soundfonts:
 | FluidR3 GM | MIT | <https://musescore.org/en/handbook/3/soundfonts-and-sfz-files> |
 | GeneralUser GS | permissive (free, custom) | <https://schristiancollins.com/generaluser.php> |
 
-Some downloads are zipped — extract the `.sf2` and place it in the folder above.
+More to download: the [MuseScore soundfont list](https://musescore.org/en/handbook/3/soundfonts-and-sfz-files#list).
+
+Some downloads are zipped — extract the `.sf2` / `.sf3` and place it in the folder above.
 
 ## Tests
 
