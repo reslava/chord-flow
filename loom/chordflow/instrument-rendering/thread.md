@@ -9,7 +9,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 50
+priority: 1000
 depends_on: [th_01KVCTCBFPMRJHQPDQBVEXDV8P]
 ---
 # Instrument-aware rendering fork + IInstrument seam

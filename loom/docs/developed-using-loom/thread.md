@@ -4,11 +4,12 @@ id: th_01KVJG8CV0CYAN8AD1ETR4EM8N
 title: developed-using-loom
 status: active
 created: 2026-06-20
+updated: 2026-06-20
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 1000
+priority: 80
 depends_on: []
 ---
 # developed-using-loom

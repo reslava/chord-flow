@@ -4,12 +4,12 @@ id: th_01KVB4KGN24YTN8MT3YNTN6C3T
 title: ChordFlow user guide
 status: active
 created: 2026-06-17
-updated: 2026-06-19
+updated: 2026-06-20
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 90
+priority: 40
 depends_on: []
 ---
 # ChordFlow user guide
