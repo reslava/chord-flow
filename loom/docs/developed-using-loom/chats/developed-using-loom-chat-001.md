@@ -2,9 +2,10 @@
 type: chat
 id: ch_01KVJG8JZN01QYPE7AD84MSHGK
 title: developed-using-loom Chat
-status: active
+status: done
 created: 2026-06-20
-version: 1
+updated: 2026-06-20
+version: 2
 tags: []
 parent_id: null
 requires_load: []
