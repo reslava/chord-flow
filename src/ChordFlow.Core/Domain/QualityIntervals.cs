@@ -8,20 +8,14 @@ namespace ChordFlow.Domain;
 /// </summary>
 public static class QualityIntervals
 {
-    // Semitone intervals from the root for each v1 quality. Ordered root-up so the position
-    // in the set reads as 1st / 3rd / 5th / 7th of the chord.
-    private static readonly IReadOnlyDictionary<Quality, int[]> Table = new Dictionary<Quality, int[]>
-    {
-        [Quality.Major] = new[] { 0, 4, 7 },
-        [Quality.Minor] = new[] { 0, 3, 7 },
-        [Quality.Dominant7] = new[] { 0, 4, 7, 10 },
-        [Quality.Major7] = new[] { 0, 4, 7, 11 },
-        [Quality.Minor7] = new[] { 0, 3, 7, 10 },
-        [Quality.HalfDiminished7] = new[] { 0, 3, 6, 10 },
-        [Quality.Diminished] = new[] { 0, 3, 6 },
-        [Quality.Diminished7] = new[] { 0, 3, 6, 9 },
-        [Quality.Augmented] = new[] { 0, 4, 8 },
-    };
+    // Semitones are a DERIVED projection, not authored here: each quality's formula
+    // (QualityFormulas — the single source of truth, in degree+accidental spelling) is parsed
+    // to its semitones via IntervalSpeller once at static init. Root-up token order is preserved,
+    // so position i still reads as 1st / 3rd / 5th / 7th. Exactly one authored value per quality.
+    private static readonly IReadOnlyDictionary<Quality, int[]> Table =
+        Enum.GetValues<Quality>().ToDictionary(
+            q => q,
+            q => IntervalSpeller.ParseSet(QualityFormulas.Formula(q)).ToArray());
 
     /// <summary>The semitone intervals from the root that make up <paramref name="quality"/>.</summary>
     public static IReadOnlyList<int> Intervals(Quality quality)

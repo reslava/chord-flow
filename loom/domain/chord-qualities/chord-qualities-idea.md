@@ -2,10 +2,10 @@
 type: idea
 id: id_01KV2WWAZDDC1XWFF5AGTJX197
 title: Chord qualities — the interval formulas (engine input)
-status: draft
+status: done
 created: 2026-06-14
-updated: 2026-06-18
-version: 2
+updated: 2026-06-20
+version: 4
 tags: []
 parent_id: null
 requires_load: []

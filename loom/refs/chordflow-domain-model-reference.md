@@ -5,7 +5,7 @@ title: ChordFlow Domain Model
 status: active
 created: 2026-06-08
 updated: 2026-06-20
-version: 40
+version: 41
 tags: []
 parent_id: null
 requires_load: []
@@ -36,7 +36,8 @@ no I/O (C3). Spelling and `Feel` are **never stored** — always derived (C4).
 | `PitchClass(int Value)` | 0..11 (0=C). **Spelling deferred** — PC 1 is C# in D, Db in Ab. |
 | `Key(PitchClass Tonic, bool IsMinor)` | Tonic + mode. |
 | `Quality` (enum) | The 9 v1 qualities: Major, Minor, Dominant7, Major7, Minor7, HalfDiminished7 (m7b5), Diminished (triad), Diminished7 (dim7, fully symmetric stack of minor 3rds), Augmented. |
-| `QualityIntervals` | **Single source of truth** for what notes a quality contains (C5). `Intervals(q)` → semitones; `FromIntervals(set)` → reverse match. |
+| `QualityFormulas` | **The authored single source of truth** for chord content (chord-qualities thread): `Formula(q)` → the quality's interval formula in degree+accidental spelling (`"1 b3 b5 bb7"`). The **only** authored chord-content data — the semitone set is a derived projection (`QualityIntervals`), never stored alongside, so the two cannot drift. Root-up token order; extends additively to richer qualities. |
+| `QualityIntervals` | The **semitone projection** of `QualityFormulas` (C5): its table is **derived** at static init via `IntervalSpeller.ParseSet(QualityFormulas.Formula(q))` — the hand-authored arrays are gone, exactly one authored source per quality. Public surface unchanged: `Intervals(q)` → semitones; `FromIntervals(set)` → reverse match (order-independent). |
 | `ChordTone(int Interval, ChordToneFunction Function)` | A tone **relative to the chord root** (R/3/5/7). `PitchClassFor(root)` resolves it late. |
 | `ChordToneFunction` (enum) | Root, Third, Fifth, Seventh — classified from the interval (0→Root, 3/4→Third, 6/7/8→Fifth, 9/10/11→Seventh; 9 = the bb7 of a `Diminished7`). |
 | `ChordTones` | `Of(chord)` → the chord's tones; `PitchClassesOf(chord)`. The **Theme A↔B bridge**: "b7 of G7" = root+10, computed not stored. |
