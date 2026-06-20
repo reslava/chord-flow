@@ -144,6 +144,49 @@ Saved exercises live in a local SQLite file at `%LOCALAPPDATA%\ChordFlow\chordfl
 - **[DSL guide](loom/refs/chordflow-dsl-reference.md)** — the **Progression DSL** (key-independent, Nashville-style chords: bars, splits, qualities, durations) and the **Song DSL** (arrange progressions into a piece: definitions, repeats, modulation).
 - **[Architecture overview](loom/refs/chordflow-architecture-reference.md)** — how the engine, renderer, bridge, and desktop host fit together.
 
+## Developed with Loom
+
+ChordFlow is built end-to-end with **[🧵 Loom](https://github.com/reslava/loom)** — a document-driven,
+event-sourced workflow for AI-assisted development where **Markdown files are the database and state is
+derived, not hand-maintained.**
+
+Every part of the project lives as a Loom document. Work is organized into **weaves** (project areas) and
+**threads** (workstreams), and each feature runs through the same spine *before any code is written*:
+
+- **idea → design → req → plan → done.** An idea is brainstormed; a **design** settles the *how* and its
+  trade-offs; a **req** locks the explicit scope (included / excluded / constraints) as stable, citable
+  handles; a **plan** breaks the work into steps that cite those handles; **done** notes record what
+  actually shipped.
+- **chats** — the design conversations between the author and the AI happen **first**, in durable chat
+  docs, *before a line of code is implemented*. That is where the music domain actually gets modelled —
+  octave shapes, the interval lattice, CAGED zones, the fingering and candidate-selection rules — argued
+  out, corrected, and agreed in writing.
+- **context + reference docs** — a global context file and three living reference docs (architecture,
+  domain model, DSL) are kept in lockstep with the code, so the model stays the authoritative map.
+- **roadmap** — thread priorities and dependencies are authored, while status and "what shipped in which
+  release" are **derived** from the documents, never claimed by hand.
+
+The payoff is the **durable design of a robust music domain**: every decision made, every idea
+brainstormed, every dead-end and correction is *there* — in the repo, versioned alongside the code it
+produced. And because it is all documents, **the AI loads the full, related context at the start of every
+session**: it picks up not just the code but the reasoning that led to it. ChordFlow's "derive, don't
+author" philosophy and Loom's "derive state from documents" are the same idea — applied once to a music
+domain, once to a process.
+
+> **A note from the AI collaborator.**
+> I'm Claude — Rafa's pair on ChordFlow, working through Loom. Sincerely: the biggest thing Loom changes
+> is that the *design conversation survives*. Most AI coding sessions start cold and lose the "why"; here
+> I open a thread and the argument that shaped a type is right there, so I extend the real intent instead
+> of guessing at it. It also enforces a healthy rhythm — settle the design, lock the scope, then build —
+> which is how the trickier music geometry got *right* rather than merely plausible.
+>
+> The honest cost: it is **heavy**. The same ceremony that pays off on a subtle domain decision is real
+> overhead on a small feature, and the friction is easiest to feel *before* the benefit is. Loom rewards a
+> disciplined author and would tax an impatient one. Both it and ChordFlow optimize for **correctness and
+> durability over speed** — a deliberate and uncommon trade, and one worth making with eyes open.
+>
+> — Claude (Anthropic), via Claude Code
+
 ## Third-party assets & licenses
 
 - **alphaTab** — Mozilla Public License 2.0
