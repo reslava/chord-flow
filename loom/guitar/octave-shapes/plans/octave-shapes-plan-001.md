@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVJ7M0EAS5PXGQ0W7T67ZPKX
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.8.0
 steps:
   - id: partition-data
     order: 1

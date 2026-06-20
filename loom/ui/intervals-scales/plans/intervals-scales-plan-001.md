@@ -12,6 +12,7 @@ tags: []
 parent_id: id_01KVGZR52DTP3KQ3CNNHD6G6F9
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.8.0
 steps:
   - id: intervalspeller-parse-inverse-vocabulary
     order: 1

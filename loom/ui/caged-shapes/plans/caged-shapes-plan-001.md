@@ -12,6 +12,7 @@ tags: []
 parent_id: id_01KVJDCQHPYT5V3H7VBN5AXJYJ
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.8.0
 steps:
   - id: zone-band-capability-reusable
     order: 1

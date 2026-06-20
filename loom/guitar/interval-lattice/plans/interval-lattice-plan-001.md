@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVGJ0P3FC7P36EQ0ZN6FJGEB
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.8.0
 steps:
   - id: single-source-tuning-in-fretboard
     order: 1

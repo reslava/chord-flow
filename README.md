@@ -5,15 +5,16 @@ guitarists practice **rhythm patterns over chord progressions**. The core is an
 exercise-generation engine (progressions × keys × rhythms × voicings), rendered as
 guitar tablature with **synchronized playback** via [alphaTab](https://www.alphatab.net/).
 
-> **Status:** v0.7.0 — a **content-driven** trainer over a music-theory-first kernel.
-> Progressions, songs, rhythms, and voicings are authored in compact **text DSLs**, shipped as
-> importable **content packs**, and assembled into exercises through an on-screen **workbench**.
-> Chord & voicing shapes render through a reusable **fretboard-diagram** layer, and the kernel is
-> now a provably **instrument-agnostic** theory core (guitar sits behind a `GuitarInstrument`
-> facade) — groundwork for a broader rhythm/lead chord-progression trainer. Windows-only for now
-> (downloadable build below).
+> **Status:** v0.8.0 — a **content-driven** trainer over a music-theory-first kernel, now growing a
+> guitar **shape engine**. Progressions, songs, rhythms, and voicings are authored in compact **text
+> DSLs**, shipped as importable **content packs**, and assembled through an on-screen **workbench**;
+> shapes render through a reusable **fretboard-diagram** layer over a provably **instrument-agnostic**
+> kernel. New this release: a fretboard **interval lattice** and the **CAGED octave shapes** derived
+> from it, surfaced as two visual pages (a **Scales** interval-set viewer and a **CAGED Shapes**
+> octave-skeleton viewer) on a horizontal **neck** view — groundwork for deriving chord/scale shapes
+> from intervals. Windows-only for now (downloadable build below).
 
-## Features (v0.7.0)
+## Features (v0.8.0)
 
 - **Content authored in text DSLs** — a key-independent
   **[Progression & Song DSL](loom/refs/chordflow-dsl-reference.md)** (multiple chords per
@@ -31,6 +32,10 @@ guitar tablature with **synchronized playback** via [alphaTab](https://www.alpha
 - **Fretboard diagrams** — chord & voicing shapes drawn by a reusable SVG fretboard component
   where **color = interval** and **shape = layer** (the spatial twin of the notation view), with
   a label toggle, auto legend, open/muted/barre rendering, and an auto-fit fret window
+- **Interval & CAGED shape viewers** — a **Scales** page (type an interval set → every degree lit
+  across the neck, your typed spelling preserved) and a **CAGED Shapes** page (pick a shape + root →
+  its octave-root skeleton with the octave zone shaded), both on a new **horizontal neck** view,
+  built on a fretboard **interval lattice**
 - **User-selectable soundfont** (`.sf2` / `.sf3`) — auto-discovered from `wwwroot/soundfont`, a
   global choice that switches live and persists
 - **Content editor** — CRUD for progressions/songs/rhythms/voicings (with fret-box diagrams),
@@ -107,9 +112,10 @@ Some downloads are zipped — extract the `.sf2` / `.sf3` and place it in the fo
 dotnet test
 ```
 
-454 xUnit tests cover the `Domain` kernel (incl. the `IntervalSpeller` interval-naming
-authority), the content DSLs/parsers, packs, persistence, `AlphaTexRenderer`, and a
-`NetArchTest` architecture-boundary test asserting `ChordFlow.Domain` stays instrument-agnostic.
+564 xUnit tests cover the `Domain` kernel (incl. the `IntervalSpeller` interval-naming + parsing
+authority), the guitar **interval lattice** and **CAGED octave shapes**, the content DSLs/parsers,
+packs, persistence, `AlphaTexRenderer`, and a `NetArchTest` architecture-boundary test asserting
+`ChordFlow.Domain` stays instrument-agnostic.
 
 ## Project layout
 
@@ -117,9 +123,10 @@ authority), the content DSLs/parsers, packs, persistence, `AlphaTexRenderer`, an
 src/ChordFlow.Core/        host-agnostic engine (net10.0, zero UI refs)
   Domain/          pure, instrument-agnostic music-theory kernel (no I/O, unit-tested)
   Instruments/     instrument adapters over the kernel — Guitar/ (GuitarInstrument facade,
-                   fretboard geometry, voicings/CAGED, fret-box diagrams)
+                   fretboard geometry + interval lattice + CAGED octave shapes, voicings/CAGED,
+                   fret-box / scale / CAGED-shape diagrams)
   Rendering/       AlphaTexRenderer (only alphaTex-aware code)
-  Features/        GenerateExercise, PracticeSession, ExerciseLibrary, Progress
+  Features/        GenerateExercise, PracticeSession, ExerciseLibrary, Progress, Scales, Caged
   Bridge/          C#↔JS envelope DTOs + inbound message router (host-agnostic)
   Persistence/     SQLite (EF Core) store + migrations
 src/ChordFlow.Desktop/     WinForms + WebView2 host (net10.0-windows)

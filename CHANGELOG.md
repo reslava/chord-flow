@@ -4,6 +4,37 @@ All notable changes to ChordFlow are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-06-20
+
+The guitar **shape engine** takes shape. ChordFlow gains a fretboard **interval lattice** and the
+five CAGED **octave shapes** derived from it — the groundwork for deriving chord/scale shapes from
+intervals — surfaced through two new visual pages on a new **horizontal neck** view.
+
+### Added
+- **Scales page** — type an interval set (e.g. `1 b3 4 5 b7` minor pentatonic, `1 2 3 5 6` major
+  pentatonic) and pick a root; every degree lights up across the whole neck. Each dot keeps your
+  typed spelling (a typed `#4` stays `#4`). The dogfood page for the new interval lattice.
+- **CAGED Shapes page** — pick a CAGED shape (C/A/G/E/D) + a root and see that shape's **root
+  skeleton** (the root and its octaves on the neck), with the **octave zone** highlighted as a
+  shaded band. The visual check for the octave-shape engine.
+- **Horizontal neck view** — the shared fretboard component can now draw a left-to-right neck
+  (frets across, many notes per string) in addition to the vertical chord box; both new pages use it.
+- **Interval lattice + CAGED octave shapes (engine)** — `IntervalLattice` projects the interval
+  vocabulary onto the fretboard (signed distances + pitch-class / octave labels), and `OctaveShape`
+  derives the five CAGED root skeletons from it (anchors / octave zone / string-set boxes) — the
+  foundation the interval-derived chord & scale engine is built on.
+
+### Changed
+- **Fretboard render component** — added a left-to-right **horizontal** orientation, a reusable
+  **zone-band** highlight layer, a palette `*` fallback colour, and per-control visibility flags.
+  All additive: existing chord & voicing diagrams render byte-identical.
+- **Engine internals** — `Fretboard` now single-sources tuning via an octave-preserving absolute
+  coordinate (the pitch-class lookups derive from it); `IntervalSpeller` gained a `Parse`
+  (label → semitone) inverse for the Scales input.
+
+### Tests
+- Full `ChordFlow.Core` xUnit suite green (564).
+
 ## [0.7.0] — 2026-06-19
 
 A foundation release that hardens the **theory ↔ instrument boundary**: the music kernel is
@@ -279,6 +310,7 @@ as tablature, and plays it back with a synchronized beat cursor.
   the next phase).
 - No audio-input accuracy detection (out of scope for v1).
 
+[0.8.0]: https://github.com/reslava/chord-flow/releases/tag/v0.8.0
 [0.7.0]: https://github.com/reslava/chord-flow/releases/tag/v0.7.0
 [0.6.0]: https://github.com/reslava/chord-flow/releases/tag/v0.6.0
 [0.5.0]: https://github.com/reslava/chord-flow/releases/tag/v0.5.0
