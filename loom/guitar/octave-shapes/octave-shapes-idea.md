@@ -2,10 +2,10 @@
 type: idea
 id: id_01KV2WVWE75SPHV91HX03J4DTG
 title: Octave shapes — the 5 CAGED root maps (engine skeleton)
-status: draft
+status: done
 created: 2026-06-14
-updated: 2026-06-19
-version: 3
+updated: 2026-06-20
+version: 7
 tags: []
 parent_id: null
 requires_load: []
@@ -61,6 +61,24 @@ partition — which same-pitch anchors group into which named shape:
 geometry). The offset numbers above are kept as **validation examples** for that grouping,
 not as the source of truth.
 
+## Octave zone & CAGED boxes (derived geometry)
+
+Two more views fall straight out of the partition + the [[interval-lattice]] — both
+**derived, never authored** (resolved in `chats/octave-shapes-chat-002.md`, 2026-06-20):
+
+- **Octave zone** — the fret span of a shape's root anchors, `[min, max]` of the offsets.
+  E shape = `0 +2` → for Key C, frets 8–10; C shape = `0 −2` → frets 3–1. This *is* the
+  CAGED zone/area the voicings already lean on, now defined as a derived quantity.
+- **CAGED boxes** — the root strings cut the shape into string-set boxes: between each
+  consecutive pair of root strings is a **main box** (a complete octave, `*`); the strings
+  reaching past the outer roots toward string 6 / string 1 are **partial boxes**.
+  C `{5,2}` → `6,5 · 5,2* · 2,1`; G `{6,3,1}` → `6,3* · 3,1*` (two complete octaves, no
+  partials). Pure function of the root-string partition — no new data.
+
+The **CAGED-zone envelope** (how far past the octave zone a hand may reach), the per-chord
+**used zone**, and which intervals a box shows are *content placement* and live in
+[[caged-system]], not here — this thread owns only the static skeleton.
+
 ## In scope (when scheduled)
 
 - The five CAGED root-string partitions as data (shape → root strings + primary string).
@@ -69,8 +87,10 @@ not as the source of truth.
   2026-06-19)**: a shape recurs every 12 frets, so anchors are returned relative to a
   caller-supplied neck region; lowest-occurrence and all-in-window are special cases of this.
   Frets are computed via the [[interval-lattice]], not stored.
-- Establishes the CAGED **zone/area** each shape occupies (the basis of the Zone/Area
-  authoring rule already used for the voicings — keep intervals inside the shape's zone).
+- Establishes the **octave zone** (derived fret span of the anchors) and the **CAGED
+  boxes** (string sets from the partition) each shape occupies — the static basis of the
+  Zone/Area rule. The dynamic envelope / used-zone is [[caged-system]]'s (see "Octave zone
+  & CAGED boxes").
 
 ## Out of scope / deferred
 

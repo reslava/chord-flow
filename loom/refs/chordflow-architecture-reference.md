@@ -4,8 +4,8 @@ id: rf_01KTSAPAT132QTEY5BEPRKS3MB
 title: ChordFlow Architecture
 status: active
 created: 2026-06-10
-updated: 2026-06-19
-version: 29
+updated: 2026-06-20
+version: 31
 tags: []
 parent_id: null
 requires_load: []
@@ -31,7 +31,7 @@ ChordFlow.sln
   src/
     ChordFlow.Core/       net10.0          — the engine. ZERO UI/host references.
       Domain/             pure music kernel — instrument-agnostic (no I/O, no UI)
-      Instruments/Guitar/ the guitar adapter: Fretboard geometry + IntervalLattice, voicings/CAGED, diagrams, GuitarInstrument
+      Instruments/Guitar/ the guitar adapter: Fretboard geometry + IntervalLattice + OctaveShape, voicings/CAGED, diagrams, GuitarInstrument
       Rendering/          AlphaTexRenderer + RhythmQuantizer (only alphaTex-aware code)
       Features/           GenerateExercise, PracticeSession, ExerciseLibrary, Progress
       Bridge/             C#↔JS envelope DTOs + inbound WebMessageRouter (host-agnostic)
@@ -144,7 +144,7 @@ Shape (arrows point up; only the `Domain → Instruments` edge is test-enforced)
 │ Instruments/                                                       │
 │   IInstrument  (thin: Realize → pitches)  [deferred until a caller]│
 │   Guitar/   ← the only real adapter today                          │
-│     geometry: tuning · Fretboard · IntervalLattice                 │
+│     geometry: tuning · Fretboard · IntervalLattice · OctaveShape   │
 │     realize:  Voicing · VoicingBook · CAGED · VoicingRealizer      │
 │     diagram:  FretboardDiagram · VoicingDiagram                    │
 │   « Piano/ — extension point, not built »                          │

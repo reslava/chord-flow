@@ -4,8 +4,8 @@ id: id_01KV2WWWZ6PYT4Y4VCT4A5KD8N
 title: CAGED system — the derivation engine (subsumes authored voicings)
 status: draft
 created: 2026-06-14
-updated: 2026-06-18
-version: 2
+updated: 2026-06-20
+version: 4
 tags: []
 parent_id: null
 requires_load: []
@@ -37,6 +37,33 @@ theory — aligned with [[design-philosophy-durable-over-minimal]] and
 [[chordflow-mvp-is-a-foundation]]. The authored voicings ship now and keep working; the
 engine is built behind them and validated against them, never blocking content.
 
+## Placement rules (resolved in octave-shapes-chat-002, 2026-06-20)
+
+Step 3 ("find each interval, stay in the zone") is governed by three **derived** rules —
+all consequences of where the [[interval-lattice]] places the quality's tones, nothing
+authored:
+
+- **Anchor finger = the root's rank in the placed span.** Root is the lowest fret in the
+  box → anchor index → the hand reaches **right**; root highest → anchor pinky → reach
+  **left**; root inside → anchor middle/ring → reach both. This *generates* the per-shape
+  Left/Right margins (and their major-vs-minor flip in the index/middle shapes A, E, D —
+  b3 vs 3 moves which tone is the extreme, so it moves the root's rank). C and G are
+  pinky-anchored → fixed `left 1, right 0`.
+- **CAGED-zone envelope vs. used zone.** The envelope is the max reach the anchor finger
+  allows past the octave zone (≈ a 4-finger / 4-fret hand span); the **used zone** is the
+  actual `[min,max]` a given quality occupies inside it. Minimize the used-zone width;
+  prefer a contiguous region.
+- **Candidate selection (the B-string tax).** The string 3→2 = 4-semitone gap makes an
+  interval land as a **unison on two strings** inside one box (e.g. b5 in E / Key A:
+  str3 f8 *or* str2 f4, both abs-coord 23). Resolve by a **whole-box joint minimization**
+  — not greedy per interval, because the choices couple: over all candidate assignments,
+  minimize the **worst same-string stretch**, tiebreak **minimal total span**, final
+  tiebreak **closest to the zone center**. The search is tiny (≤2–3 candidates per
+  interval) so brute force suffices.
+
+**Box filtering for display:** a **main box** shows all of the quality's intervals; a
+**secondary / partial box** shows only the intervals that satisfy the rules above.
+
 ## In scope (when scheduled)
 
 - The derivation algorithm: (quality, CAGED shape, root) → realized fret shape, reusing
@@ -44,7 +71,12 @@ engine is built behind them and validated against them, never blocking content.
 - The **partial/usable-subset** signal per shape (the deferred per-position playability
   hint from the voicings design §7 — "here, play strings 4–1") falls out naturally here,
   since the engine knows which intervals land where in the zone.
-- Golden-oracle test: regenerate the 34 authored voicings and assert fret-equality.
+- The placement rules above as code: anchor-finger derivation, used-zone minimization, and
+  the whole-box candidate-selection search — consuming [[octave-shapes]]' boxes + octave
+  zone and the [[interval-lattice]] positions.
+- Golden-oracle test: regenerate the 34 authored voicings and assert fret-equality. If the
+  pack records **fingering** (not just frets), also assert the derived anchor finger — a
+  second oracle for the rules above.
 
 ## Out of scope / deferred
 
