@@ -198,6 +198,8 @@ const ChordFlow = (function () {
         onShow: () => window.ChordFlowContent && window.ChordFlowContent.show() },
       scales: { nav: $("navScales"), el: $("scales-view"),
         onShow: () => window.ChordFlowScales && window.ChordFlowScales.show() },
+      caged: { nav: $("navCaged"), el: $("caged-shapes-view"),
+        onShow: () => window.ChordFlowCagedShapes && window.ChordFlowCagedShapes.show() },
       debug: { nav: $("navDebug"), el: $("debug-view"),
         onShow: () => window.ChordFlowInspector && window.ChordFlowInspector.show() },
     };

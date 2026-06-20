@@ -49,10 +49,14 @@ public sealed record FretboardMarker(
 /// <param name="BarreFret">Fret of a barre across strings, if any.</param>
 /// <param name="FretMin">Lowest fret of the window; the view auto-fits to the markers when null.</param>
 /// <param name="FretMax">Highest fret of the window; the view auto-fits to the markers when null.</param>
+/// <param name="ZoneFretMin">Lowest fret of an optional highlighted <b>zone band</b> (a translucent strip drawn behind these fret columns, e.g. a CAGED octave zone); null = no band. Chord/scale diagrams leave it null and render byte-identical.</param>
+/// <param name="ZoneFretMax">Highest fret of the optional zone band; null = no band.</param>
 public sealed record FretboardDiagram(
     string Title,
     IReadOnlyList<FretboardMarker> Markers,
     IReadOnlyList<int> MutedStrings,
     int? BarreFret,
     int? FretMin,
-    int? FretMax);
+    int? FretMax,
+    int? ZoneFretMin = null,
+    int? ZoneFretMax = null);

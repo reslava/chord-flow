@@ -177,6 +177,7 @@
       <button id="navPractice" type="button" class="active">Practice</button>
       <button id="navContent" type="button">Content</button>
       <button id="navScales" type="button">Scales</button>
+      <button id="navCaged" type="button">CAGED</button>
       <button id="navDebug" type="button">Debug</button>
     </nav>
     <span id="status">starting…</span>
@@ -233,6 +234,21 @@
     <div id="scale-diagram" class="cc-preview" style="margin:0 1rem 1rem;"></div>
   </div>
 
+  <!-- CAGED Shapes view: pick a shape (C/A/G/E/D) + a root → the host lights the octave-shape anchors (1/8/15 by
+       octave) + the octave-zone band on the neck (caged-shapes.js). The octave-shapes dogfood page; the shared
+       ChordFlowFretboard draws it (horizontal). -->
+  <div id="caged-shapes-view" hidden>
+    <section class="toolbar" id="cagedBuilder">
+      <label for="cagedShape">Shape</label>
+      <select id="cagedShape"></select>
+      <label for="cagedRoot">Root</label>
+      <select id="cagedRoot"></select>
+      <span class="cc-help">The five CAGED root skeletons — anchors are <code>1</code>/<code>8</code>/<code>15</code> by octave; the band marks the octave zone.</span>
+    </section>
+    <div id="cagedError" class="cc-error" style="padding:.2rem 1rem;"></div>
+    <div id="caged-diagram" class="cc-preview" style="margin:0 1rem 1rem;"></div>
+  </div>
+
   <!-- Debug view: the alphaTex inspector — show / edit / render the engine's emitted alphaTex (alphatex-inspector.js). -->
   <div id="debug-view" hidden></div>
 
@@ -243,6 +259,7 @@
   <script src="fretboard-render-component.js"></script>
   <script src="content-crud.js"></script>
   <script src="scales.js"></script>
+  <script src="caged-shapes.js"></script>
   <script src="alphatex-inspector.js"></script>
   <script src="app.js"></script>
 </body>

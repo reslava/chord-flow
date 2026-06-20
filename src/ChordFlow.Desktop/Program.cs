@@ -7,6 +7,7 @@ using ChordFlow.Features.Packs;
 using ChordFlow.Features.PracticeSession;
 using ChordFlow.Features.Progress;
 using ChordFlow.Features.Scales;
+using ChordFlow.Features.Caged;
 using ChordFlow.Features;
 using ChordFlow.Bridge;
 using ChordFlow.Persistence;
@@ -90,6 +91,7 @@ internal static class Program
                 var progress = new ProgressHandler(dbOptions);
                 var contentCrud = new ContentCrudHandler(dbOptions, renderer);
                 var scales = new ScalesHandler();
+                var caged = new CagedShapesHandler();
 
                 // Playback soundfont library: the catalog scans the served wwwroot/soundfont folder (host asset),
                 // and the global choice persists via the Core AppSettings store (C3). App-lifetime singletons.
@@ -277,6 +279,13 @@ internal static class Program
                 {
                     try { bridge.Send(scales.Preview(intervals, rootPc)); }
                     catch (FormatException ex) { bridge.Send(new ScaleErrorEnvelope(ex.Message)); }
+                };
+
+                // CAGED Shapes page: build the octave-shape fretboard diagram; an unknown shape surfaces inline (cagedError).
+                router.CagedPreviewRequested += (shape, rootPc) =>
+                {
+                    try { bridge.Send(caged.Preview(shape, rootPc)); }
+                    catch (FormatException ex) { bridge.Send(new CagedErrorEnvelope(ex.Message)); }
                 };
 
                 // Playback soundfont: list (fonts + persisted selection) on request; persist a new global choice.

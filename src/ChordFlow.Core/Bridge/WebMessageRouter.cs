@@ -22,7 +22,8 @@ public sealed record GenerateRequest(
 /// <c>stop</c> / <c>setTempo</c> / <c>save</c> / <c>listExercises</c> /
 /// <c>loadExercise</c> / <c>markPracticed</c> / the generic content-CRUD family
 /// <c>entityList</c> / <c>entityGet</c> / <c>entityPreview</c> / <c>entitySave</c> /
-/// <c>entityDelete</c> (each carrying an <c>entity</c> discriminator) / <c>scalePreview</c>.
+/// <c>entityDelete</c> (each carrying an <c>entity</c> discriminator) / <c>scalePreview</c> /
+/// <c>cagedPreview</c>.
 /// </summary>
 public sealed class WebMessageRouter
 {
@@ -86,6 +87,9 @@ public sealed class WebMessageRouter
 
     /// <summary>Preview an interval set on the fretboard (the Scales page) — <c>(intervals, rootPitchClass)</c>.</summary>
     public event Action<string, int>? ScalePreviewRequested;
+
+    /// <summary>Preview a CAGED octave shape on the fretboard (the CAGED Shapes page) — <c>(shape, rootPitchClass)</c>.</summary>
+    public event Action<string, int>? CagedPreviewRequested;
 
     /// <summary>Deserialize one inbound message string and dispatch it to subscribers.</summary>
     public void Dispatch(string message)
@@ -204,6 +208,12 @@ public sealed class WebMessageRouter
                     ScalePreviewRequested?.Invoke(scaleIntervals, envelope.RootPitchClass ?? 0);
                 }
                 break;
+            case "cagedPreview":
+                if (envelope.Shape is { } cagedShape)
+                {
+                    CagedPreviewRequested?.Invoke(cagedShape, envelope.RootPitchClass ?? 0);
+                }
+                break;
             // Unknown / null types are ignored — forward-compatible.
         }
     }
@@ -248,6 +258,8 @@ public sealed class WebMessageRouter
         string? SoundFontId,
         // scalePreview: the interval set text ("1 b3 4 5 b7") + the chosen root pitch class (0..11).
         string? Intervals, int? RootPitchClass,
+        // cagedPreview: the CAGED shape name ("C"/"A"/"G"/"E"/"D"); reuses RootPitchClass for the root.
+        string? Shape,
         // Optional render-time presentation options on the render-producing verbs (generate/loadExercise/entityPreview).
         InboundRenderOptions? RenderOptions);
 

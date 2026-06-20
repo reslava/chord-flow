@@ -6,12 +6,14 @@
 // NO music theory here (IN6/C1) — it consumes the note / interval / function / shape already resolved in Core.
 //
 // The model (camelCase over the bridge, matching FretboardDiagram):
-//   { title, markers: [{ string, fret, note, interval, function, shape }], mutedStrings, barreFret, fretMin, fretMax }
+//   { title, markers: [{ string, fret, note, interval, function, shape }], mutedStrings, barreFret, fretMin, fretMax, zoneFretMin, zoneFretMax }
 //   • string  1 = high E .. 6 = low E (alphaTab numbering). Many markers may share a string.
 //   • fret    0 = open (drawn as a ringed dot above the nut).
 //   • function color-key: "root"|"third"|"fifth"|"seventh"|"tension" (the default palette).
 //   • interval label ("R"/"b3"/"5"/"#5"/"bb7"…) — also the key for an override per-interval palette.
 //   • shape   layer channel, MarkerShape ordinal: 0 Circle, 1 Square, 2 Diamond, 3 Ring (a name string is tolerated).
+//   • zoneFretMin/zoneFretMax (optional): a translucent highlight band behind those fret columns (e.g. the CAGED
+//     octave zone). Omit both for no band — chord/scale diagrams render byte-identical.
 //
 //   const view = ChordFlowFretboard.create(containerEl, {
 //     orientation: "vertical",  // "vertical" = chord box (strings as columns) | "horizontal" = neck (frets left→right).
@@ -213,6 +215,18 @@ window.ChordFlowFretboard = (function () {
         style: "display:block;margin:.2rem auto;font-family:system-ui,sans-serif;",
       });
 
+      // Optional zone band (under the grid + markers): a translucent strip behind the highlighted fret rows.
+      if (model.zoneFretMin != null && model.zoneFretMax != null) {
+        const zMin = Math.max(model.zoneFretMin, topFret);
+        const zMax = Math.min(model.zoneFretMax, topFret + rows - 1);
+        if (zMax >= zMin) {
+          svg.appendChild(el("rect", {
+            x: boxLeft, y: nutY + (zMin - topFret) * ROW_H,
+            width: boxRight - boxLeft, height: (zMax - zMin + 1) * ROW_H, fill: "#ffd54f33",
+          }));
+        }
+      }
+
       // Nut (thick if open position) or a position label.
       svg.appendChild(el("line", {
         x1: boxLeft, y1: nutY, x2: boxRight, y2: nutY,
@@ -303,6 +317,18 @@ window.ChordFlowFretboard = (function () {
         width, height, viewBox: `0 0 ${width} ${height}`,
         style: "display:block;margin:.2rem auto;font-family:system-ui,sans-serif;",
       });
+
+      // Optional zone band (under the grid + markers): a translucent strip behind the highlighted fret columns.
+      if (model.zoneFretMin != null && model.zoneFretMax != null) {
+        const zMin = Math.max(model.zoneFretMin, topFret);
+        const zMax = Math.min(model.zoneFretMax, topFret + fretCount - 1);
+        if (zMax >= zMin) {
+          svg.appendChild(el("rect", {
+            x: nutX + (zMin - topFret) * fretW, y: topY,
+            width: (zMax - zMin + 1) * fretW, height: bottomY - topY, fill: "#ffd54f33",
+          }));
+        }
+      }
 
       // Nut (thick at the open position) or a position label above it.
       svg.appendChild(el("line", {
