@@ -2,9 +2,10 @@
 type: chat
 id: ch_01KVNDF0V273H5RXE5FQQB4CH9
 title: user-guide Chat
-status: active
+status: done
 created: 2026-06-21
-version: 1
+updated: 2026-06-21
+version: 2
 tags: []
 parent_id: null
 requires_load: []
