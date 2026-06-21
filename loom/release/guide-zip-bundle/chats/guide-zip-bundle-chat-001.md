@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 8
+last_ai_block: 9
 ---
 # guide-zip-bundle Chat
 
@@ -103,3 +103,16 @@ The dry-run will run on the current csproj version (0.8.0) — that's fine, it e
 - Link rewrites applied **in the shipped copy**: `images/...` (zip-root-relative) and `…/blob/main/…` GitHub URLs for the architecture/DSL/README links ✓
 
 All good → proceeding to **`do-release 0.9.0`** as you asked. (The release command stops for your review before it tags/pushes.)
+
+## AI:
+
+**🚀 v0.9.0 shipped.** The release workflow ran green end-to-end on the tag (`guard → build-test → release`, run `27912027104`), and the GitHub release is published with **`ChordFlow-v0.9.0-win-x64.zip`** (54 MB) attached — and that zip carries the bundled `USERGUIDE.md` + `images/` this thread delivered.
+
+Release summary:
+- **Version** 0.8.0 → 0.9.0; tests **590/590** green in CI (corrected from my 589 estimate).
+- **CHANGELOG** `[0.9.0]` published verbatim as the release notes (CAGED Chords + derivation engine, the user guide, app icon).
+- **README** brought current (Status, Features v0.9.0, test count).
+- **`loom record-release 0.9.0`** stamped 6 done plans (incl. both of this session's threads).
+- Commit `d2276c8`, tag `v0.9.0`.
+
+Both threads (`docs/user-guide`, `guide-zip-bundle`) are now shipped in a real release. Done.
