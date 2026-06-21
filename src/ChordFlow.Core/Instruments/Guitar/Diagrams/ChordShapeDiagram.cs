@@ -44,8 +44,14 @@ public static class ChordShapeDiagram
                 MarkerShape.Circle));
         }
 
+        // Frame an explicit fret window over the union of the fretted markers and the octave zone, so the zone band
+        // is never clipped by an auto-fit that stops at the top marker (caged-chords-chat-002). Open-string (fret-0)
+        // markers don't bound the window — the JS view always draws the nut once the window reaches fret ≤ 1.
         IReadOnlyList<int> fretted = markers.Where(m => m.Fret > 0).Select(m => m.Fret).ToList();
-        int? fretMin = fretted.Count > 0 ? fretted.Min() : null;
+        int zoneMin = shape.Zone.MinFret;
+        int zoneMax = shape.Zone.MaxFret;
+        int windowMin = fretted.Count > 0 ? Math.Min(fretted.Min(), zoneMin) : zoneMin;
+        int windowMax = fretted.Count > 0 ? Math.Max(fretted.Max(), zoneMax) : zoneMax;
         string symbol = ChordSymbol.Format(new Chord(root, shape.Quality), key);
         string title = $"{symbol} · {shape.Shape} shape · {FingerName(shape.AnchorFinger)}";
 
@@ -54,10 +60,10 @@ public static class ChordShapeDiagram
             markers,
             mutedStrings,
             BarreFret: null,
-            FretMin: fretMin,
-            FretMax: null,
-            ZoneFretMin: shape.Zone.MinFret,
-            ZoneFretMax: shape.Zone.MaxFret);
+            FretMin: Math.Max(0, windowMin),
+            FretMax: windowMax,
+            ZoneFretMin: zoneMin,
+            ZoneFretMax: zoneMax);
     }
 
     // Map each chord-tone semitone to its function by tertian position (every v1 quality is stacked thirds).

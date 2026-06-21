@@ -30,12 +30,15 @@ public static class OctaveShape
 
     /// <summary>
     /// The root anchors of <b>one</b> <paramref name="shape"/> instance for <paramref name="root"/>: the primary is
-    /// anchored at its lowest occurrence at fret ≥ <paramref name="minFret"/> within
-    /// [<paramref name="minFret"/>, <paramref name="maxFret"/>], then each later root string is placed an
-    /// <b>ascending octave</b> above it (<c>abs = primaryAbs + k·12</c>). Frets are derived from
+    /// anchored at the lowest occurrence at fret ≥ <paramref name="minFret"/> within
+    /// [<paramref name="minFret"/>, <paramref name="maxFret"/>] <b>whose whole octave skeleton fits on the neck</b> —
+    /// every later root string is placed an <b>ascending octave</b> above the primary (<c>abs = primaryAbs + k·12</c>)
+    /// and no derived fret may fall below the nut (fret 0). A too-low primary (e.g. an open-string root on a
+    /// down-stacking C/G shape) drives the higher-octave anchor below fret 0; such a placement is skipped for the next
+    /// octave up — the lowest <i>playable</i> placement, not the lowest bare occurrence. Frets are derived from
     /// <see cref="Fretboard.AbsoluteSemitone"/> — never stored — so a string's in-window unison can never be mistaken
-    /// for its octave-up anchor (the D-shape trap). Returns empty if the root does not occur on the primary string
-    /// inside the window. Built on <see cref="Fretboard.PositionsFor"/> (no second neck-walk).
+    /// for its octave-up anchor (the D-shape trap). Returns empty if no fitting placement exists in the window.
+    /// Built on <see cref="Fretboard.PositionsFor"/> (no second neck-walk).
     /// </summary>
     public static IReadOnlyList<FretPosition> AnchorsFor(PitchClass root, CagedShape shape, int minFret, int maxFret)
     {
@@ -45,21 +48,26 @@ public static class OctaveShape
         IReadOnlyList<int> strings = RootStrings(shape);
         int primaryString = strings[0];
 
-        // Lowest occurrence of the root on the primary string at fret ≥ minFret. PositionsFor yields a string's
-        // positions in fret-ascending order, so the first match on the primary string is the lowest.
-        int? primaryFret = null;
+        // Walk the primary string's root occurrences low→high (PositionsFor is fret-ascending per string) and take the
+        // first whose full octave skeleton lands on the neck — every anchor fret ≥ 0. The skeleton stacks ascending
+        // octaves, so a too-low primary pushes a higher-octave anchor below the nut; skipping it to the next octave up
+        // is the lowest playable placement.
         foreach (FretPosition position in Fretboard.PositionsFor(root, maxFret))
         {
-            if (position.String == primaryString && position.Fret >= minFret)
-            {
-                primaryFret = position.Fret;
-                break;
-            }
+            if (position.String != primaryString || position.Fret < minFret) continue;
+
+            IReadOnlyList<FretPosition> anchors = SkeletonAt(strings, primaryString, position.Fret);
+            if (anchors.All(a => a.Fret >= 0)) return anchors;
         }
 
-        if (primaryFret is null) return Array.Empty<FretPosition>();
+        return Array.Empty<FretPosition>();
+    }
 
-        int primaryAbs = Fretboard.AbsoluteSemitone(primaryString, primaryFret.Value);
+    // Place the shape's root strings from a primary anchor at primaryFret: the k-th root string carries the root k
+    // octaves above the primary, each fret derived from Fretboard (no stored offsets).
+    private static IReadOnlyList<FretPosition> SkeletonAt(IReadOnlyList<int> strings, int primaryString, int primaryFret)
+    {
+        int primaryAbs = Fretboard.AbsoluteSemitone(primaryString, primaryFret);
 
         var anchors = new List<FretPosition>(strings.Count);
         for (int k = 0; k < strings.Count; k++)

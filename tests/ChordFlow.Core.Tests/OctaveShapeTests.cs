@@ -73,6 +73,21 @@ public class OctaveShapeTests
         Assert.Empty(OctaveShape.AnchorsFor(C, CagedShape.E, 0, 5));
     }
 
+    [Theory]
+    [InlineData(CagedShape.C, 5, 12)] // C·A: open-A (fret 0) drives the str2 octave-up to fret -2; skip to fret 12.
+    [InlineData(CagedShape.G, 6, 12)] // G·E: open-low-E drives the str3 octave-up to fret -3; skip to fret 12.
+    public void AnchorsFor_SkipsTooLowPrimary_WhenSkeletonFallsBelowTheNut(
+        CagedShape shape, int primaryString, int expectedPrimaryFret)
+    {
+        // caged-chords-chat-002: anchoring on an open-string root collapses a down-stacking shape (a higher-octave
+        // anchor below fret 0); the lowest *playable* placement is the next octave up. No anchor may be negative.
+        PitchClass root = shape == CagedShape.C ? new PitchClass(9) : new PitchClass(4); // A for C·shape, E for G·shape
+        IReadOnlyList<FretPosition> anchors = OctaveShape.AnchorsFor(root, shape, 0, 15);
+
+        Assert.Equal(expectedPrimaryFret, anchors.First(a => a.String == primaryString).Fret);
+        Assert.All(anchors, a => Assert.True(a.Fret >= 0, $"str{a.String} anchor at fret {a.Fret} is below the nut"));
+    }
+
     // --- Step 4: golden oracle — offsets, octave-zone spans, box partitions ---
 
     [Fact]

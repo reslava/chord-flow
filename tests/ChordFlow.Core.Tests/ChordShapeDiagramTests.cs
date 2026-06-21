@@ -32,6 +32,25 @@ public class ChordShapeDiagramTests
     }
 
     [Fact]
+    public void Build_FretWindowContainsTheWholeZone_SoTheBandIsNeverClipped()
+    {
+        // caged-chords-chat-002: the explicit fret window must span the union of the fretted markers and the octave
+        // zone, so the JS view never auto-fits to the top marker and clips the band. C·maj7·A places high (≈9-12).
+        ChordShape shape = CagedDerivation.Derive(Quality.Major7, CagedShape.C, new PitchClass(9), 0, 15);
+
+        FretboardDiagram diagram = ChordShapeDiagram.Build(shape, new PitchClass(9));
+
+        Assert.NotNull(diagram.FretMin);
+        Assert.NotNull(diagram.FretMax);
+        Assert.True(diagram.FretMin <= diagram.ZoneFretMin, "window min must not clip the zone");
+        Assert.True(diagram.FretMax >= diagram.ZoneFretMax, "window max must not clip the zone");
+        // …and it must also contain every fretted marker.
+        foreach (FretboardMarker m in diagram.Markers)
+            if (m.Fret > 0)
+                Assert.InRange(m.Fret, diagram.FretMin!.Value, diagram.FretMax!.Value);
+    }
+
+    [Fact]
     public void Build_AShapeMajor_MutesTheLowStringAsChrome()
     {
         // C major, A shape at C = x 3 5 5 5 3 — string 6 muted, five sounded.

@@ -5,7 +5,7 @@ title: CAGED Chords — the derivation-engine dogfood page — Requirements
 status: locked
 created: 2026-06-21
 updated: 2026-06-21
-version: 1
+version: 2
 tags: []
 parent_id: id_01KVMX260B9QFH71G7TBAGFX7Q
 requires_load: []
@@ -20,13 +20,14 @@ requires_load: []
 - `IN4` **All 8 qualities × 5 shapes selectable** — the page is a generator over the engine, so it renders combos the pack never authored (m7b5·C, dim7·G, …), not just the 36 golden grips. No pre-greying.
 - `IN5` Bridge + host wiring: the verb/event/inbound `quality` field on `WebMessageRouter`, the `Program.cs` router→handler→`bridge.Send` hookup, a nav button + view in `index.html`, and registration in `app.js`'s view map.
 - `IN6` A unit test `ChordShapeDiagramTests` for the producer (mirrors `CagedShapeDiagramTests`): markers, muted strings, zone band, and title for a representative derived shape.
+- `IN7` *(amended caged-chords-chat-002)* **Auto-region sub-nut fix in `OctaveShape.AnchorsFor`.** The visual check found that an open-string root on a down-stacking shape (C·maj7·A, G·maj7·E, …) anchored the grip at fret 0, where the higher-octave root anchor falls **below the nut** (negative fret) and the reach window collapses to fret 0 — so interior strings are wrongly muted. `AnchorsFor` must anchor at the lowest occurrence **whose whole octave skeleton fits (every anchor ≥ fret 0)**, skipping a too-low primary to the next octave up (the lowest *playable* placement, ≈9–12 for the reported cases). Regression-tested; the 36/36 derivation oracle is unaffected. This relaxes `EX4` for this one defect (see below).
 
 ### ❌ Excluded
 
 - `EX1` Editing / saving / playback — a read-only render-only dogfood page.
 - `EX2` A position/region control — **auto-pick the lowest placement only** in v1.
 - `EX3` Per-string fingering, box-kind (main/partial), or barre marks — **anchor in the title + zone band only** (`ChordShape` carries no box-kind; the partial-box trim is deferred in the engine).
-- `EX4` Any change to the CAGED engine (`CagedDerivation` / `ChordShape` / the substrates) — the page consumes it as-is.
+- `EX4` Any change to the CAGED engine (`CagedDerivation` / `ChordShape` / the substrates) — the page consumes it as-is. *(amended caged-chords-chat-002: relaxed for one engine defect the dogfood page surfaced — the `AnchorsFor` sub-nut anchor bug, now `IN7`. The page is exactly the harness meant to find such defects; the fix is a localized correction of an `OctaveShape` invariant, not a feature change.)*
 - `EX5` A new JS render model — reuse the `FretboardDiagram` carrier + `ChordFlowFretboard` view unchanged.
 
 ### ⛓ Constraints

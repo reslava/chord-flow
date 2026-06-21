@@ -13,7 +13,8 @@
 //   • interval label ("R"/"b3"/"5"/"#5"/"bb7"…) — also the key for an override per-interval palette.
 //   • shape   layer channel, MarkerShape ordinal: 0 Circle, 1 Square, 2 Diamond, 3 Ring (a name string is tolerated).
 //   • zoneFretMin/zoneFretMax (optional): a translucent highlight band behind those fret columns (e.g. the CAGED
-//     octave zone). Omit both for no band — chord/scale diagrams render byte-identical.
+//     octave zone). The drawn fret window always grows to contain the band (neither the model window nor a user
+//     min/max override can clip it). Omit both for no band — chord/scale diagrams render byte-identical.
 //
 //   const view = ChordFlowFretboard.create(containerEl, {
 //     orientation: "vertical",  // "vertical" = chord box (strings as columns) | "horizontal" = neck (frets left→right).
@@ -56,6 +57,7 @@ window.ChordFlowFretboard = (function () {
   const LEFT = 22; // room for a position label
   const TOP = 22; // room for open/mute markers
   const DOT_R = 9;
+  const ZONE_MARGIN = 2; // frets of context kept each side of the zone band so it reads within the neck, not edge-to-edge
 
   function el(tag, attrs, text) {
     const node = document.createElementNS(NS, tag);
@@ -120,12 +122,23 @@ window.ChordFlowFretboard = (function () {
     function computeWindow() {
       const w = effectiveWindow();
       const frettedFrets = model.markers.filter((m) => m.fret > 0).map((m) => m.fret);
-      const windowMin = w.fretMin != null ? w.fretMin : frettedFrets.length ? Math.min(...frettedFrets) : 1;
+      let windowMin = w.fretMin != null ? w.fretMin : frettedFrets.length ? Math.min(...frettedFrets) : 1;
+      let windowMax = w.fretMax != null ? w.fretMax : frettedFrets.length ? Math.max(...frettedFrets) : windowMin;
+      // The zone band is part of what the diagram shows: always grow the window to contain it — plus ZONE_MARGIN
+      // frets of context each side so the band reads within the neck rather than edge-to-edge — so neither the model
+      // window nor a user min/max override can clip it (caged-chords-chat-002 — limit the window to the zone).
+      if (model.zoneFretMin != null) windowMin = Math.min(windowMin, model.zoneFretMin - ZONE_MARGIN);
+      if (model.zoneFretMax != null) windowMax = Math.max(windowMax, model.zoneFretMax + ZONE_MARGIN);
       const showNut = windowMin <= 1;
       const topFret = showNut ? 1 : windowMin;
-      const windowMax = w.fretMax != null ? w.fretMax : frettedFrets.length ? Math.max(...frettedFrets) : topFret;
       const fretCount = Math.max(4, windowMax - topFret + 1);
       return { showNut, topFret, fretCount };
+    }
+
+    // The fret window actually drawn — [min, max] frets — after the model/override + zone-containment math above.
+    function shownWindow() {
+      const { topFret, fretCount } = computeWindow();
+      return { min: topFret, max: topFret + fretCount - 1 };
     }
 
     // A small toolbar button (the shared style for the label/orientation toggles).
@@ -152,14 +165,17 @@ window.ChordFlowFretboard = (function () {
       spacer.style.cssText = "flex:1;";
       bar.appendChild(spacer);
 
-      // Fret-window controls (min/max). Blank = auto-fit; honored by both orientations via effectiveWindow().
+      // Fret-window controls (min/max). The inputs show the *current* drawn window (so the limits are visible);
+      // editing one sets an override and re-renders, clearing it (blank) reverts to auto. The window can never shrink
+      // past the zone band (computeWindow grows it back), so a too-tight entry visibly snaps to the zone on render.
       if (controls.fretWindow !== false) {
-        const mk = (placeholder, get, set) => {
+        const shown = shownWindow();
+        const mk = (placeholder, value, set) => {
           const input = document.createElement("input");
           input.type = "number";
           input.min = "0";
           input.placeholder = placeholder;
-          input.value = get() != null ? String(get()) : "";
+          input.value = value != null ? String(value) : "";
           input.style.cssText =
             "font:inherit;font-size:.75rem;width:3.2rem;padding:.1rem .3rem;border:1px solid #4a4a4f;border-radius:4px;background:#2c2c2f;color:#e6e6e6;";
           input.addEventListener("change", () => {
@@ -173,8 +189,8 @@ window.ChordFlowFretboard = (function () {
         fretsLabel.textContent = "Frets:";
         fretsLabel.style.cssText = "font-size:.75rem;color:#9aa0a6;";
         bar.appendChild(fretsLabel);
-        bar.appendChild(mk("min", () => userFretMin, (v) => (userFretMin = v)));
-        bar.appendChild(mk("max", () => userFretMax, (v) => (userFretMax = v)));
+        bar.appendChild(mk("min", shown.min, (v) => (userFretMin = v)));
+        bar.appendChild(mk("max", shown.max, (v) => (userFretMax = v)));
       }
 
       // Orientation toggle (vertical chord box ↔ horizontal neck).
