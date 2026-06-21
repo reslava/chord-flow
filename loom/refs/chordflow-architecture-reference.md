@@ -4,8 +4,8 @@ id: rf_01KTSAPAT132QTEY5BEPRKS3MB
 title: ChordFlow Architecture
 status: active
 created: 2026-06-10
-updated: 2026-06-20
-version: 31
+updated: 2026-06-21
+version: 32
 tags: []
 parent_id: null
 requires_load: []
@@ -61,7 +61,7 @@ ChordFlow.Desktop ──► ChordFlow.Core ◄── ChordFlow.Core.Tests
 Pure, immutable, fully unit-tested, **no I/O**, and **instrument-agnostic** (references nothing under `Instruments/` — compiler-IL-enforced by an architecture test, §7). Harmony (PitchClass, interval-backed Quality, Chord, Scale + diatonic generation, NoteSpeller, Transposer), a **48-PPQ tick-grid rhythm model** (multi-bar RhythmPattern/PatternBar/RhythmEvent/TimeSignature) with feel/accent/stroke overlays, harmonic bars/spans for multi-chord-per-bar progressions, a **parser family** (`ProgressionParser`, `SongParser`, and the Rhythm-DSL `RhythmPatternParser`), and lead targets (`LeadTargets` derives guide-tone `TargetZone`s as **pitch classes** — resolving them to frets is a guitar concern, on `GuitarInstrument.ResolveLead`). Full map: `chordflow-domain-model-reference.md`.
 
 ### Instruments/Guitar/ — the guitar adapter
-Everything guitar-specific, kept out of the kernel so `Domain/` stays provably instrument-agnostic. Geometry (`Fretboard`, `FretPosition`), realization (`Voicing` + `IVoicingStrategy`/`BeginnerShellStrategy`, `VoicingBook`, the CAGED voicing types `VoicingShape`/`CagedShape`/`VoicingRealizer` + DSL, `VoicingDiagram`), and the spatial `FretboardDiagram` carrier. The concrete **`GuitarInstrument`** facade is the deliberate public surface over these (`Realize` a chord → a fret `Voicing`, `Diagram` a shape → `FretboardDiagram`, `ResolveLead` a target zone → fret positions). A namespace boundary inside Core, **not** a separate assembly (one real instrument needs no project split). The polymorphic `IInstrument` is deferred until its first caller (`instrument-rendering`). Full map: `chordflow-domain-model-reference.md`.
+Everything guitar-specific, kept out of the kernel so `Domain/` stays provably instrument-agnostic. Geometry (`Fretboard`, `FretPosition`), realization (`Voicing` + `IVoicingStrategy`/`BeginnerShellStrategy`, `VoicingBook`, the CAGED voicing types `VoicingShape`/`CagedShape`/`VoicingRealizer` + DSL, `VoicingDiagram`), the **`Caged/` derivation engine** (`CagedDerivation`/`ChordShape`/`HandReach`/`AnchorFinger`/`CandidateSelector`) that *computes* CAGED grips from theory with no authored fret tables (oracle-proven against the authored pack), the `Geometry/` primitives (`IntervalLattice`, `OctaveShape`), and the spatial `FretboardDiagram` carrier. The concrete **`GuitarInstrument`** facade is the deliberate public surface over these (`Realize` a chord → a fret `Voicing`, `Diagram` a shape → `FretboardDiagram`, `ResolveLead` a target zone → fret positions). A namespace boundary inside Core, **not** a separate assembly (one real instrument needs no project split). The polymorphic `IInstrument` is deferred until its first caller (`instrument-rendering`). Full map: `chordflow-domain-model-reference.md`.
 
 ### Rendering/ — the only alphaTex-aware code
 `AlphaTexRenderer : IScoreRenderer` maps a `RealizedSong → string` (alphaTex) and is **pure/store-free**: the `Exercise → RealizedSong` expansion (the one I/O seam — it needs the `IProgressionStore`) lives in Features (`ExerciseRendering`), so the renderer never resolves references (merge decision (a); there is no `Render(Exercise)` overload). The `RhythmQuantizer` collapses the tick grid into `:N` duration slots. This isolation is the **exporter seam**: a future MIDI/GuitarPro/MusicXML exporter is a new `IScoreRenderer`, not a rewrite.

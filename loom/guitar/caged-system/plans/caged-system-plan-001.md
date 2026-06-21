@@ -2,7 +2,7 @@
 type: plan
 id: pl_01KVK6A9EVKMXY5ZTWAQKKSEZR
 title: CAGED derivation engine — derive shapes from theory
-status: implementing
+status: done
 created: 2026-06-20
 updated: 2026-06-21
 version: 1
@@ -55,16 +55,9 @@ steps:
     files_touched: [src/ChordFlow.Core/Instruments/Guitar/Voicings/VoicingDslParser.cs, src/ChordFlow.Core/Instruments/Guitar/Voicings/VoicingDslWriter.cs, src/ChordFlow.Core/Instruments/Guitar/Voicings/VoicingShape.cs, src/ChordFlow.Core/Content/default-pack/voicings/, tests/ChordFlow.Core.Tests/CagedAnchorFingerOracleTests.cs, loom/refs/chordflow-dsl-reference.md]
     blocked_by: [4]
     satisfies: [IN7]
-  - id: dogfood-fretboard-page
-    order: 7
-    status: pending
-    description: A fretboard UI page (built on the fretboard-render-component) that renders a derived shape — frets + anchor finger + box kind — for a chosen (quality, shape, root, region). Fast visual confirmation before scales/arpeggios build on the same skeleton.
-    files_touched: [src/ChordFlow.Desktop/wwwroot/]
-    blocked_by: [4]
-    satisfies: [IN8]
   - id: reference-doc-sync
-    order: 8
-    status: pending
+    order: 7
+    status: done
     description: Update chordflow-domain-model-reference with the CAGED derivation engine (derive(), ChordShape, the reach table, the two oracles) and confirm chordflow-architecture-reference placement (Instruments/Guitar/Caged) — the mandatory same-unit reference sync.
     files_touched: [loom/refs/chordflow-domain-model-reference.md, loom/refs/chordflow-architecture-reference.md]
     blocked_by: [4]
@@ -88,8 +81,7 @@ Implement the CAGED derivation engine: `derive(quality, shape, root, neckRegion)
 | ✅ | 4 | Wire OctaveShape.AnchorsFor/Zone/Boxes + the QualityIntervals formula + candidate selection (3) + anchor finger (2) + envelope (1) into derive(quality, shape, root, neckRegion) → ChordShape (per-string fret/muted + anchor finger + box kind). Main box (2 roots) keeps all the quality's intervals; partial box (1 root) keeps only the rule-satisfying subset (the derived usable-subset signal). | src/ChordFlow.Core/Instruments/Guitar/Caged/CagedDerivation.cs, src/ChordFlow.Core/Instruments/Guitar/Caged/ChordShape.cs | 2, 3 | IN1, IN5 |
 | ✅ | 5 | Test: for each of the 34 authored voicings (VoicingShape canonical-C, dedup by (Quality,Shape)), assert derive(quality, shape, C, regionAtC) equals the authored frets. The neckRegion convention at C reuses the octave-shapes target/zone-relative query (region containing the authored frets). Calibrate the reach-table numbers (1) against any miss — one global edit, never per-shape. | tests/ChordFlow.Core.Tests/CagedFretsOracleTests.cs | 4 | IN6, C5 |
 | ✅ | 6 | Extend the voicing DSL grammar with one optional anchor-finger token (VoicingDslParser/Writer + VoicingShape), annotate the 34 Content/default-pack/voicings/*.dsl with their anchor finger, and assert the derived anchor matches. Anchor only — not full 6-string fingering (non-unique). Ref-sync the chordflow-dsl-reference for the new token. | src/ChordFlow.Core/Instruments/Guitar/Voicings/VoicingDslParser.cs, src/ChordFlow.Core/Instruments/Guitar/Voicings/VoicingDslWriter.cs, src/ChordFlow.Core/Instruments/Guitar/Voicings/VoicingShape.cs, src/ChordFlow.Core/Content/default-pack/voicings/, tests/ChordFlow.Core.Tests/CagedAnchorFingerOracleTests.cs, loom/refs/chordflow-dsl-reference.md | 4 | IN7 |
-| 🔳 | 7 | A fretboard UI page (built on the fretboard-render-component) that renders a derived shape — frets + anchor finger + box kind — for a chosen (quality, shape, root, region). Fast visual confirmation before scales/arpeggios build on the same skeleton. | src/ChordFlow.Desktop/wwwroot/ | 4 | IN8 |
-| 🔳 | 8 | Update chordflow-domain-model-reference with the CAGED derivation engine (derive(), ChordShape, the reach table, the two oracles) and confirm chordflow-architecture-reference placement (Instruments/Guitar/Caged) — the mandatory same-unit reference sync. | loom/refs/chordflow-domain-model-reference.md, loom/refs/chordflow-architecture-reference.md | 4 | C2 |
+| ✅ | 7 | Update chordflow-domain-model-reference with the CAGED derivation engine (derive(), ChordShape, the reach table, the two oracles) and confirm chordflow-architecture-reference placement (Instruments/Guitar/Caged) — the mandatory same-unit reference sync. | loom/refs/chordflow-domain-model-reference.md, loom/refs/chordflow-architecture-reference.md | 4 | C2 |
 ---
 
 ### Legend

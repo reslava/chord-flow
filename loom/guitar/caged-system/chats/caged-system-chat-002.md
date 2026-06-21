@@ -2,13 +2,14 @@
 type: chat
 id: ch_01KVMB0G5FY1GEVH19XTV123KP
 title: caged-system Chat
-status: active
+status: done
 created: 2026-06-21
-version: 1
+updated: 2026-06-21
+version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 27
+last_ai_block: 29
 ---
 # caged-system Chat
 
@@ -759,3 +760,18 @@ Want me to **commit step 6**, then take **step 7 (dogfood page)** or **step 8 (r
 
 commit step 6
 do step 7
+
+## AI:
+
+**Yes — I'd spin up a new UI thread for the dogfood page.** I dug into the existing front-end to scope step 7, and it's not a small checkbox — it's a full vertical slice, and the repo already has a clear convention for exactly this.
+
+**Why a separate thread:**
+- The repo organizes UI pages as their **own threads under `loom/ui/`** — `caged-shapes`, `intervals-scales`, `fretboard-render-component` each got a full idea/design/req/plan. The octave-shapes dogfood page (the sibling of what we'd build) **was its own `loom/ui/caged-shapes` thread**, not a step inside the octave-shapes engine thread.
+- This `caged-system` thread is a **Core/domain** thread — the engine + both oracles (steps 1–6) are done, tested 584/584, and committed. That's a clean, complete unit. Step 7 reaches across `ChordFlow.Desktop/wwwroot` + a new `Features/Caged` handler + a Bridge verb + host wiring + a JS page + nav + tests — that's UI work with real design decisions of its own (how the page picks a **neck region** per root, the controls, how to show **anchor finger** and **box kind** visually).
+- Keeping it separate keeps the engine thread Core-pure and gives the page proper design treatment instead of cramming it into one plan row.
+
+**What I'd do:**
+1. **Finish `caged-system` here:** **step 8** (sync the domain-model + architecture refs with the engine) stays — it's a Core doc task that belongs to this thread. Do it, then this thread's plan is complete (step 7 marked as *moved* to the UI thread).
+2. **New thread `loom/ui/caged-chords`** (mirroring `loom/ui/caged-shapes`): idea → design → req → plan for the "render a derived CAGED chord on the fretboard" page — frets + anchor finger + box kind, region selection, the `cagedChordPreview` verb + `ChordShapeDiagram` producer.
+
+So my proposal: let me **do step 8** now to close the engine thread cleanly, then **spin up the `caged-chords` UI thread** for the page. Sound right? (I haven't written any step-7 code yet — good timing to branch.)

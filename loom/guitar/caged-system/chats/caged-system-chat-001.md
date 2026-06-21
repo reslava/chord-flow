@@ -2,9 +2,10 @@
 type: chat
 id: ch_01KVK49EKRTV7DJDA771EP3B68
 title: caged-system Chat
-status: active
+status: done
 created: 2026-06-20
-version: 1
+updated: 2026-06-21
+version: 2
 tags: []
 parent_id: null
 requires_load: []
