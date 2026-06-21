@@ -14,3 +14,9 @@ public sealed record CagedDiagramEnvelope(FretboardDiagram Diagram, string Type 
 
 /// <summary>An unknown CAGED shape: the message shown inline. <c>{"type":"cagedError","message":"…"}</c>.</summary>
 public sealed record CagedErrorEnvelope(string Message, string Type = "cagedError");
+
+/// <summary>A derived CAGED chord diagram (the CAGED Chords page): <c>{"type":"cagedChordDiagram","diagram":{…FretboardDiagram…}}</c>.</summary>
+public sealed record CagedChordDiagramEnvelope(FretboardDiagram Diagram, string Type = "cagedChordDiagram");
+
+/// <summary>An unknown quality/shape or an unvoiceable combo: shown inline. <c>{"type":"cagedChordError","message":"…"}</c>.</summary>
+public sealed record CagedChordErrorEnvelope(string Message, string Type = "cagedChordError");

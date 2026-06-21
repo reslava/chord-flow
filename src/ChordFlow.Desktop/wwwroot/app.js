@@ -200,6 +200,8 @@ const ChordFlow = (function () {
         onShow: () => window.ChordFlowScales && window.ChordFlowScales.show() },
       caged: { nav: $("navCaged"), el: $("caged-shapes-view"),
         onShow: () => window.ChordFlowCagedShapes && window.ChordFlowCagedShapes.show() },
+      cagedChords: { nav: $("navCagedChords"), el: $("caged-chords-view"),
+        onShow: () => window.ChordFlowCagedChords && window.ChordFlowCagedChords.show() },
       debug: { nav: $("navDebug"), el: $("debug-view"),
         onShow: () => window.ChordFlowInspector && window.ChordFlowInspector.show() },
     };

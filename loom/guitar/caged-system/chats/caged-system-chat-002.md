@@ -9,7 +9,7 @@ version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 29
+last_ai_block: 30
 ---
 # caged-system Chat
 
@@ -775,3 +775,22 @@ do step 7
 2. **New thread `loom/ui/caged-chords`** (mirroring `loom/ui/caged-shapes`): idea → design → req → plan for the "render a derived CAGED chord on the fretboard" page — frets + anchor finger + box kind, region selection, the `cagedChordPreview` verb + `ChordShapeDiagram` producer.
 
 So my proposal: let me **do step 8** now to close the engine thread cleanly, then **spin up the `caged-chords` UI thread** for the page. Sound right? (I haven't written any step-7 code yet — good timing to branch.)
+
+## AI:
+
+✅ **Step 8 done + engine thread closed + UI thread spun up.**
+
+**Step 8 (ref-sync):** `chordflow-domain-model-reference` (§2) and `chordflow-architecture-reference` now carry the `Caged/` derivation engine — `CagedDerivation`/`ChordShape`/`HandReach`/`AnchorFinger`, the T4 algorithm, both 36/36 oracles. Committed `656629e`.
+
+**`caged-system` engine thread — complete.** Plan closed with a done doc: steps 1–6 (engine + frets oracle + anchor oracle) + ref-sync all ✅; the dogfood page was removed from this plan and split out. 584/584 tests, three commits on main. This thread is **done**.
+
+**New UI thread created:** `loom/ui/caged-chords` — idea `caged-chords-idea.md` (the derivation-engine dogfood page: pick quality + shape + root → render the derived grip with frets + anchor finger + zone band, built on `ChordFlowFretboard`, mirroring `caged-shapes`). No engine changes needed.
+
+Before I write its design/req/plan, the idea flags **4 open design questions** I'd like your read on (they're in the idea doc):
+
+1. **Neck region** — the engine needs `(minFret, maxFret)`; does the page auto-pick the lowest playable placement per (shape, root), or expose a position control?
+2. **Showing the anchor finger** — title only, a finger label on the root marker, or a separate readout?
+3. **Box kind (main/partial)** — `ChordShape` doesn't carry it yet (partial-box trim is deferred). Show just the zone band for now, or add box-kind to `ChordShape`?
+4. **Vocabulary** — all 8 qualities, and how to handle shape×quality combos that don't exist (m7b5/dim7 are E/A/D-only)?
+
+Want to talk these through here (or open a `caged-chords` chat), then I'll lock the design → req → plan? My quick leans: **(1)** auto-pick lowest placement + a simple position nudge later, **(2)** finger label on the root marker (it's the IP — worth seeing), **(3)** zone band only for now (don't expand `ChordShape` until the trim work needs it), **(4)** offer all 8, grey out the missing combos.

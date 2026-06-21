@@ -178,6 +178,7 @@
       <button id="navContent" type="button">Content</button>
       <button id="navScales" type="button">Scales</button>
       <button id="navCaged" type="button">CAGED</button>
+      <button id="navCagedChords" type="button">CAGED Chords</button>
       <button id="navDebug" type="button">Debug</button>
     </nav>
     <span id="status">starting…</span>
@@ -249,6 +250,23 @@
     <div id="caged-diagram" class="cc-preview" style="margin:0 1rem 1rem;"></div>
   </div>
 
+  <!-- CAGED Chords view: pick a shape (C/A/G/E/D) + quality + root → the host *derives* the grip and lights it on the
+       neck (frets by chord-tone function, the octave-zone band, the anchor finger in the title). The derivation-engine
+       dogfood page; a generator over every quality × shape, including combos beyond the authored pack (caged-chords.js). -->
+  <div id="caged-chords-view" hidden>
+    <section class="toolbar" id="cagedChordBuilder">
+      <label for="cagedChordShape">Shape</label>
+      <select id="cagedChordShape"></select>
+      <label for="cagedChordQuality">Quality</label>
+      <select id="cagedChordQuality"></select>
+      <label for="cagedChordRoot">Root</label>
+      <select id="cagedChordRoot"></select>
+      <span class="cc-help">The engine <em>derives</em> the grip — every quality × shape, including combos beyond the authored pack.</span>
+    </section>
+    <div id="cagedChordError" class="cc-error" style="padding:.2rem 1rem;"></div>
+    <div id="caged-chord-diagram" class="cc-preview" style="margin:0 1rem 1rem;"></div>
+  </div>
+
   <!-- Debug view: the alphaTex inspector — show / edit / render the engine's emitted alphaTex (alphatex-inspector.js). -->
   <div id="debug-view" hidden></div>
 
@@ -260,6 +278,7 @@
   <script src="content-crud.js"></script>
   <script src="scales.js"></script>
   <script src="caged-shapes.js"></script>
+  <script src="caged-chords.js"></script>
   <script src="alphatex-inspector.js"></script>
   <script src="app.js"></script>
 </body>

@@ -92,6 +92,7 @@ internal static class Program
                 var contentCrud = new ContentCrudHandler(dbOptions, renderer);
                 var scales = new ScalesHandler();
                 var caged = new CagedShapesHandler();
+                var cagedChord = new CagedChordHandler();
 
                 // Playback soundfont library: the catalog scans the served wwwroot/soundfont folder (host asset),
                 // and the global choice persists via the Core AppSettings store (C3). App-lifetime singletons.
@@ -286,6 +287,14 @@ internal static class Program
                 {
                     try { bridge.Send(caged.Preview(shape, rootPc)); }
                     catch (FormatException ex) { bridge.Send(new CagedErrorEnvelope(ex.Message)); }
+                };
+
+                // CAGED Chords page: derive the grip + build its diagram; an unknown or unvoiceable combo surfaces inline.
+                router.CagedChordPreviewRequested += (shape, quality, rootPc) =>
+                {
+                    try { bridge.Send(cagedChord.Preview(quality, shape, rootPc)); }
+                    catch (Exception ex) when (ex is FormatException or InvalidOperationException)
+                    { bridge.Send(new CagedChordErrorEnvelope(ex.Message)); }
                 };
 
                 // Playback soundfont: list (fonts + persisted selection) on request; persist a new global choice.
