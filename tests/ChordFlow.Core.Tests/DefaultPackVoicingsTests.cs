@@ -17,9 +17,9 @@ namespace ChordFlow.Core.Tests;
 /// </summary>
 public class DefaultPackVoicingsTests
 {
-    // The authored matrix: maj/min/dom7/maj7/m7 × full CAGED (5 each = 25) + m7b5/dim7/aug at the
-    // playable E/A/D grips (3 each = 9). Total 34. A drift here flags an accidental add/drop.
-    private const int ExpectedVoicingCount = 34;
+    // The authored matrix: maj/min/dom7/maj7/m7 × full CAGED (5 each = 25) + aug × full CAGED (5) +
+    // m7b5/dim7 at the playable E/A/D grips (3 each = 6). Total 36. A drift here flags an accidental add/drop.
+    private const int ExpectedVoicingCount = 36;
 
     private static DbContextOptions<ChordFlowDbContext> Options(SqliteConnection conn) =>
         new DbContextOptionsBuilder<ChordFlowDbContext>().UseSqlite(conn).Options;
@@ -109,7 +109,7 @@ public class DefaultPackVoicingsTests
     // Golden cells — the canonical-C frets the shape must realize to (regression anchor for the authored fingerings).
     [InlineData("maj_cshape", null, 3, 2, 0, 1, 0)]      // open C major  x 3 2 0 1 0
     [InlineData("dom7_eshape", 8, 10, 8, 9, 8, 8)]       // E-shape C7     8 10 8 9 8 8
-    [InlineData("dim7_ashape", null, 3, 4, 2, 4, null)]  // A-shape Cdim7  x 3 4 2 4 x
+    [InlineData("dim7_ashape", null, 3, 4, 2, 4, 5)]     // A-shape Cdim7  x 3 4 2 4 5
     public void GoldenCells_RealizeToTheAuthoredCanonicalFrets(
         string id, int? s6, int? s5, int? s4, int? s3, int? s2, int? s1)
     {

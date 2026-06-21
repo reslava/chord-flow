@@ -2,10 +2,10 @@
 type: idea
 id: id_01KV2WWWZ6PYT4Y4VCT4A5KD8N
 title: CAGED system — the derivation engine (subsumes authored voicings)
-status: draft
+status: done
 created: 2026-06-14
 updated: 2026-06-20
-version: 4
+version: 5
 tags: []
 parent_id: null
 requires_load: []
@@ -49,10 +49,16 @@ authored:
   Left/Right margins (and their major-vs-minor flip in the index/middle shapes A, E, D —
   b3 vs 3 moves which tone is the extreme, so it moves the root's rank). C and G are
   pinky-anchored → fixed `left 1, right 0`.
-- **CAGED-zone envelope vs. used zone.** The envelope is the max reach the anchor finger
-  allows past the octave zone (≈ a 4-finger / 4-fret hand span); the **used zone** is the
-  actual `[min,max]` a given quality occupies inside it. Minimize the used-zone width;
-  prefer a contiguous region.
+- **CAGED-zone envelope = an anchor-relative reach table (resolved 2026-06-20, chat-001 §2).**
+  The envelope is **not** a flat fret constant — it is a single **global per-finger reach
+  table** (how far behind / ahead each finger can stretch from the anchor, grounded in hand
+  ergonomics, e.g. index ≈ +3/−1, pinky ≈ −3/+1). The anchor finger's entry sets how far
+  past the octave zone the box may reach. This resolves the rare/stretchy-shape tension
+  ([[caged-c-full-include-all-shapes]]) by construction — the stretch is whatever the
+  anchor finger physically allows, never a cap that prunes shapes. The **used zone** is the
+  actual `[min,max]` a given quality occupies inside the envelope; minimize the used-zone
+  width, prefer a contiguous region. The exact reach numbers are seeded from ergonomics and
+  **calibrated by the frets oracle**.
 - **Candidate selection (the B-string tax).** The string 3→2 = 4-semitone gap makes an
   interval land as a **unison on two strings** inside one box (e.g. b5 in E / Key A:
   str3 f8 *or* str2 f4, both abs-coord 23). Resolve by a **whole-box joint minimization**
@@ -61,33 +67,54 @@ authored:
   tiebreak **closest to the zone center**. The search is tiny (≤2–3 candidates per
   interval) so brute force suffices.
 
-**Box filtering for display:** a **main box** shows all of the quality's intervals; a
-**secondary / partial box** shows only the intervals that satisfy the rules above.
+**Box filtering for display (resolved 2026-06-20, chat-001 §3).** Grounded in
+[[octave-shapes]]' derived CAGED boxes, where the root strings cut a shape into boxes:
+
+- a **main box** sits between two consecutive root strings → it contains **2 roots** (a
+  complete octave) and shows **all** of the quality's intervals;
+- a **partial box** reaches past an outer root toward string 6 / string 1 → it contains
+  only **1 root** and shows only the subset of intervals that land in it under the rules
+  above.
+
+Root-count (2 vs 1) is the derived discriminator; interval-completeness is its consequence.
 
 ## In scope (when scheduled)
 
-- The derivation algorithm: (quality, CAGED shape, root) → realized fret shape, reusing
-  `PitchClass` + `Fretboard`.
+- The derivation algorithm: (quality, CAGED shape, root, neck region) → realized fret
+  shape, reusing `PitchClass` + `Fretboard` + the [[interval-lattice]] +
+  [[octave-shapes]] query + [[chord-qualities]] formulas.
 - The **partial/usable-subset** signal per shape (the deferred per-position playability
   hint from the voicings design §7 — "here, play strings 4–1") falls out naturally here,
-  since the engine knows which intervals land where in the zone.
-- The placement rules above as code: anchor-finger derivation, used-zone minimization, and
-  the whole-box candidate-selection search — consuming [[octave-shapes]]' boxes + octave
-  zone and the [[interval-lattice]] positions.
-- Golden-oracle test: regenerate the 34 authored voicings and assert fret-equality. If the
-  pack records **fingering** (not just frets), also assert the derived anchor finger — a
-  second oracle for the rules above.
+  since the engine knows which intervals land where in the zone — it is exactly the
+  partial-box (1-root) filter above.
+- The placement rules above as code: anchor-finger derivation, the anchor-relative reach
+  table + used-zone minimization, and the whole-box candidate-selection search — consuming
+  [[octave-shapes]]' boxes + octave zone and the [[interval-lattice]] positions.
+- **Two golden oracles** against the 34 authored voicings at C:
+  - *Frets oracle* — regenerate each (quality, shape) and assert fret-equality.
+  - *Anchor-finger oracle (resolved 2026-06-20, chat-001 §1)* — annotate each authored
+    voicing with its **anchor finger** (one field, not full fingering — fingering is
+    non-unique, anchor is what the rule predicts) and assert the derived anchor matches.
 
 ## Out of scope / deferred
 
 - Scales & arpeggios overlays (same octave-shape skeleton, next step after chords).
 - Replacing the authored-voicing content pipeline — the engine **complements** it
   (generate → optionally persist as authored), it doesn't delete the DSL/pack path.
+- Extended/altered qualities beyond the [[chord-qualities]] table (additive later).
+- Alternate tunings (`Fretboard` is fixed-tuning in v1).
+
+## Grounding status (chat-001, 2026-06-20)
+
+Fully grounded: every placement rule traces to a locked substrate, and both the
+frets-oracle and the new anchor-finger oracle make the rules falsifiable. The four
+substrates ([[intervals]], [[interval-lattice]], [[octave-shapes]], [[chord-qualities]])
+are all `status: done`, so this integrator thread is unblocked.
 
 ## Dependencies
 
 Builds on [[intervals]] (vocabulary), [[interval-lattice]] (fretboard positions),
 [[octave-shapes]] (root maps), [[chord-qualities]] (formulas). This thread is the
-integrator; design it after the four substrates have ideas locked.
+integrator; designed after the four substrates locked.
 
 Related: [[interval-derivation-engine-vision]], [[caged-c-full-include-all-shapes]], [[interval-lattice]], [[chordflow-domain-model-reference]], the `guitar-voicings` & `packages/default-pack` threads.
