@@ -4,6 +4,41 @@ All notable changes to ChordFlow are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-06-21
+
+The CAGED **chord-derivation engine** lands: ChordFlow now *computes* the actual chord grip for any
+CAGED shape × quality × root — every combination, far beyond the authored pack — and lights it on
+the neck. Plus a proper **end-user guide** bundled into the download, and an app icon.
+
+### Added
+- **CAGED Chords page** — pick a CAGED shape (C/A/G/E/D) × quality × root and ChordFlow *derives* the
+  chord grip and lights it on the horizontal neck: each fret coloured by chord-tone function, the
+  octave-zone band shaded, the anchor finger named. A generator over all 8 × 5 quality × shape
+  combinations — it renders grips the authored pack never contained.
+- **End-user guide** — a new [`docs/user-guide.md`](docs/user-guide.md) for downloaders: install &
+  first run, build & play an exercise, make your own content, soundfonts, and known limits. Linked
+  from the README and **bundled into the release zip** as `USERGUIDE.md` (with its screenshots), so
+  it travels offline with the download.
+- **App icon** — the desktop build now carries the ChordFlow icon on the window and taskbar.
+
+### Changed
+- **CAGED derivation engine** — every CAGED grip is now computed from the interval substrates + one
+  global hand-reach table (zero authored fret tables): a bass-up greedy stacker with a max-width-4
+  cap and a root-on-root-string preference, validated against all 36 authored voicings (frets +
+  anchor-finger oracles, 36/36). The default voicing pack was revised to the engine's standard grips
+  where it improved them, and the augmented quality gained its full CAGED set.
+- **Chord qualities are defined by an authoritative interval formula** — `QualityFormulas` is now the
+  single authored source per quality, with the semitone sets derived from it (existing output is
+  byte-for-byte unchanged).
+
+### Fixed
+- **CAGED Chords placement** — auto-region no longer collapses a grip onto open strings with spurious
+  muted notes (it picks the lowest octave whose whole skeleton fits the neck), and the drawn fret
+  window always contains the octave-zone band instead of clipping it.
+
+### Tests
+- Full `ChordFlow.Core` xUnit suite green (590).
+
 ## [0.8.0] — 2026-06-20
 
 The guitar **shape engine** takes shape. ChordFlow gains a fretboard **interval lattice** and the
@@ -310,6 +345,7 @@ as tablature, and plays it back with a synchronized beat cursor.
   the next phase).
 - No audio-input accuracy detection (out of scope for v1).
 
+[0.9.0]: https://github.com/reslava/chord-flow/releases/tag/v0.9.0
 [0.8.0]: https://github.com/reslava/chord-flow/releases/tag/v0.8.0
 [0.7.0]: https://github.com/reslava/chord-flow/releases/tag/v0.7.0
 [0.6.0]: https://github.com/reslava/chord-flow/releases/tag/v0.6.0

@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVMZJWXJ47KGK6YJG2S6QHYR
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.9.0
 steps:
   - id: sub-nut-auto-region-fix-fretboard
     order: 1

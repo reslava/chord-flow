@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVNEHZVQJP675M66SV68MD2P
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.9.0
 steps:
   - id: author-the-guide-prose
     order: 1

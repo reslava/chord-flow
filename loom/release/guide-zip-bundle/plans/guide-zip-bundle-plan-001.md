@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVNHWEWNXJJ4RNCKZ32BRY12
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.9.0
 steps:
   - id: workflow-bundling-step
     order: 1

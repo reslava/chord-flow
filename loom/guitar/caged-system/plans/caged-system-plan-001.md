@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVK5JEFP67KM8213ZPZGGSSC
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.9.0
 steps:
   - id: hand-reach-model-envelope
     order: 1

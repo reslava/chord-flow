@@ -7,16 +7,16 @@ guitarists practice **rhythm patterns over chord progressions**. The core is an
 exercise-generation engine (progressions × keys × rhythms × voicings), rendered as
 guitar tablature with **synchronized playback** via [alphaTab](https://www.alphatab.net/).
 
-> **Status:** v0.8.0 — a **content-driven** trainer over a music-theory-first kernel, now growing a
+> **Status:** v0.9.0 — a **content-driven** trainer over a music-theory-first kernel with a growing
 > guitar **shape engine**. Progressions, songs, rhythms, and voicings are authored in compact **text
 > DSLs**, shipped as importable **content packs**, and assembled through an on-screen **workbench**;
 > shapes render through a reusable **fretboard-diagram** layer over a provably **instrument-agnostic**
-> kernel. New this release: a fretboard **interval lattice** and the **CAGED octave shapes** derived
-> from it, surfaced as two visual pages (a **Scales** interval-set viewer and a **CAGED Shapes**
-> octave-skeleton viewer) on a horizontal **neck** view — groundwork for deriving chord/scale shapes
-> from intervals. Windows-only for now (downloadable build below).
+> kernel. New this release: a **CAGED chord-derivation engine** that *computes* the grip for any
+> shape × quality × root — surfaced as a **CAGED Chords** page that renders combinations far beyond
+> the authored pack — plus a downloadable **[user guide](docs/user-guide.md)** bundled into the
+> release and an app icon. Windows-only for now (downloadable build below).
 
-## Features (v0.8.0)
+## Features (v0.9.0)
 
 - **Content authored in text DSLs** — a key-independent
   **[Progression & Song DSL](loom/refs/chordflow-dsl-reference.md)** (multiple chords per
@@ -38,6 +38,12 @@ guitar tablature with **synchronized playback** via [alphaTab](https://www.alpha
   across the neck, your typed spelling preserved) and a **CAGED Shapes** page (pick a shape + root →
   its octave-root skeleton with the octave zone shaded), both on a new **horizontal neck** view,
   built on a fretboard **interval lattice**
+- **CAGED Chords page + derivation engine** — pick a CAGED shape × quality × root and ChordFlow
+  *derives* the chord grip (each fret by chord-tone function, the octave-zone band, the anchor
+  finger) and lights it on the neck — computed from interval substrates + one hand-reach table and
+  validated against all 36 authored voicings (36/36), so it renders combinations the pack never authored
+- **End-user guide** — a downloadable **[user guide](docs/user-guide.md)** (install, build & play,
+  your own content, soundfonts) linked here and bundled into the release zip
 - **User-selectable soundfont** (`.sf2` / `.sf3`) — auto-discovered from `wwwroot/soundfont`, a
   global choice that switches live and persists
 - **Content editor** — CRUD for progressions/songs/rhythms/voicings (with fret-box diagrams),
@@ -130,8 +136,9 @@ Some downloads are zipped — extract the `.sf2` / `.sf3` and place it in the fo
 dotnet test
 ```
 
-564 xUnit tests cover the `Domain` kernel (incl. the `IntervalSpeller` interval-naming + parsing
-authority), the guitar **interval lattice** and **CAGED octave shapes**, the content DSLs/parsers,
+590 xUnit tests cover the `Domain` kernel (incl. the `IntervalSpeller` interval-naming + parsing
+authority and `QualityFormulas`), the guitar **interval lattice**, **CAGED octave shapes**, and the
+**CAGED chord-derivation engine** (frets + anchor-finger oracles, 36/36), the content DSLs/parsers,
 packs, persistence, `AlphaTexRenderer`, and a `NetArchTest` architecture-boundary test asserting
 `ChordFlow.Domain` stays instrument-agnostic.
 

@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 7
+last_ai_block: 8
 ---
 # guide-zip-bundle Chat
 
@@ -93,3 +93,13 @@ Committing the release work as one cohesive change (both threads ship together i
 **Leaving two files out** — `loom/ui/caged-chords/chats/caged-chords-chat-001.md` and `-002.md` are modified in the working tree but predate this session and are unrelated to this work. I won't sweep them into the release commit; they're yours to handle separately.
 
 The dry-run will run on the current csproj version (0.8.0) — that's fine, it exercises `build-test` (incl. the new bundling) without cutting a release. `do-release 0.9.0` comes after, only if the dry-run is green.
+
+## AI:
+
+**Dry-run green and verified.** Run `27911688608`: `guard` ✓, `build-test` ✓ (incl. the new **Bundle the user guide + images** step), `release` job correctly skipped (dry-run). I downloaded the artifact and confirmed the real zip (`ChordFlow-v0.8.0-win-x64.zip`):
+
+- `USERGUIDE.md` at the zip root ✓
+- `images/icon.png` + all 7 `images/screenshots/*.png` ✓
+- Link rewrites applied **in the shipped copy**: `images/...` (zip-root-relative) and `…/blob/main/…` GitHub URLs for the architecture/DSL/README links ✓
+
+All good → proceeding to **`do-release 0.9.0`** as you asked. (The release command stops for your review before it tags/pushes.)
