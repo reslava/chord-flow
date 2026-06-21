@@ -9,7 +9,7 @@ version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 13
+last_ai_block: 15
 ---
 # caged-chord Fix
 
@@ -193,3 +193,14 @@ Full set of changes now uncommitted:
 Create small plan 1 step done with the fixes/tweaks implemented in order to appear in roadmap
 
 commit
+
+## AI:
+
+Roadmap plan created and committed.
+
+- **`caged-chords-plan-002`** — "caged-chords Fixes Plan", 1 step, **done** (auto-closed on step completion), with a done doc at `done/pl_01KVNJ1NVTPK2WZ1EMZQ869CYB-done.md`. It'll show as a completed plan in the roadmap, satisfying `IN7`.
+- **Commit `831fd37`** — `fix(caged): auto-region skips sub-nut placements; fretboard window never clips the zone`. 10 files (engine + diagram + component + 2 tests + ref + req + plan + done + this chat).
+
+I staged **only** this fix's files — the tree has unrelated in-flight work (README, RELEASING, `Program.cs`, the `.csproj`, the user-guide thread, the release-zip bundle, `caged-chords-chat-001`) which I left untouched.
+
+I did **not push** — you said "commit", and you're mid visual-check. Say `push` and I'll put it on `main`.

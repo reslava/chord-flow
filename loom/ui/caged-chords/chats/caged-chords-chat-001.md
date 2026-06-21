@@ -2,13 +2,14 @@
 type: chat
 id: ch_01KVMZ2SCHD18PC2E4M9PMJ9ZF
 title: caged-chords Chat
-status: active
+status: done
 created: 2026-06-21
-version: 1
+updated: 2026-06-21
+version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 4
+last_ai_block: 6
 ---
 # caged-chords Chat
 
@@ -81,3 +82,25 @@ Pure UI integration over the done engine — no Core engine changes, reuses the 
 I started the plan
 Do whole plan
 fold them into the first code commit
+
+## AI:
+
+✅ **CAGED Chords page shipped — all 5 steps done, plan closed, committed `52dcaf4`** (docs folded in with the code, as you asked). 587/587 tests pass, Desktop builds clean.
+
+What landed:
+- **Step 1** — `ChordShapeDiagram.Build(ChordShape, root)` producer + `ChordShapeDiagramTests` (3 tests, incl. the **m7b5·C generator case** — a combo the pack never authored).
+- **Step 2** — `CagedChordHandler` + `CagedChordDiagramEnvelope`/`CagedChordErrorEnvelope`, auto-region derive at `[0,15]`, unknown/unvoiceable → inline error.
+- **Step 3** — `cagedChordPreview` bridge verb (event + `Quality` inbound field).
+- **Step 4** — host wiring in `Program.cs`.
+- **Step 5** — `caged-chords.js` (shape × quality × root, default **maj7·E·A**), nav button + view in `index.html`, registered in `app.js`. Reuses `ChordFlowFretboard` unchanged, default chord-tone colouring.
+
+No engine changes (EX4 held). The page is a **generator**: pick any of the 8 qualities × 5 shapes × 12 roots and it renders the engine's derived grip — frets coloured by function, the octave-zone band, and the anchor finger in the title.
+
+**One thing left — the actual eyeball.** The whole point of a dogfood page is visual confirmation, and that needs the WinForms+WebView2 app running (I can't render a GUI here). When you're ready, launch the app, open the **CAGED Chords** tab, and sanity-check a few grips (e.g. maj7·E·A, then poke at m7b5·C / dim7·G to see the engine generate beyond the pack). If you'd like, type `! <run command>` and I'll watch the output, or I can walk you through launching it. Anything off in the render, we iterate here.
+
+That closes the `caged-chords` thread's plan — and the whole CAGED arc: **engine (36/36 both oracles) → dogfood page**, all on main. 🎸
+
+## Rafa:
+
+I did visual check, all woking, congrats!
+do-release 0.9.0
