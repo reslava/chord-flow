@@ -102,6 +102,30 @@ jobs:
           dotnet publish "$CSPROJ" -c Release -r win-x64 --self-contained \
             -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
             -o publish
+      - name: Bundle the user guide + images
+        shell: pwsh
+        run: |
+          # Ship the end-user guide inside the zip (thread: guide-zip-bundle). The repo guide
+          # (docs/user-guide.md) uses repo-relative links that don't resolve once it sits alone
+          # at the zip root, so we write a *transformed* copy to publish/USERGUIDE.md and copy
+          # its images alongside — the repo file itself is never mutated (req C2).
+          New-Item -ItemType Directory -Force -Path publish/images | Out-Null
+          Copy-Item -Recurse -Force images/screenshots publish/images/screenshots
+          Copy-Item -Force images/icon.png publish/images/icon.png
+
+          $guide = Get-Content docs/user-guide.md -Raw
+          # Decision 1A — images become zip-root-relative.
+          $guide = $guide -replace '\.\./images/', 'images/'
+          # Decision 2A — sibling docs aren't in the zip, so point their links at the online repo.
+          $guide = $guide -replace '\.\./(README\.md|loom/refs/[^)]+)', 'https://github.com/reslava/chord-flow/blob/main/$1'
+          Set-Content -Path publish/USERGUIDE.md -Value $guide -NoNewline
+
+          # Fail-loud (mirrors the guard philosophy): the guide + at least one image must be
+          # in the publish set before the zip step sweeps publish/* in.
+          if (-not (Test-Path publish/USERGUIDE.md)) { throw "USERGUIDE.md missing from publish/" }
+          $imgCount = (Get-ChildItem publish/images -Recurse -File).Count
+          if ($imgCount -lt 1) { throw "no images bundled into publish/images" }
+          Write-Host "Bundled USERGUIDE.md + $imgCount image(s) into publish/."
       - name: Package the release zip
         shell: pwsh
         run: |

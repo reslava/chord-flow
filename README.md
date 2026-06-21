@@ -1,3 +1,5 @@
+<img src="images/icon.png" width="96" align="right" alt="ChordFlow app icon">
+
 # ChordFlow
 
 **Rhythm & Progression Trainer for Guitar** — a local, desktop-first app that helps
@@ -44,6 +46,20 @@ guitar tablature with **synchronized playback** via [alphaTab](https://www.alpha
   (alphaTex is regenerated on load, never stored), and **mark practiced**
 - Play / stop / tempo transport
 
+## Screenshots
+
+<p>
+  <a href="images/screenshots/01-practice.png"><img src="images/screenshots/01-practice.png" width="440" alt="Practice tab — build and play an exercise"></a>
+  <a href="images/screenshots/02-content-progressions.png"><img src="images/screenshots/02-content-progressions.png" width="440" alt="Content tab — edit a progression"></a>
+  <a href="images/screenshots/03-content-songs.png"><img src="images/screenshots/03-content-songs.png" width="440" alt="Content tab — arrange a song"></a>
+  <a href="images/screenshots/04-content-rhythms.png"><img src="images/screenshots/04-content-rhythms.png" width="440" alt="Content tab — edit a rhythm pattern"></a>
+  <a href="images/screenshots/05-scales.png"><img src="images/screenshots/05-scales.png" width="440" alt="Scales — interval-set fretboard viewer"></a>
+  <a href="images/screenshots/06-caged-chords.png"><img src="images/screenshots/06-caged-chords.png" width="440" alt="CAGED Chords — derived grips on the neck"></a>
+  <a href="images/screenshots/10-debug.png"><img src="images/screenshots/10-debug.png" width="440" alt="Debug — the alphaTex inspector"></a>
+</p>
+
+*Click any screenshot for full size. The first is the everyday view; the rest are the content editor and the guitar shape viewers.*
+
 ## Download & install
 
 **[Download the latest Windows release →](https://github.com/reslava/chord-flow/releases/latest)**
@@ -51,6 +67,8 @@ guitar tablature with **synchronized playback** via [alphaTab](https://www.alpha
 Grab the `ChordFlow-vX.Y.Z-win-x64.zip` asset, unzip it anywhere, and run **`ChordFlow.exe`**.
 It's a **self-contained** build — no .NET install needed. (Windows 10/11; the WebView2
 Runtime is preinstalled on Windows 11 and current Microsoft Edge.)
+
+New to ChordFlow? The **[User Guide](docs/user-guide.md)** walks through your first exercise.
 
 > **First run:** the build is unsigned, so Windows **SmartScreen** shows an "unknown
 > publisher" prompt — choose **More info → Run anyway**. This is expected and clears as the
@@ -141,6 +159,7 @@ Saved exercises live in a local SQLite file at `%LOCALAPPDATA%\ChordFlow\chordfl
 
 ## Documentation
 
+- **[User Guide](docs/user-guide.md)** — install, build & play an exercise, add your own content, and choose a soundfont. Start here if you just downloaded ChordFlow.
 - **[DSL guide](loom/refs/chordflow-dsl-reference.md)** — the **Progression DSL** (key-independent, Nashville-style chords: bars, splits, qualities, durations) and the **Song DSL** (arrange progressions into a piece: definitions, repeats, modulation).
 - **[Architecture overview](loom/refs/chordflow-architecture-reference.md)** — how the engine, renderer, bridge, and desktop host fit together.
 

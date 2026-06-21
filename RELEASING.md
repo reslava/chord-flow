@@ -35,6 +35,8 @@ two items noted. Skipping a step ships a broken or inconsistent release.
       **Project layout** if it changed. Then sanity-glance the three `loom/refs/` docs
       (architecture, domain-model, DSL) — kept current per code-change by the CLAUDE.md
       "Reference-doc sync" rule, so the README is the one doc that needs the release-time edit.
+      Also confirm the **[User Guide](docs/user-guide.md)** still matches the app — it joins this
+      doc-accuracy review set alongside the README + the three refs.
       CI does **not** verify docs; this is human judgment.
 - [ ] **Build + test locally green:** `dotnet build -c Release && dotnet test -c Release`.
 - [ ] **Record the release in Loom:** `loom record-release X.Y.Z` — stamps `actual_release`
@@ -60,7 +62,9 @@ On a `vX.Y.Z` tag push (all jobs on **`windows-latest`** — `ChordFlow.Desktop`
 1. **`guard`** — resolves the version, asserts the csproj `<Version>` matches the tag, and
    asserts a `## [X.Y.Z]` section exists in `CHANGELOG.md`. Fails fast before any build.
 2. **`build-test`** — `dotnet restore → build -c Release → test -c Release`, then
-   `dotnet publish` (self-contained, single-file, `win-x64`), zips the output to
+   `dotnet publish` (self-contained, single-file, `win-x64`), **bundles the end-user
+   guide** (a link-rewritten `USERGUIDE.md` + its `images/`, copied into the publish
+   folder — see the *artifact* gotcha below), zips the output to
    `ChordFlow-vX.Y.Z-win-x64.zip`, and uploads it as an artifact.
 3. **`release`** — extracts the `CHANGELOG.md` `[X.Y.Z]` section and runs `gh release create`
    with those notes, attaching the zip. (Skipped on dry-runs.)
@@ -108,6 +112,9 @@ release is **not** cut. Use it to confirm the pipeline is green before pushing y
 - **windows-latest only** — `ChordFlow.Desktop` can't build on Linux runners. A future
   cross-platform host would add its own build matrix; the `ChordFlow.Core` split keeps that
   additive.
-- **The artifact is a folder, not a bare exe** — `ChordFlow.exe` + `wwwroot/`. Single-file
-  publish embeds only the .NET runtime; `wwwroot/**` (served from disk + scanned for
-  soundfonts at runtime) ships as loose files beside the exe, which is required.
+- **The artifact is a folder, not a bare exe** — `ChordFlow.exe` + `wwwroot/`, plus the
+  bundled **`USERGUIDE.md`** + **`images/`** (the end-user guide). Single-file publish embeds
+  only the .NET runtime; `wwwroot/**` (served from disk + scanned for soundfonts at runtime)
+  ships as loose files beside the exe, which is required. The guide is a *link-rewritten copy*
+  of `docs/user-guide.md` (image paths made zip-root-relative; sibling-doc links pointed at the
+  online repo) — the repo file is never mutated by CI.

@@ -4,8 +4,8 @@ id: rq_01KVB5721BQNCT4VJDHM0QY8FS
 title: release-pipeline Requirements
 status: locked
 created: 2026-06-17
-updated: 2026-06-17
-version: 1
+updated: 2026-06-21
+version: 2
 tags: []
 parent_id: null
 requires_load: []
@@ -24,6 +24,7 @@ requires_load: []
 - `IN8` A `RELEASING.md` runbook documents the pre-tag checklist and the gotchas (SmartScreen, soundfont, windows runner).
 - `IN9` The shipped executable is named `ChordFlow.exe`.
 - `IN10` The default soundfont (`sonivox.sf2`) is committed and ships inside the artifact — no build-time download.
+- `IN11` The artifact also carries the **end-user guide** — `USERGUIDE.md` (a link-rewritten copy of `docs/user-guide.md`) at the zip root, plus its `images/` — bundled by an additive `build-test` step. Owned by the `guide-zip-bundle` thread (`th_01KVNGQA9CNXD7KY1ZWNW308TW`).
 
 ### ❌ Excluded
 
@@ -32,7 +33,7 @@ requires_load: []
 - `EX3` macOS / Linux builds — blocked until a cross-platform host exists (the Core split keeps it additive).
 - `EX4` A version-bump script — the single csproj `<Version>` is edited directly by the command.
 - `EX5` Bundling large soundfont banks — only `sonivox.sf2` ships; users add their own by dropping a `.sf2` into `wwwroot/soundfont/`.
-- `EX6` Writing the end-user guide — that lives in the `docs/user-guide` thread; only the README soundfont/download note is in scope here.
+- `EX6` ~relaxed~ — *Writing* the end-user guide still lives in the `docs/user-guide` thread, but **bundling** it into the artifact is now in scope (delivered via `guide-zip-bundle`, `IN11`). Originally: "Writing the end-user guide … only the README soundfont/download note is in scope here."
 
 ### ⛓ Constraints
 

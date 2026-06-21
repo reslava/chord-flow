@@ -47,6 +47,11 @@ internal static class Program
             StartPosition = FormStartPosition.CenterScreen,
         };
 
+        // Window/taskbar icon — reuse the embedded application icon (set via
+        // <ApplicationIcon> in ChordFlow.Desktop.csproj) so the form matches the exe.
+        try { form.Icon = Icon.ExtractAssociatedIcon(Environment.ProcessPath!); }
+        catch { /* fall back to the default WinForms icon */ }
+
         var web = new WebView2 { Dock = DockStyle.Fill };
         form.Controls.Add(web);
 

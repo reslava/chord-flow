@@ -2,9 +2,10 @@
 type: idea
 id: id_01KVB4KGMYZTB1FXVB3XJ82HTG
 title: ChordFlow user guide
-status: draft
+status: done
 created: 2026-06-17
-version: 1
+updated: 2026-06-21
+version: 2
 tags: []
 parent_id: null
 requires_load: []
