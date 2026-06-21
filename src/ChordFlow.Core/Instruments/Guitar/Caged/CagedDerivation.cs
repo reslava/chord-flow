@@ -100,8 +100,11 @@ public static class CagedDerivation
         if (chosen.Count == 0)
             throw new InvalidOperationException($"No {quality} grip could be stacked in the {shape} shape.");
 
-        int boxMin = chosen.Values.Min(c => c.Fret);
-        int boxMax = chosen.Values.Max(c => c.Fret);
+        // Anchor box = the fretted notes only (open strings take no finger, so they don't shape the hand span).
+        IReadOnlyList<int> frettedFrets = chosen.Values.Where(c => c.Fret > 0).Select(c => c.Fret).ToList();
+        if (frettedFrets.Count == 0) frettedFrets = chosen.Values.Select(c => c.Fret).ToList();
+        int boxMin = frettedFrets.Min();
+        int boxMax = frettedFrets.Max();
 
         // Anchor finger: rank of the root within the realized box. Prefer the bass-most string that sounds the root.
         int anchorFret = chosen

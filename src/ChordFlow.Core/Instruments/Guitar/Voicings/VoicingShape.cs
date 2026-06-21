@@ -13,8 +13,11 @@ namespace ChordFlow.Instruments.Guitar;
 /// <param name="Shape">The CAGED family (diagram labelling + ranked-list tiebreak).</param>
 /// <param name="RootString">alphaTab string number (6 = low E .. 1 = high E) sounding the root.</param>
 /// <param name="Canonical">The C-anchored voicing — absolute frets at C.</param>
+/// <param name="Anchor">The authored anchor finger (the CAGED derivation oracle, req <c>IN7</c>); <c>null</c>
+/// when the voicing omits the optional <c>anchor:</c> token.</param>
 public sealed record VoicingShape(
     Quality Quality,
     CagedShape Shape,
     int RootString,
-    Voicing Canonical);
+    Voicing Canonical,
+    Finger? Anchor = null);

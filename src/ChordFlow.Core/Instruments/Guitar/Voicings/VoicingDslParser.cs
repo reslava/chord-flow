@@ -27,7 +27,18 @@ public static class VoicingDslParser
     private const string Keyword = "voicing";
     private const string ShapePrefix = "shape:";
     private const string RootPrefix = "root:";
+    private const string AnchorPrefix = "anchor:";
     private const string FretsPrefix = "frets:";
+
+    // Optional anchor-finger token (req IN7): one letter i/m/r/p for the finger that anchors the shape's root.
+    private static readonly IReadOnlyDictionary<string, Finger> AnchorFingers =
+        new Dictionary<string, Finger>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["i"] = Finger.Index,
+            ["m"] = Finger.Middle,
+            ["r"] = Finger.Ring,
+            ["p"] = Finger.Pinky,
+        };
 
     // Anchor-chord quality suffixes — the same vocabulary as ProgressionParser's Nashville suffixes,
     // keyed off a note name instead of a scale degree (kept in sync by convention; a shared suffix
@@ -104,6 +115,7 @@ public static class VoicingDslParser
         string? chordToken = null;
         CagedShape? shape = null;
         int? rootString = null;
+        Finger? anchor = null;
 
         for (int i = 1; i < headerTokens.Length; i++)
         {
@@ -115,6 +127,10 @@ public static class VoicingDslParser
             else if (tok.StartsWith(RootPrefix, StringComparison.OrdinalIgnoreCase))
             {
                 rootString = ParseRootString(tok[RootPrefix.Length..], dsl);
+            }
+            else if (tok.StartsWith(AnchorPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                anchor = ParseAnchor(tok[AnchorPrefix.Length..], dsl);
             }
             else if (chordToken is null)
             {
@@ -145,7 +161,7 @@ public static class VoicingDslParser
         (IReadOnlyList<FretPosition> positions, IReadOnlyList<int> muted) = ParseFrets(fretList, dsl);
         Voicing canonical = NormalizeToC(positions, muted, anchorRoot);
 
-        return new VoicingShape(quality, shape.Value, rootString.Value, canonical);
+        return new VoicingShape(quality, shape.Value, rootString.Value, canonical, anchor);
     }
 
     // Transpose every fretted string so the anchor sits at C, then octave-fold uniformly so the lowest
@@ -196,6 +212,16 @@ public static class VoicingDslParser
         }
 
         throw new FormatException($"Voicing \"{dsl}\" has an invalid shape \"{text}\" (expected one of C A G E D).");
+    }
+
+    private static Finger ParseAnchor(string text, string dsl)
+    {
+        if (AnchorFingers.TryGetValue(text, out Finger finger))
+        {
+            return finger;
+        }
+
+        throw new FormatException($"Voicing \"{dsl}\" has an invalid anchor \"{text}\" (expected one of i m r p).");
     }
 
     private static int ParseRootString(string text, string dsl)

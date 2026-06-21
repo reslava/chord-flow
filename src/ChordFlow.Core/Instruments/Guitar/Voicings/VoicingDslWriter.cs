@@ -49,6 +49,16 @@ public static class VoicingDslWriter
                 : fretByString[stringNumber].ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
 
-        return $"voicing C{Suffixes[shape.Quality]} shape:{shape.Shape} root:{shape.RootString} frets: {frets}";
+        string anchor = shape.Anchor is { } a ? $"anchor:{AnchorLetter(a)} " : string.Empty;
+        return $"voicing C{Suffixes[shape.Quality]} shape:{shape.Shape} root:{shape.RootString} {anchor}frets: {frets}";
     }
+
+    private static char AnchorLetter(Finger finger) => finger switch
+    {
+        Finger.Index => 'i',
+        Finger.Middle => 'm',
+        Finger.Ring => 'r',
+        Finger.Pinky => 'p',
+        _ => throw new ArgumentOutOfRangeException(nameof(finger), finger, "No DSL letter for this finger."),
+    };
 }

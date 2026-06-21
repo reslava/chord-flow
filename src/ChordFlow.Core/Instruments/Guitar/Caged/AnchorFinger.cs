@@ -11,9 +11,11 @@ namespace ChordFlow.Instruments.Guitar;
 public static class AnchorFinger
 {
     /// <summary>
-    /// The finger anchoring the root at <paramref name="anchorFret"/> within the realized box
-    /// <c>[<paramref name="boxMinFret"/>, <paramref name="boxMaxFret"/>]</c>. Lowest fret → index, highest → pinky,
-    /// interior → middle (nearer the low side) or ring (nearer the high side).
+    /// The finger anchoring the root at <paramref name="anchorFret"/> within the realized <b>fretted</b> box
+    /// <c>[<paramref name="boxMinFret"/>, <paramref name="boxMaxFret"/>]</c> (open strings excluded — they need no
+    /// finger). Lowest fret → index; interior → middle (low side) / ring (high side); highest fret → <b>ring</b> for a
+    /// tight grip, <b>pinky</b> only when the grip spans the full 4-fret hand (chat-002): the C/G shapes carry the root
+    /// on the pinky side, but a 3-fret box reaches it with the ring, a 4-fret box needs the pinky.
     /// </summary>
     public static Finger Derive(int anchorFret, int boxMinFret, int boxMaxFret)
     {
@@ -22,7 +24,11 @@ public static class AnchorFinger
             throw new ArgumentOutOfRangeException(nameof(anchorFret), "Anchor fret is outside the realized box.");
 
         if (anchorFret == boxMinFret) return Finger.Index;
-        if (anchorFret == boxMaxFret) return Finger.Pinky;
+        if (anchorFret == boxMaxFret)
+        {
+            int width = boxMaxFret - boxMinFret + 1; // fretted width (inclusive); width 4 = the full 4-finger hand
+            return width >= 4 ? Finger.Pinky : Finger.Ring;
+        }
 
         // Interior root: split the box at its midpoint — a root nearer the low edge takes the middle finger,
         // nearer the high edge the ring finger.
