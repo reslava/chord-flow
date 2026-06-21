@@ -1,6 +1,9 @@
+using ChordFlow.Exercises;
+using ChordFlow.Music.Progressions;
+using ChordFlow.Music.Rhythm;
+using ChordFlow.Music.Songs;
 using System.Collections.Generic;
 using System.Linq;
-using ChordFlow.Domain;
 using ChordFlow.Features.Packs;
 using ChordFlow.Persistence;
 using ChordFlow.Rendering;

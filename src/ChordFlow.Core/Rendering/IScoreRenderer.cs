@@ -1,11 +1,13 @@
-using ChordFlow.Domain;
+using ChordFlow.Exercises;
+using ChordFlow.Music.Rhythm;
+using ChordFlow.Music.Songs;
 
 namespace ChordFlow.Rendering;
 
 /// <summary>
 /// Renders a <see cref="RealizedSong"/> to a score-notation string. The seam that keeps future exporters
 /// (MIDI / Guitar Pro / MusicXML) additive — alphaTex is just the first implementation. The renderer is
-/// pure/store-free: an <see cref="Domain.Exercise"/> is expanded into a <see cref="RealizedSong"/> in the
+/// pure/store-free: an <see cref="Exercise"/> is expanded into a <see cref="RealizedSong"/> in the
 /// Features layer (the one I/O seam — see <c>ExerciseRendering</c>) before it reaches here (merge decision (a)).
 /// </summary>
 public interface IScoreRenderer

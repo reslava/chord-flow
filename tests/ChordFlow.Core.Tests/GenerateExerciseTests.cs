@@ -1,4 +1,6 @@
-using ChordFlow.Domain;
+using ChordFlow.Exercises;
+using ChordFlow.Music.Harmony;
+using ChordFlow.Music.Rhythm;
 using ChordFlow.Features.GenerateExercise;
 using ChordFlow.Features.Packs;
 using ChordFlow.Persistence;

@@ -1,4 +1,3 @@
-using ChordFlow.Domain;
 using Xunit;
 
 using ChordFlow.Instruments.Guitar;

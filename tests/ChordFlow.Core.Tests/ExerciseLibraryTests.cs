@@ -1,4 +1,8 @@
-using ChordFlow.Domain;
+using ChordFlow.Music.Progressions;
+using ChordFlow.Music.Songs;
+using ChordFlow.Exercises;
+using ChordFlow.Music.Harmony;
+using ChordFlow.Music.Rhythm;
 using ChordFlow.Features.ExerciseLibrary;
 using ChordFlow.Features.Packs;
 using ChordFlow.Persistence;

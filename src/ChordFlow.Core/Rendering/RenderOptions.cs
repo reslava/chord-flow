@@ -1,7 +1,7 @@
 namespace ChordFlow.Rendering;
 
 /// <summary>
-/// The render-time presentation options threaded into <see cref="IScoreRenderer.Render(ChordFlow.Domain.Exercise, RenderOptions?)"/>.
+/// The render-time presentation options threaded into <see cref="IScoreRenderer.Render(Exercise, RenderOptions?)"/>.
 /// These are <b>content-kind</b> toggles — they change the alphaTex the renderer emits, so flipping one
 /// requires a re-render (unlike player-kind options such as metronome/count-in, which the JS render
 /// component applies via the alphaTab API and never reach Core).

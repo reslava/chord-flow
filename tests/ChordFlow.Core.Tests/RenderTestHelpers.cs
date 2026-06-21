@@ -1,4 +1,8 @@
-using ChordFlow.Domain;
+using ChordFlow.Music.Songs;
+using ChordFlow.Exercises;
+using ChordFlow.Music.Harmony;
+using ChordFlow.Music.Progressions;
+using ChordFlow.Music.Rhythm;
 using ChordFlow.Rendering;
 
 namespace ChordFlow.Core.Tests;

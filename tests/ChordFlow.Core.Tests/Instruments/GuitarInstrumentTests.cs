@@ -1,4 +1,6 @@
-using ChordFlow.Domain;
+using ChordFlow.Exercises;
+using ChordFlow.Music.Harmony;
+using ChordFlow.Music.Melody;
 using ChordFlow.Instruments.Guitar;
 using Xunit;
 

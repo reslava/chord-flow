@@ -82,13 +82,13 @@ New to ChordFlow? The **[User Guide](docs/user-guide.md)** walks through your fi
 
 ## Tech stack
 
-- **C# / .NET 10** engine — a pure `Domain/` music kernel + `Rendering/AlphaTexRenderer`
+- **C# / .NET 10** engine — a pure `Music/` music-theory kernel + `Rendering/AlphaTexRenderer`
   (the only alphaTex-aware code)
 - **WinForms + WebView2** desktop host — serves `wwwroot` over an in-process
   `https://chordflow.local/` virtual host (no web server, no localhost port)
 - **alphaTab** (JS build) for notation + playback; bundled Bravura music font and
   Sonivox GM soundfont
-- Architecture: **vertical slices over a shared Domain kernel** (no MediatR)
+- Architecture: **vertical slices over a shared `Music` theory kernel** (no MediatR)
 
 ## Requirements
 
@@ -136,17 +136,19 @@ Some downloads are zipped — extract the `.sf2` / `.sf3` and place it in the fo
 dotnet test
 ```
 
-590 xUnit tests cover the `Domain` kernel (incl. the `IntervalSpeller` interval-naming + parsing
+600 xUnit tests cover the `Music` kernel (incl. the `IntervalSpeller` interval-naming + parsing
 authority and `QualityFormulas`), the guitar **interval lattice**, **CAGED octave shapes**, and the
 **CAGED chord-derivation engine** (frets + anchor-finger oracles, 36/36), the content DSLs/parsers,
-packs, persistence, `AlphaTexRenderer`, and a `NetArchTest` architecture-boundary test asserting
-`ChordFlow.Domain` stays instrument-agnostic.
+packs, persistence, `AlphaTexRenderer`, and `NetArchTest` architecture-boundary tests asserting
+`ChordFlow.Music` stays instrument-agnostic and the `Music.*` sub-namespaces stay an acyclic DAG.
 
 ## Project layout
 
 ```
 src/ChordFlow.Core/        host-agnostic engine (net10.0, zero UI refs)
-  Domain/          pure, instrument-agnostic music-theory kernel (no I/O, unit-tested)
+  Music/           pure, instrument-agnostic music-theory kernel (no I/O, unit-tested) —
+                   Harmony/ Rhythm/ Melody/ Progressions/ Songs/ (flat-sibling DAG)
+  Exercises/       the composed practice unit (Exercise + Difficulty)
   Instruments/     instrument adapters over the kernel — Guitar/ (GuitarInstrument facade,
                    fretboard geometry + interval lattice + CAGED octave shapes, voicings/CAGED,
                    fret-box / scale / CAGED-shape diagrams)

@@ -1,4 +1,3 @@
-using ChordFlow.Domain;
 using ChordFlow.Persistence;
 using ChordFlow.Persistence.Entities;
 using Microsoft.Data.Sqlite;

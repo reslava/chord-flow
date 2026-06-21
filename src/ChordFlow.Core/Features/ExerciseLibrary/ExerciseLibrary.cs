@@ -1,5 +1,8 @@
+using ChordFlow.Music.Rhythm;
+using ChordFlow.Music.Songs;
+using ChordFlow.Exercises;
+using ChordFlow.Music.Harmony;
 using System.Globalization;
-using ChordFlow.Domain;
 using ChordFlow.Features.GenerateExercise;
 using ChordFlow.Persistence;
 using ChordFlow.Persistence.Entities;

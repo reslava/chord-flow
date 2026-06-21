@@ -4,8 +4,8 @@ id: loom-ctx
 title: Loom — Global Context
 status: active
 created: 2026-06-07
-updated: 2026-06-19
-version: 9
+updated: 2026-06-21
+version: 10
 tags: [ctx, summary]
 parent_id: null
 requires_load: []
@@ -23,8 +23,8 @@ source_hash: 61c479f6d5a2f19917ec21349afc4694cf705f66
 
 - **Distribution:** desktop-first via **WinForms + the official `Microsoft.Web.WebView2` control** (migrated from Photino.NET, whose composition controller rendered a black window on the .NET 10 + WebView2-149 stack — see `loom/refs/photino-net-desktop-host-reference.md`). The WebView serves the local `wwwroot` over an in-process `https://chordflow.local/` virtual host — no HTTP server, no localhost port, no cloud. **Windows-only today, but multi-platform-ready by construction:** the engine lives in **`ChordFlow.Core`** (`net10.0`, **zero UI/host references** — a compile-time guarantee), and the WinForms+WebView2 host lives in a separate **`ChordFlow.Desktop`** project (`net10.0-windows`); dependency direction is strictly **Desktop → Core**. `wwwroot` is host-neutral with the C#↔JS bridge isolated in one small JS module. A web/cross-platform front-end is therefore an *additive* project (serve the same `wwwroot` + one JSON endpoint wrapping Core), not a rewrite. (Split delivered in the `core-host-split` thread.)
 - **Stack:** **C# engine + JS + alphaTab.** C#↔JS bridge is a narrow JSON-envelope string protocol; the real payload is just the **alphaTex string**.
-- **Style:** **vertical slices over a shared Domain kernel** (no MediatR, no ceremonial layering). Inside `ChordFlow.Core`:
-  - `Domain/` — pure, immutable **music-theory-first** kernel: harmony (PitchClass, interval-backed Quality, Chord, Scale + diatonic generation, NoteSpeller, Transposer), voicings (Voicing + strategy, VoicingBook, Fretboard), a **48-PPQ tick-grid rhythm model** (RhythmPattern/RhythmEvent/TimeSignature) with feel/accent/stroke overlays, harmonic bars/spans + the Nashville-style `ProgressionParser`, and lead TargetZones. No I/O. Unit-tested. **Full map: `loom/refs/chordflow-domain-model-reference.md`.**
+- **Style:** **vertical slices over a shared `Music` theory kernel** (no MediatR, no ceremonial layering). Inside `ChordFlow.Core`:
+  - `Music/` — pure, immutable **music-theory-first** kernel, split into concept-named **flat-sibling** namespaces under `ChordFlow.Music`: **Harmony** (PitchClass, interval-backed Quality, Chord, Scale + diatonic generation, NoteSpeller/IntervalSpeller), **Rhythm** (the **48-PPQ tick-grid model** — RhythmPattern/RhythmEvent/TimeSignature — with feel/accent/stroke overlays), **Progressions** (harmonic bars/spans + the Nashville-style `ProgressionParser`, and `Transposer` progression-realization), **Songs** (Song/SongParser/SongExpander + the `IProgressionStore` port), and **Melody** (lead `TargetZone`s as pitch classes). The dependency graph is an acyclic DAG with **Harmony/Rhythm as sinks** (NetArchTest-enforced). No I/O. Unit-tested. **Full map: `loom/refs/chordflow-domain-model-reference.md`.** The composed practice unit (`Exercise`, `Difficulty`) lives outside the theory kernel in `ChordFlow.Exercises/`.
   - `Rendering/` — `AlphaTexRenderer` (the **only** alphaTex-aware code) + the `RhythmQuantizer` (tick grid → `:N` slots). Isolated seam for future MIDI/GuitarPro/MusicXML exporters.
   - `Features/` — GenerateExercise, PracticeSession, ExerciseLibrary, Progress.
   - `Bridge/` — C#↔JS envelope DTOs + `IBridge` + the host-agnostic `WebMessageRouter`. The bridge *contract*; the transport is the host's.

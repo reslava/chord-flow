@@ -1,4 +1,5 @@
-using ChordFlow.Domain;
+using ChordFlow.Music.Songs;
+using ChordFlow.Music.Rhythm;
 using ChordFlow.Features.Packs;
 using ChordFlow.Persistence;
 using ChordFlow.Persistence.Entities;

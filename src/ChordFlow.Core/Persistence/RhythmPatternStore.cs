@@ -1,4 +1,4 @@
-using ChordFlow.Domain;
+using ChordFlow.Music.Rhythm;
 using Microsoft.EntityFrameworkCore;
 
 namespace ChordFlow.Persistence;

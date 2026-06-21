@@ -1,6 +1,6 @@
+using ChordFlow.Music.Harmony;
 using System.Text;
 
-using ChordFlow.Domain;
 
 namespace ChordFlow.Instruments.Guitar;
 

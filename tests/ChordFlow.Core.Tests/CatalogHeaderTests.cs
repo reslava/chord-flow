@@ -1,4 +1,5 @@
-using ChordFlow.Domain;
+using ChordFlow.Music.Progressions;
+using ChordFlow.Music.Rhythm;
 using ChordFlow.Persistence;
 using Xunit;
 

@@ -2,9 +2,10 @@
 type: idea
 id: id_01KVGH7P05NX5W8RKTMVRGBTZ6
 title: Rename Domain → Music (theory kernel)
-status: draft
+status: done
 created: 2026-06-19
-version: 1
+updated: 2026-06-21
+version: 3
 tags: []
 parent_id: null
 requires_load: []

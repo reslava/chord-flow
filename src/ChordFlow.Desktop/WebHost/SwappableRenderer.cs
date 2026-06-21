@@ -1,4 +1,6 @@
-using ChordFlow.Domain;
+using ChordFlow.Exercises;
+using ChordFlow.Music.Rhythm;
+using ChordFlow.Music.Songs;
 using ChordFlow.Rendering;
 
 namespace ChordFlow.Desktop.WebHost;

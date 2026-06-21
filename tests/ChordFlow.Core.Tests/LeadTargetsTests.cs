@@ -1,4 +1,5 @@
-using ChordFlow.Domain;
+using ChordFlow.Music.Harmony;
+using ChordFlow.Music.Melody;
 using Xunit;
 
 namespace ChordFlow.Core.Tests;

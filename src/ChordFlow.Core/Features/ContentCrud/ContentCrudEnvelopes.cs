@@ -1,4 +1,3 @@
-using ChordFlow.Domain;
 
 using ChordFlow.Instruments.Guitar;
 

@@ -1,6 +1,8 @@
+using ChordFlow.Music.Harmony;
+using ChordFlow.Music.Rhythm;
+using ChordFlow.Music.Songs;
 using System;
 using System.Linq;
-using ChordFlow.Domain;
 using Xunit;
 
 namespace ChordFlow.Core.Tests;

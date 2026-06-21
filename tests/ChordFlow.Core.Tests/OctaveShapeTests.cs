@@ -1,7 +1,7 @@
+using ChordFlow.Music.Harmony;
 using System.Collections.Generic;
 using System.Linq;
 
-using ChordFlow.Domain;
 using ChordFlow.Instruments.Guitar;
 using Xunit;
 

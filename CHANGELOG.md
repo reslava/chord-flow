@@ -4,6 +4,17 @@ All notable changes to ChordFlow are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **`Domain` kernel renamed to `Music` and split into concept-named flat siblings.** The single
+  `ChordFlow.Domain` namespace / `Domain/` folder became `ChordFlow.Music.{Harmony,Rhythm,Melody,
+  Progressions,Songs}`, with the non-theory practice types moved to `ChordFlow.Exercises`
+  (`Exercise`, `Difficulty`). Pure naming/structure — no behavioral change. The new boundaries are
+  now locked in by `NetArchTest` layering tests: `Harmony`/`Rhythm` are sinks and the `Music.*`
+  namespaces form an acyclic DAG (`Transposer` moved to `Progressions` so `Harmony` depends on
+  nothing). The instrument-boundary test was retargeted from `ChordFlow.Domain` to `ChordFlow.Music`.
+
 ## [0.9.0] — 2026-06-21
 
 The CAGED **chord-derivation engine** lands: ChordFlow now *computes* the actual chord grip for any

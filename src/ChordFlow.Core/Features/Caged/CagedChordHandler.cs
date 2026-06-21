@@ -1,4 +1,4 @@
-using ChordFlow.Domain;
+using ChordFlow.Music.Harmony;
 using ChordFlow.Instruments.Guitar;
 
 namespace ChordFlow.Features.Caged;

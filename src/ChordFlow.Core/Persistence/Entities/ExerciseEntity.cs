@@ -1,4 +1,5 @@
-using ChordFlow.Domain;
+using ChordFlow.Exercises;
+using ChordFlow.Music.Rhythm;
 
 namespace ChordFlow.Persistence.Entities;
 
@@ -6,7 +7,7 @@ namespace ChordFlow.Persistence.Entities;
 /// Persisted exercise <b>definition</b> — references to content rows plus playback params, never the
 /// rendered alphaTex (regenerated on load via <see cref="Rendering.AlphaTexRenderer"/>, so a renderer fix
 /// improves every saved exercise). Refactored from the old <c>(Key, ProgressionId, RhythmId)</c> shape to the
-/// merged <see cref="Domain.Exercise"/> model (decision (a), IN4): a Song reference + comping/lead pattern
+/// merged <see cref="Exercise"/> model (decision (a), IN4): a Song reference + comping/lead pattern
 /// references + the key-override token and param columns.
 /// </summary>
 public sealed class ExerciseEntity
@@ -15,7 +16,7 @@ public sealed class ExerciseEntity
     public int Id { get; set; }
 
     /// <summary>References a Song row — or, for a bare-progression drill, the lifted progression's id
-    /// (<see cref="Domain.Song.OfProgression"/> reuses it). Was <c>ProgressionId</c>.</summary>
+    /// (<see cref="Song.OfProgression"/> reuses it). Was <c>ProgressionId</c>.</summary>
     public string SongId { get; set; } = "";
 
     /// <summary>References the comping (rhythm-guitar) <c>RhythmPattern</c> row. Was <c>RhythmId</c>.</summary>

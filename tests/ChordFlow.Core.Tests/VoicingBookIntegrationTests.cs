@@ -1,5 +1,6 @@
+using ChordFlow.Exercises;
+using ChordFlow.Music.Harmony;
 using ChordFlow.Instruments.Guitar;
-using ChordFlow.Domain;
 using ChordFlow.Persistence;
 using ChordFlow.Persistence.Entities;
 using Microsoft.Data.Sqlite;

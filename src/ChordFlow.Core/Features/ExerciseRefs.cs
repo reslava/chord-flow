@@ -1,4 +1,7 @@
-using ChordFlow.Domain;
+using ChordFlow.Music.Progressions;
+using ChordFlow.Music.Harmony;
+using ChordFlow.Music.Rhythm;
+using ChordFlow.Music.Songs;
 using ChordFlow.Persistence;
 
 namespace ChordFlow.Features;

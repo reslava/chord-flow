@@ -1,5 +1,6 @@
+using ChordFlow.Exercises;
+using ChordFlow.Music.Rhythm;
 using System.Text.Json;
-using ChordFlow.Domain;
 using ChordFlow.Rendering;
 
 namespace ChordFlow.Bridge;

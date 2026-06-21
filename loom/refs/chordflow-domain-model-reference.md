@@ -5,7 +5,7 @@ title: ChordFlow Domain Model
 status: active
 created: 2026-06-08
 updated: 2026-06-21
-version: 43
+version: 52
 tags: []
 parent_id: null
 requires_load: []
@@ -16,7 +16,7 @@ description: Map of the ChordFlow music kernel — harmony, rhythm (48-PPQ tick 
 
 A map of the ChordFlow **music kernel** as it stands after the
 `multi-chord-per-bar progressions` thread (v0.4.0). Use this when designing or
-implementing new features, or before touching `Domain/` or `Rendering/`. It
+implementing new features, or before touching `Music/` or `Rendering/`. It
 records *what each type is for and how the layers connect* — the source files
 are the detail.
 
@@ -24,12 +24,12 @@ are the detail.
 > never hand-authored per case. **Rhythm patterns hold only timing**; chords,
 > voicings, and lead targets are separate layers applied onto the grid.
 
-All `Domain/` types are **pure and immutable** (records / readonly record structs),
+All `Music/` types are **pure and immutable** (records / readonly record structs),
 no I/O (C3). Spelling and `Feel` are **never stored** — always derived (C4).
 
 ---
 
-## 1. Harmony layer (`Domain/`)
+## 1. Harmony layer (`Music/Harmony/`)
 
 | Type | Role |
 |------|------|
@@ -75,7 +75,7 @@ Even split: `17_67` → I7 half · VI7 half. Explicit slots: `17:2_67:1_27:1` �
 
 ## 2. Voicing layer (`Instruments/Guitar/`)
 
-> **Guitar adapter (live — `guitar/instrument-boundary`):** every type in this section, plus the `Diagrams/` carrier, is guitar-specific and lives under `Instruments/Guitar/` (namespace `ChordFlow.Instruments.Guitar`), **not** `Domain/` — so the kernel stays provably instrument-agnostic (enforced by a `NetArchTest.Rules` architecture test on the `Domain → Instruments` edge). The concrete **`GuitarInstrument`** facade is the public surface over these (`Realize` chord → fret `Voicing`, `Diagram` shape → `FretboardDiagram`, `ResolveLead` target zone → fret positions). See the architecture ref's "Theory ↔ instrument boundary (live)".
+> **Guitar adapter (live — `guitar/instrument-boundary`):** every type in this section, plus the `Diagrams/` carrier, is guitar-specific and lives under `Instruments/Guitar/` (namespace `ChordFlow.Instruments.Guitar`), **not** `Music/` — so the kernel stays provably instrument-agnostic (enforced by a `NetArchTest.Rules` architecture test on the `Music → Instruments` edge). The concrete **`GuitarInstrument`** facade is the public surface over these (`Realize` chord → fret `Voicing`, `Diagram` shape → `FretboardDiagram`, `ResolveLead` target zone → fret positions). See the architecture ref's "Theory ↔ instrument boundary (live)".
 
 | Type | Role |
 |------|------|
@@ -98,7 +98,7 @@ Even split: `17_67` → I7 half · VI7 half. Explicit slots: `17:2_67:1_27:1` �
 
 ---
 
-## 3. Rhythm layer — 48-PPQ tick grid (`Domain/`)
+## 3. Rhythm layer — 48-PPQ tick grid (`Music/Rhythm/`)
 
 The old sequential `Beat(Duration, IsHit)` model was **removed**; rhythm is now positional on a tick grid.
 
@@ -113,7 +113,7 @@ The old sequential `Beat(Duration, IsHit)` model was **removed**; rhythm is now 
 | `RhythmPattern(Id, Name, IReadOnlyList<PatternBar> Bars, TimeSignature, Pickup?)` | **slice-1 (was a single flat event list).** A **multi-bar** pattern of timing only — no chords/voicings/feel. `SingleBar(id, name, events, ts, pickup?)` factory covers the common one-bar case. Multi-bar patterns **tile cyclically** onto the progression (progression bar *i* → pattern bar *i % m*). |
 | `PickupMeasure(Events, LengthTicks)` | Anacrusis as its own short **leading measure**, not a negative position. |
 | `RhythmPatternParser` | **slice-1.** Pure static `Parse(id, name, dsl, ts) → RhythmPattern` — the rhythmic peer of `ProgressionParser`/`SongParser`. Glyphs `X` (attack) / `.` (sustain) / `-` (rest) with the **sustain rule** (a note rings to the next `X`/`-` or bar end), `:n` subdivisions (per-row default + per-run override, **model-B run-splitting**: a run's cells split into beats by count), `\|` bars, and a `PICKUP:` block. Authors **timing only** (no stroke/accent, C2). Throws `FormatException` naming the bad run/cell. End-user view: `chordflow-dsl-reference.md` § Rhythm DSL. |
-| **Domain constants** (`SeedData`) | `TwelveBarBlues` (`Progression`), `Beat1`/`Beat1And3`/`Quarters` (`RhythmPattern`, ids `beat_1`/`beat_1_3`/`quarters`), `RhythmPatterns`, `AllMajorKeys` — the live values used by rendering and tests. The **persisted** built-in content (the rows seeded on first run) is no longer authored here: it ships as the on-disk **default pack** (`Content/default-pack/`) imported via `Features/Packs/DefaultPack` (IN6). The DSL strings here match the pack's `.dsl` files. |
+| **Music constants** (`SeedData`, in `Music.Progressions`) | `TwelveBarBlues` (`Progression`), `Beat1`/`Beat1And3`/`Quarters` (`RhythmPattern`, ids `beat_1`/`beat_1_3`/`quarters`), `RhythmPatterns`, `AllMajorKeys` — the live values used by rendering and tests. The **persisted** built-in content (the rows seeded on first run) is no longer authored here: it ships as the on-disk **default pack** (`Content/default-pack/`) imported via `Features/Packs/DefaultPack` (IN6). The DSL strings here match the pack's `.dsl` files. |
 
 ### Composable overlays (never mutate the base; return new event lists)
 
@@ -125,7 +125,7 @@ The old sequential `Beat(Duration, IsHit)` model was **removed**; rhythm is now 
 
 ---
 
-## 4. Lead-training layer (`Domain/`) — domain only, no UI
+## 4. Lead-training layer (`Music/Melody/`) — theory only, no UI
 
 | Type | Role |
 |------|------|
@@ -154,7 +154,7 @@ The old sequential `Beat(Duration, IsHit)` model was **removed**; rhythm is now 
 
 | Type | Role |
 |------|------|
-| `Origin` (enum) | Provenance shared by every content entity: `BuiltIn` (ships in the default/starter pack) / `UserDefined` (authored locally) / `Pack` (imported — the entity's `PackId` names the source pack). Provenance only — tier enforcement is a Features/licensing concern (EX4). Was `Domain/ProgressionOrigin`; moved to `Persistence/` (constraint C1: provenance is Entity-layer, never on pure Domain records). **The four content tables key on the composite `(Id, Origin)`** so a definition's tiers physically coexist as separate rows (IN3) — the resolver-wired stores (below) pick the winner. |
+| `Origin` (enum) | Provenance shared by every content entity: `BuiltIn` (ships in the default/starter pack) / `UserDefined` (authored locally) / `Pack` (imported — the entity's `PackId` names the source pack). Provenance only — tier enforcement is a Features/licensing concern (EX4). Was `Domain/ProgressionOrigin`; moved to `Persistence/` (constraint C1: provenance is Entity-layer, never on pure `Music` records). **The four content tables key on the composite `(Id, Origin)`** so a definition's tiers physically coexist as separate rows (IN3) — the resolver-wired stores (below) pick the winner. |
 | `IOriginated` / `ICatalogEntity` | `IOriginated` (`Id`, `Origin`) is what `OriginResolver` shadows on; `ICatalogEntity : IOriginated` adds the shared mutable catalog fields (`Name`, `Dsl`, `PackId`, `Genre`/`Subgenre`/`Tags`) so one generic upsert in the pack importer serves `ProgressionEntity`/`SongEntity`/`VoicingEntity` (rhythm has no catalog metadata and is upserted separately). |
 | `OriginResolver` (wired) | The pure shadowing policy (`UserDefined > Pack > BuiltIn`) is now wired into the load path: `ProgressionStore.Find`/`RhythmPatternStore.Find` load all rows for an id and `ResolveOne` the top tier; `VoicingStore.LoadShapes` `Resolve`s one shape per id. Non-destructive — deleting a higher-tier row lets the next win on the next resolve. |
 | `CatalogMetadata` / `CatalogHeader` | Entity-layer catalog metadata (`Genre`/`Subgenre`/`Tags`): `CatalogHeader.Parse/Serialize` splits an optional `genre:`/`subgenre:`/`tags:` header off the DSL body (round-trips 1:1) and (de)serializes the JSON `Tags` column. The pure `ProgressionParser` only ever sees the stripped body (C1). |
@@ -192,7 +192,7 @@ Exercise
 
 ## 8. Invariants worth remembering
 
-- **C1** PPQ fixed at 48. **C2** only `AlphaTexRenderer` knows alphaTex; quantizer + spelling live in the Domain/Rendering seam. **C3** domain kernel pure + unit-tested. **C4** Feel never stored in a pattern; spelling never derived — both derived. **C5** the 8 quality interval sets.
+- **C1** PPQ fixed at 48. **C2** only `AlphaTexRenderer` knows alphaTex; quantizer + spelling live in the Music/Rendering seam. **C3** the Music kernel pure + unit-tested. **C4** Feel never stored in a pattern; spelling never derived — both derived. **C5** the 8 quality interval sets.
 - **Timing/harmony separation:** `RomanDegree` is always timing-free. Chord-change timing lives exclusively on `ChordSpan.DurationTicks` on the 48-PPQ grid.
 - **Two degree frames:** `RomanDegree`/`ScaleDegree` (key-relative) vs `ChordTone` (chord-relative). Don't conflate.
 - **v1 render constraint:** only quarter-aligned span boundaries (durations ∈ {48, 96, 144, 192} in 4/4). Sub-quarter and off-beat (syncopated) boundaries are domain-legal but deferred.

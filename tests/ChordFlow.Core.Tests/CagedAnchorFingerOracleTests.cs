@@ -1,6 +1,6 @@
+using ChordFlow.Music.Harmony;
 using System.Text;
 
-using ChordFlow.Domain;
 using ChordFlow.Features.Packs;
 using ChordFlow.Instruments.Guitar;
 using Xunit;

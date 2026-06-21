@@ -1,4 +1,3 @@
-using ChordFlow.Domain;
 using Microsoft.EntityFrameworkCore;
 
 using ChordFlow.Instruments.Guitar;

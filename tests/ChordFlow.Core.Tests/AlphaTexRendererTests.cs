@@ -1,4 +1,8 @@
-using ChordFlow.Domain;
+using ChordFlow.Exercises;
+using ChordFlow.Music.Rhythm;
+using ChordFlow.Music.Harmony;
+using ChordFlow.Music.Progressions;
+using ChordFlow.Music.Songs;
 using ChordFlow.Rendering;
 using Xunit;
 

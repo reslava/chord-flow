@@ -1,4 +1,6 @@
-using ChordFlow.Domain;
+using ChordFlow.Music.Rhythm;
+using ChordFlow.Music.Progressions;
+using ChordFlow.Music.Songs;
 using ChordFlow.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
 

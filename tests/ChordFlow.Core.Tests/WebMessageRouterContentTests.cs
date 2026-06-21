@@ -1,5 +1,6 @@
+using ChordFlow.Exercises;
+using ChordFlow.Music.Rhythm;
 using ChordFlow.Bridge;
-using ChordFlow.Domain;
 using ChordFlow.Rendering;
 using Xunit;
 

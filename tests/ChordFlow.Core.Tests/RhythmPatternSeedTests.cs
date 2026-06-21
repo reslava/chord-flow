@@ -1,4 +1,4 @@
-using ChordFlow.Domain;
+using ChordFlow.Music.Rhythm;
 using ChordFlow.Features.Packs;
 using ChordFlow.Persistence;
 using Microsoft.Data.Sqlite;

@@ -1,6 +1,10 @@
+using ChordFlow.Music.Progressions;
+using ChordFlow.Exercises;
+using ChordFlow.Music.Harmony;
+using ChordFlow.Music.Rhythm;
+using ChordFlow.Music.Songs;
 using System.Globalization;
 using System.Text;
-using ChordFlow.Domain;
 
 using ChordFlow.Instruments.Guitar;
 
