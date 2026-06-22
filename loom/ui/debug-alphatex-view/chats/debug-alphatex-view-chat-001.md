@@ -9,7 +9,7 @@ version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 11
+last_ai_block: 13
 ---
 # debug-alphatex-view Chat
 
@@ -159,3 +159,9 @@ Nothing committed — say the word and I'll commit to `main`.
 
 I ran the app, visual check working
 Commit
+
+## AI:
+
+Committed to `main` — `4058b81` *"feat: editable alphaTex debug panel on the shared score component"* (11 files, +497/−129). Includes the wwwroot changes, the arch-ref sync, and the thread's idea/design/req/plan/chat docs. Left the unrelated `general-chat-006.md` edit unstaged.
+
+Not pushed yet — say the word and I'll push.

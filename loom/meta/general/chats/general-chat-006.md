@@ -2,9 +2,10 @@
 type: chat
 id: ch_01KVP6V7M8WZFYRTS98YW816WN
 title: general Chat
-status: active
+status: done
 created: 2026-06-21
-version: 1
+updated: 2026-06-22
+version: 2
 tags: []
 parent_id: null
 requires_load: []
