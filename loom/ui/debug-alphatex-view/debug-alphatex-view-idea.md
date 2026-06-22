@@ -2,9 +2,10 @@
 type: idea
 id: id_01KVQGJXY8VJMKMR25N337ASK6
 title: Show alphaTex — always-visible DSL debug view
-status: draft
+status: done
 created: 2026-06-22
-version: 1
+updated: 2026-06-22
+version: 2
 tags: []
 parent_id: null
 requires_load: []

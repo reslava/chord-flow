@@ -157,17 +157,21 @@
     .cc-preview { margin-top: .3rem; border: 1px solid #333; border-radius: 6px; background: #fff; min-height: 4rem; overflow: auto; }
     .cc-preview.empty { background: #252526; color: #6b7075; font-style: italic; padding: 1rem; }
 
-    /* ---- Debug view (alphaTex inspector) ---- */
-    #debug-view { padding: 1rem; display: flex; flex-direction: column; gap: .6rem; }
-    .atx-toolbar { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
-    .atx-toolbar button { font: inherit; padding: .3rem .9rem; border: 1px solid #4a4a4f;
+    /* ---- Debug panel (alphaTex scratchpad — opt-in on the shared score component, collapsed by default) ---- */
+    .cf-debug { margin-top: .5rem; border: 1px solid #333; border-radius: 6px;
+      background: #252526; font-size: .85rem; }
+    .cf-debug > summary { padding: .4rem .75rem; cursor: pointer; color: #9aa0a6;
+      display: flex; align-items: center; gap: .5rem; user-select: none; }
+    .cf-debug-version { margin-left: auto; font-size: .72rem; color: #6b7075; }
+    .cf-debug-tex { display: block; width: 100%;
+      font-family: ui-monospace, "Cascadia Code", monospace; font-size: .82rem;
+      min-height: 9rem; resize: vertical; padding: .5rem;
+      background: #1b1b1b; color: #d6d6d6; border: none; border-top: 1px solid #333; }
+    .cf-debug-bar { display: flex; gap: .5rem; align-items: center; padding: .5rem .75rem; flex-wrap: wrap; }
+    .cf-debug-bar button { font: inherit; padding: .3rem .9rem; border: 1px solid #4a4a4f;
       border-radius: 4px; background: #3a3a3d; color: #e6e6e6; cursor: pointer; }
-    .atx-toolbar button.primary { background: #3a4d78; border-color: #3a4d78; color: #fff; }
-    .atx-hint { font-size: .75rem; color: #8a8f94; }
-    .atx-version { margin-left: auto; font-size: .72rem; color: #6b7075; }
-    #atxText { font-family: ui-monospace, "Cascadia Code", monospace; font-size: .82rem;
-      width: 100%; min-height: 9rem; resize: vertical; padding: .5rem;
-      background: #1b1b1b; color: #d6d6d6; border: 1px solid #4a4a4f; border-radius: 6px; }
+    .cf-debug-bar button.primary { background: #3a4d78; border-color: #3a4d78; color: #fff; }
+    .cf-debug-hint { font-size: .75rem; color: #d0a85f; }
   </style>
 </head>
 <body>
@@ -179,7 +183,6 @@
       <button id="navScales" type="button">Scales</button>
       <button id="navCaged" type="button">CAGED</button>
       <button id="navCagedChords" type="button">CAGED Chords</button>
-      <button id="navDebug" type="button">Debug</button>
     </nav>
     <span id="status">starting…</span>
   </header>
@@ -267,9 +270,6 @@
     <div id="caged-chord-diagram" class="cc-preview" style="margin:0 1rem 1rem;"></div>
   </div>
 
-  <!-- Debug view: the alphaTex inspector — show / edit / render the engine's emitted alphaTex (alphatex-inspector.js). -->
-  <div id="debug-view" hidden></div>
-
   <!-- Bundled alphaTab JS build (constraint C6) — loaded from disk, offline. -->
   <script src="alphaTab.min.js"></script>
   <script src="bridge.js"></script>
@@ -279,7 +279,6 @@
   <script src="scales.js"></script>
   <script src="caged-shapes.js"></script>
   <script src="caged-chords.js"></script>
-  <script src="alphatex-inspector.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

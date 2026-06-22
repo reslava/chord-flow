@@ -309,6 +309,7 @@ window.ChordFlowContent = (function () {
       scoreView = window.ChordFlowScore.create(scoreEl, {
         player: true,
         controls: "full",
+        debugPanel: true,   // the alphaTex scratchpad is available on every score-rendering page
         onNeedsRerender: () => requestPreview(),
       });
     }

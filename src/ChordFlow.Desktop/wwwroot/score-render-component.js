@@ -13,9 +13,14 @@
 // alphaTex is NEVER built here — generation stays in C# AlphaTexRenderer (the exporter seam). This module
 // only displays the string the host sends and surfaces transport + toggles.
 //
+// An opt-in `debugPanel` adds a collapsed alphaTex scratchpad under the staff: it shows the tex this component
+// last rendered, and lets it be edited and re-rendered through THIS alphaTab instance (Render from alphaTex)
+// — bypassing C#, the tightest loop for triaging the engine↔alphaTab seam. (Replaces the standalone Debug view.)
+//
 //   const view = ChordFlowScore.create(containerEl, {
 //     player: true,            // false = lite render-only (no soundfont, no transport)
 //     controls: "full",        // "full" | "mini" | "none"
+//     debugPanel: true,        // adds a collapsed editable alphaTex panel under the staff (default false)
 //     options: { metronome:false, countIn:false, chordNames:false, diagrams:false, voicing:"byDifficulty" },
 //     onBeat:(bar,beat)=>…, onStateChange:(playing)=>…, onFinished:()=>…, onNeedsRerender:(ro)=>…,
 //   });
@@ -59,6 +64,9 @@ window.ChordFlowScore = (function () {
   const DEFAULT_SOUNDFONT = "sonivox.sf2";
   function fontUrl(id) { return "soundfont/" + id; }
 
+  // A minimal valid score so the debug panel's Render works before any host score has arrived (dev / first run).
+  const DEBUG_SAMPLE_TEX = ['\\title "Scratch"', ".", ":4 3.3 3.3 3.3 3.3 |"].join("\n");
+
   // The single alphaTab settings source of truth. Player settings are added only in player mode so a
   // lite preview never pays the soundfont/worker-player cost.
   function buildSettings(player, options) {
@@ -87,6 +95,7 @@ window.ChordFlowScore = (function () {
     opts = opts || {};
     const player = opts.player !== false;                 // default true
     const controls = opts.controls || (player ? "full" : "none");
+    const debugPanel = !!opts.debugPanel;                 // opt-in alphaTex scratchpad, default off
     const options = Object.assign({}, DEFAULT_OPTIONS, opts.options || {});
     const cb = {
       onBeat: opts.onBeat || function () {},
@@ -101,6 +110,20 @@ window.ChordFlowScore = (function () {
 
     const api = new alphaTab.AlphaTabApi(surface, buildSettings(player, options));
     let baseTempo = 80;   // the score's authored \tempo; runtime tempo scales off it
+    let lastHostTex = null;   // the alphaTex this component last rendered from a host load() — for the debug panel
+    let debugDirty = false;   // user has edited the debug textarea; host re-renders stop overwriting it until reload
+
+    // Mirror host output into the debug textarea — unless the user has unsaved edits (dirty), in which case the
+    // edits are preserved and we surface a hint that the engine pushed something newer (Reload to pull it in).
+    function syncDebugTextarea(tex) {
+      if (!debugUi.textarea) return;
+      if (debugDirty) {
+        debugUi.hint.textContent = "engine output changed — Reload from engine";
+        return;
+      }
+      debugUi.textarea.value = tex || "";
+      debugUi.hint.textContent = "";
+    }
 
     // Re-apply the layout pair at runtime when "Auto layout" toggles (display-only — no C# re-render).
     function applyLayout() {
@@ -141,6 +164,8 @@ window.ChordFlowScore = (function () {
 
     // Control refs, populated by buildControls when a strip is rendered.
     const ui = { play: null, stop: null, tempo: null, soundFont: null, toggles: {} };
+    // Debug-panel refs, populated by buildDebugPanel when debugPanel is on.
+    const debugUi = { textarea: null, hint: null };
 
     // Playback soundfont. The choice is a global host setting; this component requests the list on init and
     // applies the host's persisted selection live. `currentSoundFont` mirrors what's loaded so we skip a
@@ -204,6 +229,8 @@ window.ChordFlowScore = (function () {
       load(tex, o) {
         if (o && o.tempo) baseTempo = o.tempo;
         if (ui.tempo) ui.tempo.value = String(baseTempo);
+        lastHostTex = tex;
+        syncDebugTextarea(tex);   // mirror into the debug panel (no-op when off / preserved when dirty)
         api.tex(tex);
       },
       play() { api.playPause(); },
@@ -267,9 +294,59 @@ window.ChordFlowScore = (function () {
       },
     };
 
+    // The opt-in alphaTex debug panel (collapsed). Edits the rendered tex and re-renders through THIS component's
+    // alphaTab instance — bypassing C#. Dirty-state (see syncDebugTextarea): once edited, host re-renders stop
+    // overwriting the textarea until "Reload from engine". alphaTex is never built here; this only feeds api.tex().
+    function buildDebugPanel() {
+      const panel = document.createElement("details");
+      panel.className = "cf-debug";
+
+      const summary = document.createElement("summary");
+      summary.textContent = "alphaTex";
+      const version = typeof alphaTab !== "undefined" && alphaTab.meta && alphaTab.meta.version;
+      if (version) {
+        const ver = document.createElement("span");
+        ver.className = "cf-debug-version";
+        ver.textContent = "alphaTab v" + version;
+        summary.appendChild(ver);
+      }
+
+      const textarea = document.createElement("textarea");
+      textarea.className = "cf-debug-tex";
+      textarea.spellcheck = false;
+      textarea.placeholder = "alphaTex the engine rendered — edit and Render from alphaTex, or Reload from engine.";
+      textarea.value = lastHostTex || "";   // a score may already have rendered before the panel built
+      textarea.addEventListener("input", () => {
+        debugDirty = true;
+        debugUi.hint.textContent = "";
+      });
+      debugUi.textarea = textarea;
+
+      const bar = document.createElement("div");
+      bar.className = "cf-debug-bar";
+      const renderBtn = button("Render from alphaTex", () => {
+        api.tex(textarea.value.trim() || DEBUG_SAMPLE_TEX);
+      });
+      renderBtn.className = "primary";
+      const reloadBtn = button("Reload from engine", () => {
+        debugDirty = false;
+        textarea.value = lastHostTex || "";
+        debugUi.hint.textContent = "";
+        api.tex(textarea.value.trim() || DEBUG_SAMPLE_TEX);
+      });
+      const hint = document.createElement("span");
+      hint.className = "cf-debug-hint";
+      debugUi.hint = hint;
+      bar.append(renderBtn, reloadBtn, hint);
+
+      panel.append(summary, textarea, bar);
+      return panel;
+    }
+
     const strip = buildControls(player, controls, options, handle, ui);
     if (strip) container.appendChild(strip);
     container.appendChild(surface);
+    if (debugPanel) container.appendChild(buildDebugPanel());
 
     if (player) {
       // playerStateChanged: { state: Paused/Playing, stopped: bool }. `stopped` fires at natural end and

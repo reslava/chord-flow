@@ -191,7 +191,7 @@ const ChordFlow = (function () {
 
   // --- view toggle (Practice ⇄ Content) ------------------------------------
   function setupViewToggle() {
-    // Three top-level views in the single page; each lazily inits its module on first show.
+    // The top-level views in the single page; each lazily inits its module on first show.
     const views = {
       practice: { nav: $("navPractice"), el: $("practice-view") },
       content: { nav: $("navContent"), el: $("content-view"),
@@ -202,8 +202,6 @@ const ChordFlow = (function () {
         onShow: () => window.ChordFlowCagedShapes && window.ChordFlowCagedShapes.show() },
       cagedChords: { nav: $("navCagedChords"), el: $("caged-chords-view"),
         onShow: () => window.ChordFlowCagedChords && window.ChordFlowCagedChords.show() },
-      debug: { nav: $("navDebug"), el: $("debug-view"),
-        onShow: () => window.ChordFlowInspector && window.ChordFlowInspector.show() },
     };
 
     function show(viewName) {
@@ -317,6 +315,7 @@ const ChordFlow = (function () {
     view = window.ChordFlowScore.create($("score-pane"), {
       player: true,
       controls: "full",
+      debugPanel: true,   // the alphaTex scratchpad lives on the score component now (replaces the Debug view)
       onBeat: (bar, beat) => { if (Bridge.available) Bridge.send({ type: "beatChanged", bar, beat }); },
       onFinished: () => { if (Bridge.available) Bridge.send({ type: "playbackFinished" }); },
       onNeedsRerender: (renderOptions) => {
