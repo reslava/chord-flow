@@ -9,7 +9,7 @@ version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 18
+last_ai_block: 23
 ---
 # domain-to-music-rename Chat
 
@@ -358,3 +358,51 @@ STOP — waiting for your pick (1 / 2).
 ## Rafa:
 
 1
+
+## AI:
+
+✅ **Whole plan done — committed as `a9be5af`** (not pushed).
+
+**Outcome**
+- `ChordFlow.Domain` → `ChordFlow.Music.{Harmony,Rhythm,Melody,Progressions,Songs}` + `ChordFlow.Exercises`. 44 files moved (git tracked them as renames — history preserved), every `using`/cref rewired.
+- Two decisions you made along the way are baked in: **plural** `Progressions`/`Songs` (collision fix), and **`Transposer` moved to `Progressions`** so `Harmony` is a true sink.
+- **`SeedData`** kept in `Music.Progressions` — it has a live runtime consumer (`ContentCrudHandler` preview), so per `IN8` it stays in the kernel.
+- **`MusicLayeringTests`** added: Harmony/Rhythm are sinks, the `Music.*` graph is an acyclic DAG, edges encode the *observed* references (no forced code change). Instrument-boundary test retargeted to `ChordFlow.Music`.
+- Docs synced in the same commit: both structural refs, `ctx.md`, README, CHANGELOG (`[Unreleased]`).
+
+**Verification**
+- Full solution builds (only 2 pre-existing, unrelated warnings — SQLite advisory + WindowsBase conflict).
+- **600/600 tests pass** (+10 from the new layering cases).
+- Grep-clean: zero `ChordFlow.Domain` in `src/`, `tests/`, the three refs, `ctx.md`, README (`C4`).
+- All 7 plan steps ✅; plan auto-transitioned to **done**.
+
+**Two cosmetic `loom_validate` nits** (not blockers): the plan shows "stale (design v3)" because finalizing the design bumped its version, and the step `blockedBy` slugs trip an "unknown blocker format" check. Neither affects the work; say the word if you want me to tidy them.
+
+Want me to **push to main**, or leave the commit local?
+
+## Rafa:
+
+push
+
+## AI:
+
+Pushed to `origin/main` — `a020318..a9be5af`. The Domain → Music rename is live. 🎵
+
+## AI:
+
+I tried to tidy them and hit a wall — reporting it rather than forcing it:
+
+**1. "unknown blocker format" (9×).** These come from the step `blockedBy` slugs I passed at plan creation (`move-kernel-files`, `rewire-consumers`, …). `loom_create_plan` accepted them, but `loom_validate` doesn't recognize that format — a Loom inconsistency between the two tools. The fix would be to rewrite/clear those `blockedBy` fields via `loom_update_step` — **but the plan is `done`, and `loom_update_step` rejects any edit to a done step except a citation-only (`satisfies`) patch.** Done steps are immutable history by design, so `blockedBy` is now frozen. Reopening via `loom_start_plan` doesn't help — step-level immutability is independent of plan status.
+
+**2. "stale (design v3, plan expects v1)."** The plan records `design_version: 1`; the design is now v3 (bumped partly by my redundant `status=done` calls earlier). There's **no MCP tool to resync a plan's `design_version`** to the current design. Note the same warning sits on **5 other long-done plans** (`mvp`, `music-theory-to-data-structures`, …) — Loom appears to just tolerate this on done plans; it's pre-existing accepted noise, not something this thread introduced.
+
+So via the supported tools, neither is fixable — they're frozen plan metadata. The only way to actually clear them is a **manual edit of the plan doc's frontmatter** (`design_version: 3`, and reformat/empty the step `blocked_by`), which **bypasses the MCP hard-rule + the done-step immutability invariant**. I won't do that on my own — it's exactly the kind of route-around-the-tool the contract says to avoid.
+
+**My recommendation:** leave them. They're cosmetic, they don't affect any derived state, and the design-version one matches 5 other done plans you've already lived with.
+
+Options:
+1. **Leave as-is** (recommended).
+2. **You authorize a direct frontmatter edit** of `domain-to-music-rename-plan-001.md` to set `design_version: 3` and clear the slug blockers — I'll do it if you explicitly want the override.
+3. Treat it as a **Loom bug to fix** (validator should accept slug blockers / skip staleness on `done` plans) — a separate thread.
+
+Which way?

@@ -2,13 +2,14 @@
 type: chat
 id: ch_01KVQ0EWQFKBSSNKCTRN951QWV
 title: transforms Chat
-status: active
+status: done
 created: 2026-06-22
-version: 1
+updated: 2026-06-22
+version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 10
+last_ai_block: 14
 ---
 # transforms Chat
 
@@ -128,3 +129,28 @@ on your finding (line 123): `BeginnerShellStrategy` should include `maj7`
 
 commit
 
+## AI:
+
+Committed the transforms slice — `448fa02` (16 files; only the transforms work + the two refs, nothing from the other in-flight threads). Not pushed yet.
+
+On the finding — agreed, `BeginnerShellStrategy` should cover `maj7` (root + maj3 + maj7 shell). That's a **separate change in the voicing layer** (`Instruments/Guitar/Voicings/`), not the transforms thread, so it lands as its own commit. Two ways to go:
+
+1. **Quick fix now** — add a maj7 case to `BeginnerShellStrategy.Voice` (root + maj3 + maj7 on strings 5/4/3, same movable-shell pattern as the dom7 case), restore the dogfood test to the ii-V-Imaj7 standard, commit. Small and self-contained.
+2. **Proper thread** — if you'd rather treat shell-voicing coverage (maj7 now, and m7b5/dim7/aug later) as a deliberate slice with idea→design→plan, since it ties into the interval-derivation-engine direction.
+
+I lean **option 1** — it's a one-method addition that unblocks rendering real maj7 tunes immediately, and the bigger derivation engine is its own arc. Which do you want?
+
+## Rafa:
+
+Yes, do option 1 now and commit
+
+## AI:
+
+✅ Option 1 done & committed — `f10e06e`.
+
+- `BeginnerShellStrategy` now covers **Major7** on the same movable A/D/G shell: major 3rd (D-string −1, shared with dom7) + major 7th (G-string +1, one fret up from the dom7/m7 minor-7th). dom7/m7 output is unchanged.
+- Restored the dogfood test to the real **ii-V-Imaj7 standard in Bb** — it now renders end-to-end (maj7 chords included), with `@take(2)` drilling the ii-V.
+- Added a 12-root `Major7` shell unit test; synced the domain-model ref.
+- **633/633 tests pass** (+12 maj7 cases).
+
+The Major *triad* and richer qualities still throw — those are the authored/derived voicing engine's job, not this shell. So maj7 standards are now playable; that unblocks dogfooding real jazz tunes.

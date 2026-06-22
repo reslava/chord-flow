@@ -9,7 +9,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 60
+priority: 1000
 depends_on: []
 ---
 # Multi-bar Rhythm Patterns — per-bar timing variation
