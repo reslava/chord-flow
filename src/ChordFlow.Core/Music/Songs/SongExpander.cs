@@ -1,4 +1,5 @@
 using ChordFlow.Music.Progressions;
+using ChordFlow.Music.Progressions.Transforms;
 using ChordFlow.Music.Harmony;
 namespace ChordFlow.Music.Songs;
 
@@ -45,6 +46,14 @@ public static class SongExpander
 
                 case PartPlay play:
                     Progression progression = Resolve(play.PartName, song, store);
+
+                    // Rewrite the progression with the play's transforms (left-to-right) before realizing.
+                    // An empty list is a no-op, so a transform-free Song realizes byte-identically (C5).
+                    foreach (IProgressionTransform transform in play.Transforms)
+                    {
+                        progression = transform.Apply(progression);
+                    }
+
                     IReadOnlyList<RealizedBar> bars = Transposer.RealizeBars(progression, key);
                     for (int i = 0; i < play.Repeat; i++)
                     {

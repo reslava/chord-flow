@@ -2,9 +2,10 @@
 type: idea
 id: id_01KTVTM1797WBJ8TF9K7B4VPTR
 title: Progression Transforms — functional rewrites of Progressions
-status: draft
+status: done
 created: 2026-06-11
-version: 1
+updated: 2026-06-22
+version: 2
 tags: []
 parent_id: null
 requires_load: []

@@ -4,8 +4,8 @@ id: rf_01KTM41K36DYJ0CE44FE7TMCGH
 title: ChordFlow Domain Model
 status: active
 created: 2026-06-08
-updated: 2026-06-21
-version: 52
+updated: 2026-06-22
+version: 54
 tags: []
 parent_id: null
 requires_load: []
@@ -51,6 +51,7 @@ no I/O (C3). Spelling and `Feel` are **never stored** — always derived (C4).
 | `Progression(string Id, string Name, IReadOnlyList<HarmonicBar> Bars)` | **v0.4.0.** Key-independent progression as a sequence of `HarmonicBar`s. Constructed via the guarded factory `Progression.FromBars(id, name, bars, ts)` which validates per bar: spans sum to `ts.BarTicks`, each `DurationTicks > 0`, each a multiple of `ts.BeatTicks`. A single-chord bar = one `ChordSpan(degree, 192)` — backward-compatible with v0.3. |
 | `ProgressionParser` | **v0.4.0.** Pure static `Parse(id, name, dsl, ts) → Progression`. M1 Nashville DSL: space = bar separator, `_` = chord separator. Token = `<degree><quality?>[:<slots>]`. Even-split (n∈{1,2,4}); explicit-slots suffix (`:N` quarters, all-or-nothing per bar, must sum to 4). Throws `FormatException` naming the bad token. Peer of `NoteSpeller`. |
 | `Transposer` | `Realize(progression, key)` → `IReadOnlyList<RealizedBar>` where each `RealizedBar` holds ordered `(Chord chord, int DurationTicks)` pairs — preserving the harmonic-rhythm structure through to the renderer. |
+| `IProgressionTransform` / `TakeTransform` / `ProgressionTransform` (`Music/Progressions/Transforms/`) | **transforms thread (slice 1).** A **pure, key-independent** `Progression → Progression` rewrite — the harmonic analog of the rhythm overlays (never mutate, return new). Transforms **compose left-to-right** and are **not commutative**. `TakeTransform(Count)` keeps the first `Count` **whole bars** (per-bar invariants untouched; rebuilt via `Progression.FromBars`, 4/4 v1), failing loud if `Count ∉ [1, Bars.Count]` (no clamp). `ProgressionTransform.Parse(name, args)` is the single name→transform registry (`take` only today; `@repeat` deliberately unbuilt — it duplicates Song's `x<n>`). Applied per `PartPlay` in `SongExpander` (below), so nothing below `Transposer` knows transforms exist. |
 | `NoteSpeller` | `Name(pc, key)` → per-key sharp/flat spelling; `KeySignatureToken(key)` → alphaTex `\ks`. Promoted out of the renderer. |
 | `IntervalSpeller` | **intervals thread.** The interval-naming peer of `NoteSpeller` — the single authority that turns a semitone distance into its theory name, owning **two label spaces**. `Name(semitone)` → the flats-only, role-free **substrate vocabulary**, *computed and unfolded* (number = `base(sem%12) + 7*(sem/12)`, accidental from a 12-entry flats table) so the 2nd octave yields `9/10/11/13…` for free — used by scales/arpeggios, which have real octaves. `Label(semitone, role)` → the **chord-context** spelling, *role-keyed* (same pitch class spells differently by role: 3 = `b3`/`#9`, 8 = `#5`/`b13`, 9 = `bb7`/`13`): chord-tone roles → `R/b3/3/b5/5/#5/b7/bb7/7`, a `null` role (out-of-chord note) → conventional compound tensions `b9 9 #9 11 #11 b13 13`. The two differ by design — `Name` indexed by absolute semitone (octaves real), `Label` by `(pc mod-12, role)` (octaves folded by function). **`Parse(token)` is the inverse of `Name`** (intervals-scales thread): label → semitone, accepting **flats, sharps, and naturals incl. repeated accidentals** (`b3`, `#4`, `bb7`, compound `9/11/13` unfolded) — so it reads the scale/chord spellings `Name` never emits; `Parse(Name(n)) == n`. `ParseSet("1 b3 4 5 b7")` → distinct semitones in order (the entry point a scale producer parses user text through). |
 | `ChordSymbol` | **score-render-component thread.** `Format(chord, key)` → conventional display symbol (`C`/`Am`/`G7`/`Cmaj7`), root spelled via `NoteSpeller` against the key. Consumed by `AlphaTexRenderer` for the `{ch "…"}` label + `\chord` diagram name. Distinct from `VoicingDslWriter`'s DSL suffixes (`""` not `maj`, `m` not `min`). |
@@ -179,6 +180,8 @@ Realization is **one path**, and the single I/O seam — expanding the Song agai
 Exercise
   → baseKey = KeyOverride ?? Song.InitialKey
   → SongExpander.Expand(Song, store, startKey: baseKey) → RealizedSong (sections, each keyed)   ← Features (the I/O seam)
+       · per PartPlay: fold its @op transforms (e.g. take) onto the resolved Progression BEFORE Transposer.RealizeBars
+         (PartPlay carries IReadOnlyList<IProgressionTransform> Transforms; empty ⇒ byte-identical to pre-transform render)
   → per section: Comping → VoicingBook (authored ∥ strategy)  ‖  Lead → dead notes (x.3)   [LeadTargets → pitches deferred]
   → FeelTransform (apply rhythm + feel; identity for Straight)
   → RhythmQuantizer (→ slots, split at beat lines AND chord-span boundaries)

@@ -1,4 +1,5 @@
 using ChordFlow.Music.Progressions;
+using ChordFlow.Music.Progressions.Transforms;
 using ChordFlow.Music.Harmony;
 namespace ChordFlow.Music.Songs;
 
@@ -24,10 +25,23 @@ public sealed record InlineProgression(string Name, Progression Progression) : P
 public abstract record ArrangementItem;
 
 /// <summary>
-/// Play a named part <see cref="Repeat"/> times (<c>Repeat &gt;= 1</c>). Expansion happens at realization,
-/// never in the parser, so the Song stays a compact stream (constraint C5).
+/// Play a named part <see cref="Repeat"/> times (<c>Repeat &gt;= 1</c>), optionally rewriting the resolved
+/// progression with an ordered list of <see cref="Transforms"/> applied left-to-right at realization. The
+/// transform list lives on the <i>play</i> (the application site), not the <see cref="Part"/> definition, so
+/// the same part can be played plain in one spot and transformed in another. Expansion happens at
+/// realization, never in the parser, so the Song stays a compact stream (constraint C5).
 /// </summary>
-public sealed record PartPlay(string PartName, int Repeat) : ArrangementItem;
+public sealed record PartPlay(
+    string PartName,
+    int Repeat,
+    IReadOnlyList<IProgressionTransform> Transforms) : ArrangementItem
+{
+    /// <summary>Convenience for the no-transform case — keeps transform-unaware call sites unchanged.</summary>
+    public PartPlay(string partName, int repeat)
+        : this(partName, repeat, Array.Empty<IProgressionTransform>())
+    {
+    }
+}
 
 /// <summary>A relative modulation between parts — accumulates over the running key (constraint C2).</summary>
 public sealed record RelativeMod(Modulation Modulation) : ArrangementItem;

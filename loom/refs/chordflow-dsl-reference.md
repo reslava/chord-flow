@@ -4,8 +4,8 @@ id: rf_01KTSAQ6990GY3J4CZ7HPVPW6K
 title: ChordFlow DSL
 status: active
 created: 2026-06-10
-updated: 2026-06-21
-version: 10
+updated: 2026-06-22
+version: 13
 tags: []
 parent_id: null
 requires_load: []
@@ -149,6 +149,7 @@ After the definitions, list the parts in playing order — one instruction per l
 |------|---------|
 | `NAME` | play that part once |
 | `NAME x<n>` | play it **n** times (`verse x2`) |
+| `NAME @op(args)` | apply a **progression transform** to that play (e.g. `verse @take(4)`) — see *Progression transforms* below |
 | `key <note>` | set or reset the key (e.g. `key C`, `key Eb`, `key Am`) |
 | `mod <spec>` | **modulate** — shift the key from here onward |
 
@@ -176,9 +177,28 @@ verse
 | `bIII` | up a minor third (+3) — a leading `b`/`#` lowers/raises the degree |
 | `vi` | relative minor (+9 **and** switch to minor) — a **lowercase** numeral flips the mode |
 
+### Progression transforms — `@op(args)`
+
+A play can **rewrite** its progression before it's realized, with one or more `@op(args)` transforms on the play line:
+
+```
+key F
+head = 17 47 17 17 47 47 17 67 2-7 57 17 57   # a 12-bar jazz blues
+head x2          # play the full head twice
+head @take(4)    # then drill just the first 4 bars
+```
+
+| Transform | Effect |
+|-----------|--------|
+| `@take(n)` | keep only the **first n bars** of the progression (drill the head / a section) |
+
+- **Composition:** list several and they apply **left-to-right** — `@take(8) @take(4)` takes 8 then 4. They are **not commutative** (the reverse can even be out of range).
+- **With `x<n>`:** a play may carry both, in **either order** (`head @take(4) x2` ≡ `head x2 @take(4)`): the transform rewrites the progression, then the section repeats.
+- `@take(n)` requires `1 ≤ n ≤ the progression's bar count` — out of range is an error.
+
 ### Repeats: `x` vs `@repeat`
 
-`verse x2` plays the verse **twice, as two sections** (rehearsal-style). That is different from a future progression transform `@repeat(2)`, which would make **one** progression twice as long. The Song layer uses **`x` only**; `@repeat` is reserved.
+`verse x2` plays the verse **twice, as two sections** (rehearsal-style). That is different from a progression transform `@repeat(2)` — which would make **one** progression twice as long — so `@repeat` stays **reserved/unimplemented**: it would only duplicate what `x<n>` already does. Use `x` for repetition.
 
 ### A full example
 
@@ -205,6 +225,9 @@ Intro, two verses (the 12-bar blues), then up a fifth for the chorus and a final
 - **"defines part … more than once"** — two definitions share a name.
 - **"repeat … must be a positive integer"** — `x<n>` needs n ≥ 1 (e.g. `verse x2`).
 - **"unknown note letter" / "unknown roman numeral"** — a `key` or `mod` token isn't recognized.
+- **"Unknown progression transform"** — an `@op` name isn't a known transform (only `@take` today).
+- **"must look like @name(args)"** / **"requires a positive integer argument"** — a malformed transform token (missing parens) or a bad `@take` argument.
+- **"more than one repeat token"** — a play line has two `x<n>` repeats.
 
 ### Notes
 

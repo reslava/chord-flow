@@ -1,4 +1,5 @@
 using ChordFlow.Music.Progressions;
+using ChordFlow.Music.Progressions.Transforms;
 using ChordFlow.Music.Rhythm;
 using ChordFlow.Music.Harmony;
 using System.Globalization;
@@ -16,10 +17,12 @@ namespace ChordFlow.Music.Songs;
 /// <item><c>NAME</c> / <c>NAME x&lt;n&gt;</c> — a <see cref="PartPlay"/> (<c>n</c> defaults to 1). The name must be a defined part.</item>
 /// <item><c>mod &lt;spec&gt;</c> — a relative <see cref="RelativeMod"/> (<c>+n</c>/<c>-n</c> or a roman degree).</item>
 /// </list>
-/// <c>#</c> starts a line comment. <c>x&lt;n&gt;</c> is the only section-repeat syntax; <c>@repeat</c> is
-/// reserved for the future transform and is not parsed here (constraint C5). Grammar errors throw
-/// <see cref="FormatException"/> naming the offending line/token; structural validation is delegated to
-/// <see cref="Song.FromSections"/>.
+/// <c>#</c> starts a line comment. A play line is <c>NAME ( x&lt;n&gt; | @name(args) )*</c>: at most one
+/// <c>x&lt;n&gt;</c> section-repeat plus zero-or-more <c>@op</c> progression transforms, in either order
+/// (the transform rewrites the progression, then the section repeats — order is fixed regardless of token
+/// order). The <c>@name(args)</c> shape is lexed here and handed to <see cref="ProgressionTransform.Parse"/>
+/// for construction. Grammar errors throw <see cref="FormatException"/> naming the offending line/token;
+/// structural validation is delegated to <see cref="Song.FromSections"/>.
 /// </summary>
 public static class SongParser
 {
@@ -101,20 +104,37 @@ public static class SongParser
             }
             else
             {
-                if (tokens.Length > 2)
-                {
-                    throw new FormatException($"Song DSL play \"{line}\" has unexpected extra tokens.");
-                }
-
                 string partName = tokens[0];
-                int repeat = tokens.Length == 2 ? ParseRepeat(tokens[1], line) : 1;
-
                 if (!parts.ContainsKey(partName))
                 {
                     throw new FormatException($"Song DSL plays undefined part \"{partName}\".");
                 }
 
-                items.Add(new PartPlay(partName, repeat));
+                int repeat = 1;
+                bool repeatSet = false;
+                var transforms = new List<IProgressionTransform>();
+
+                // After the part name: one optional x<n> repeat plus any number of @op transforms, in any
+                // order. Transforms apply to the progression, then the section repeats (semantics fixed).
+                for (int t = 1; t < tokens.Length; t++)
+                {
+                    string token = tokens[t];
+                    if (token.Length != 0 && token[0] == '@')
+                    {
+                        transforms.Add(ParseTransform(token, line));
+                    }
+                    else if (repeatSet)
+                    {
+                        throw new FormatException($"Song DSL play \"{line}\" has more than one repeat token.");
+                    }
+                    else
+                    {
+                        repeat = ParseRepeat(token, line);
+                        repeatSet = true;
+                    }
+                }
+
+                items.Add(new PartPlay(partName, repeat, transforms));
             }
         }
 
@@ -169,6 +189,27 @@ public static class SongParser
         }
 
         return true;
+    }
+
+    // @name(args) → an IProgressionTransform. The lexical shape (the @, the parens, the split) is owned
+    // here; the name→transform mapping and argument validation live in ProgressionTransform.Parse.
+    private static IProgressionTransform ParseTransform(string token, string line)
+    {
+        int open = token.IndexOf('(');
+        if (open < 0 || token[^1] != ')')
+        {
+            throw new FormatException(
+                $"Song DSL transform \"{token}\" must look like \"@name(args)\" in \"{line}\".");
+        }
+
+        string name = token[1..open];
+        string args = token[(open + 1)..^1];
+        if (name.Length == 0)
+        {
+            throw new FormatException($"Song DSL transform \"{token}\" has no name in \"{line}\".");
+        }
+
+        return ProgressionTransform.Parse(name, args);
     }
 
     private static int ParseRepeat(string token, string line)
