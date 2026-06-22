@@ -4,11 +4,12 @@ id: th_01KVRK4WW07CVHV1RNMSR55SHZ
 title: Comping picker in the Content preview
 status: active
 created: 2026-06-22
+updated: 2026-06-22
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 1000
+priority: 10
 depends_on: []
 ---
 # Comping picker in the Content preview
