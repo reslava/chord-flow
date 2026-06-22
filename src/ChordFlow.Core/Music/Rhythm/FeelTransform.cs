@@ -1,26 +1,35 @@
 namespace ChordFlow.Music.Rhythm;
 
 /// <summary>
-/// Applies a <see cref="Feel"/> to a straight bar of <see cref="RhythmEvent"/>s as a playback-time
-/// warp, returning a <b>new</b> event list (the base pattern is never mutated — ctx C4). Straight is
-/// the identity; swing/shuffle/triplet push the off-beat eighth (the "and" at the half-beat) later so
-/// the on-beat eighth lengthens and the off-beat shortens — the long-short groove.
+/// Applies a <see cref="TripletFeel"/> to a straight bar of <see cref="RhythmEvent"/>s as a playback-time
+/// warp, returning a <b>new</b> event list (the base pattern is never mutated — ctx C4). <see cref="TripletFeel.None"/>
+/// is the identity; the swung feels push the off-beat eighth (the "and" at the half-beat) later so the
+/// on-beat eighth lengthens and the off-beat shortens — the long-short groove.
+/// <para>
+/// <b>Not used by the alphaTex render path</b> — swing is delegated to alphaTab's native <c>\tf</c>
+/// directive there. This self-computed warp is retained for the <see cref="Rendering.IScoreRenderer"/>
+/// export seam (a future MIDI / GuitarPro exporter has no alphaTab to swing playback and must bake the
+/// groove into ticks itself).
+/// </para>
 /// </summary>
 public static class FeelTransform
 {
     /// <summary>The fraction of a beat at which the off-beat eighth lands for <paramref name="feel"/>.</summary>
-    public static double OffBeatRatio(Feel feel) => feel switch
+    public static double OffBeatRatio(TripletFeel feel) => feel switch
     {
-        Feel.Straight => 1.0 / 2,
-        Feel.Swing => 2.0 / 3,
-        Feel.Shuffle => 3.0 / 4,
-        Feel.Triplet => 2.0 / 3,
+        TripletFeel.None => 1.0 / 2,
+        TripletFeel.Triplet8th => 2.0 / 3,
+        TripletFeel.Triplet16th => 2.0 / 3,
+        TripletFeel.Dotted8th => 3.0 / 4,
+        TripletFeel.Dotted16th => 3.0 / 4,
+        TripletFeel.Scottish8th => 1.0 / 3,
+        TripletFeel.Scottish16th => 1.0 / 3,
         _ => 1.0 / 2,
     };
 
     /// <summary>Warp <paramref name="events"/> by <paramref name="feel"/> within <paramref name="timeSignature"/>.</summary>
     public static IReadOnlyList<RhythmEvent> Apply(
-        IReadOnlyList<RhythmEvent> events, Feel feel, TimeSignature timeSignature)
+        IReadOnlyList<RhythmEvent> events, TripletFeel feel, TimeSignature timeSignature)
     {
         ArgumentNullException.ThrowIfNull(events);
 

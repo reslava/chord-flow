@@ -53,11 +53,11 @@ public sealed class GenerateExerciseHandler
     /// </summary>
     public LoadScoreEnvelope Generate(
         string harmonyEntity, string harmonyId, string compingPatternId, string? leadPatternId,
-        int? keyPitchClass, int tempo, Difficulty difficulty, Feel feel)
+        int? keyPitchClass, int tempo, Difficulty difficulty, TripletFeel tripletFeel)
     {
         using var db = new ChordFlowDbContext(_dbOptions);
         Exercise exercise = Build(
-            db, harmonyEntity, harmonyId, compingPatternId, leadPatternId, keyPitchClass, tempo, difficulty, feel);
+            db, harmonyEntity, harmonyId, compingPatternId, leadPatternId, keyPitchClass, tempo, difficulty, tripletFeel);
         return LoadScoreEnvelope.From(exercise, new ProgressionStore(db), _renderer);
     }
 
@@ -68,10 +68,10 @@ public sealed class GenerateExerciseHandler
     /// </summary>
     public Exercise Build(
         string harmonyEntity, string harmonyId, string compingPatternId, string? leadPatternId,
-        int? keyPitchClass, int tempo, Difficulty difficulty, Feel feel)
+        int? keyPitchClass, int tempo, Difficulty difficulty, TripletFeel tripletFeel)
     {
         using var db = new ChordFlowDbContext(_dbOptions);
-        return Build(db, harmonyEntity, harmonyId, compingPatternId, leadPatternId, keyPitchClass, tempo, difficulty, feel);
+        return Build(db, harmonyEntity, harmonyId, compingPatternId, leadPatternId, keyPitchClass, tempo, difficulty, tripletFeel);
     }
 
     /// <summary>
@@ -85,7 +85,7 @@ public sealed class GenerateExerciseHandler
     public Exercise Build(
         ChordFlowDbContext db,
         string harmonyEntity, string harmonyId, string compingPatternId, string? leadPatternId,
-        int? keyPitchClass, int tempo, Difficulty difficulty, Feel feel)
+        int? keyPitchClass, int tempo, Difficulty difficulty, TripletFeel tripletFeel)
     {
         Key? keyOverride = keyPitchClass is int pc ? new Key(new PitchClass(pc), false) : null;
         Key liftKey = keyOverride ?? DefaultLiftKey;
@@ -94,6 +94,6 @@ public sealed class GenerateExerciseHandler
         RhythmPattern comping = ExerciseRefs.ResolvePattern(compingPatternId, db);
         RhythmPattern? lead = ExerciseRefs.ResolveOptionalPattern(leadPatternId, db);
 
-        return new Exercise(song, comping, lead, keyOverride, tempo, difficulty, feel);
+        return new Exercise(song, comping, lead, keyOverride, tempo, difficulty, tripletFeel);
     }
 }

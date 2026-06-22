@@ -15,7 +15,7 @@ namespace ChordFlow.Core.Tests;
 
 /// <summary>
 /// The refactored <c>ExerciseEntity</c> (references + param columns, IN4): a saved exercise round-trips its
-/// Song/comping/lead references, the practice key (carried in the <c>KeyOverride</c> token), and <c>Feel</c>
+/// Song/comping/lead references, the practice key (carried in the <c>KeyOverride</c> token), and <c>TripletFeel</c>
 /// through the new schema + migration.
 /// </summary>
 public class ExerciseLibraryTests
@@ -38,7 +38,7 @@ public class ExerciseLibraryTests
 
     private static Exercise BbBlues(Key key, RhythmPattern? lead = null) =>
         new(Song.OfProgression(SeedData.TwelveBarBlues, key), SeedData.Beat1And3, lead,
-            KeyOverride: key, Tempo: 80, Difficulty: Difficulty.Beginner, Feel: Feel.Straight);
+            KeyOverride: key, Tempo: 80, Difficulty: Difficulty.Beginner, TripletFeel: TripletFeel.None);
 
     [Fact]
     public void SaveThenLoad_RoundTripsKeyCompingFeelAndLead()
@@ -57,7 +57,7 @@ public class ExerciseLibraryTests
         Assert.Equal(SeedData.TwelveBarBlues.Id, ex.Song.Id);
         Assert.Equal(SeedData.Beat1And3.Id, ex.Comping.Id);
         Assert.Equal(SeedData.Quarters.Id, ex.Lead?.Id);        // lead reference round-tripped
-        Assert.Equal(Feel.Straight, ex.Feel);
+        Assert.Equal(TripletFeel.None, ex.TripletFeel);
         Assert.Contains("\\track \"Lead\"", loaded.Score.Tex);  // two-track score (lead present)
     }
 
@@ -89,6 +89,6 @@ public class ExerciseLibraryTests
         Assert.Equal(SeedData.Beat1And3.Id, s.CompingPatternId);
         Assert.Null(s.LeadPatternId);
         Assert.Equal("g", s.KeyOverride);
-        Assert.Equal("Straight", s.Feel);
+        Assert.Equal("None", s.TripletFeel);
     }
 }

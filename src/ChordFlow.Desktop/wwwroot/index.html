@@ -190,7 +190,7 @@
   <!-- Practice view: the exercise generator (key/rhythm → score + transport + saved list). -->
   <div id="practice-view">
     <!-- Builder: pick the definition (harmony + comping + optional lead) and the params
-         (key/difficulty/feel; tempo lives in the component transport), then generate / save / mark practiced.
+         (key/difficulty; feel + tempo live in the component transport), then generate / save / mark practiced.
          The harmony/comping/lead lists are populated from the content stores via the entity* bridge. -->
     <section class="toolbar" id="builder">
       <label for="harmony">Harmony</label>
@@ -203,8 +203,6 @@
       <select id="key"></select>
       <label for="difficulty">Difficulty</label>
       <select id="difficulty"></select>
-      <label for="feel">Feel</label>
-      <select id="feel"></select>
       <button id="btnGenerate" type="button">Generate</button>
       <button id="btnSave" type="button">Save</button>
       <button id="btnPractice" type="button">Mark practiced</button>

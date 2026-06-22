@@ -15,12 +15,12 @@ namespace ChordFlow.Features.ExerciseLibrary;
 /// One saved exercise, for the library list in the UI. Raw definition fields (references + params) — the JS
 /// builds the human label from its own name maps, so no naming is duplicated in C#. Reshaped for the merged
 /// <see cref="Exercise"/> model (IN4): <c>SongId</c>/<c>CompingPatternId</c>/<c>LeadPatternId</c> references +
-/// the <c>KeyOverride</c> token + <c>Feel</c> (was <c>Key</c>/<c>RhythmId</c>). NOTE: <c>app.js</c>'s list
+/// the <c>KeyOverride</c> token + <c>TripletFeel</c> (was <c>Key</c>/<c>RhythmId</c>). NOTE: <c>app.js</c>'s list
 /// rendering still reads the old fields — the UI rewire belongs to the <c>ui/exercise-workbench</c> thread.
 /// </summary>
 public sealed record ExerciseSummary(
     int Id, string SongId, string CompingPatternId, string? LeadPatternId, string? KeyOverride,
-    int Tempo, string Difficulty, string Feel, string CreatedUtc, int PracticedCount);
+    int Tempo, string Difficulty, string TripletFeel, string CreatedUtc, int PracticedCount);
 
 /// <summary>Outbound envelope: the saved-exercise list. Serializes to <c>{"type":"exerciseList","exercises":[…]}</c>.</summary>
 public sealed record ExerciseListEnvelope(IReadOnlyList<ExerciseSummary> Exercises, string Type = "exerciseList");
@@ -58,7 +58,7 @@ public sealed class ExerciseLibraryHandler
             KeyOverride = exercise.KeyOverride is { } k ? NoteSpeller.KeySignatureToken(k) : null,
             Tempo = exercise.Tempo,
             Difficulty = exercise.Difficulty,
-            Feel = exercise.Feel,
+            TripletFeel = exercise.TripletFeel,
             CreatedUtc = DateTime.UtcNow,
         };
         db.Exercises.Add(entity);
@@ -87,7 +87,7 @@ public sealed class ExerciseLibraryHandler
         var summaries = rows
             .Select(e => new ExerciseSummary(
                 e.Id, e.SongId, e.CompingPatternId, e.LeadPatternId, e.KeyOverride, e.Tempo,
-                e.Difficulty.ToString(), e.Feel.ToString(),
+                e.Difficulty.ToString(), e.TripletFeel.ToString(),
                 e.CreatedUtc.ToString("o", CultureInfo.InvariantCulture),
                 practiced.GetValueOrDefault(e.Id)))
             .ToList();
@@ -128,7 +128,7 @@ public sealed class ExerciseLibraryHandler
         RhythmPattern comping = ExerciseRefs.ResolvePattern(e.CompingPatternId, db);
         RhythmPattern? lead = ExerciseRefs.ResolveOptionalPattern(e.LeadPatternId, db);
 
-        return new Exercise(song, comping, lead, keyOverride, e.Tempo, e.Difficulty, e.Feel);
+        return new Exercise(song, comping, lead, keyOverride, e.Tempo, e.Difficulty, e.TripletFeel);
     }
 
     private static readonly Key SeedDefaultKey = new(new PitchClass(0), IsMinor: false); // C major fallback

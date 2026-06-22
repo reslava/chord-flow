@@ -11,21 +11,21 @@ public class RhythmOverlayTests
         Enumerable.Range(0, 8).Select(i => RhythmEvent.Hit(i * 24, 24)).ToArray();
 
     [Fact]
-    public void Feel_Straight_IsIdentity()
+    public void Feel_None_IsIdentity()
     {
         var events = EighthsBar();
 
-        var warped = FeelTransform.Apply(events, Feel.Straight, TimeSignature.FourFour);
+        var warped = FeelTransform.Apply(events, TripletFeel.None, TimeSignature.FourFour);
 
         Assert.Equal(events, warped);
     }
 
     [Fact]
-    public void Feel_Swing_PushesOffBeatToTwoThirdsAndMakesLongShort()
+    public void Feel_Triplet8th_PushesOffBeatToTwoThirdsAndMakesLongShort()
     {
         var events = EighthsBar();
 
-        var warped = FeelTransform.Apply(events, Feel.Swing, TimeSignature.FourFour);
+        var warped = FeelTransform.Apply(events, TripletFeel.Triplet8th, TimeSignature.FourFour);
 
         // Beat 1: on-beat eighth lengthens to 32 (long); off-beat moves to 32 and shortens to 16 (short).
         Assert.Equal(new RhythmEvent(0, 32, Stroke.Down, Accent.Normal), warped[0]);
@@ -38,11 +38,11 @@ public class RhythmOverlayTests
     }
 
     [Fact]
-    public void Feel_Shuffle_PushesOffBeatToThreeQuarters()
+    public void Feel_Dotted8th_PushesOffBeatToThreeQuarters()
     {
         var events = EighthsBar();
 
-        var warped = FeelTransform.Apply(events, Feel.Shuffle, TimeSignature.FourFour);
+        var warped = FeelTransform.Apply(events, TripletFeel.Dotted8th, TimeSignature.FourFour);
 
         Assert.Equal(36, warped[0].Length);      // on-beat lengthens to 3/4 of 48
         Assert.Equal(36, warped[1].Position);    // off-beat at 36
@@ -53,7 +53,7 @@ public class RhythmOverlayTests
     public void Feel_DoesNotAffectQuarterGridPatterns()
     {
         // The MVP quarter patterns have no off-beat events, so swing is a no-op on them.
-        var warped = FeelTransform.Apply(SeedData.Quarters.Bars[0].Events, Feel.Swing, TimeSignature.FourFour);
+        var warped = FeelTransform.Apply(SeedData.Quarters.Bars[0].Events, TripletFeel.Triplet8th, TimeSignature.FourFour);
 
         Assert.Equal(SeedData.Quarters.Bars[0].Events, warped);
     }
@@ -85,7 +85,7 @@ public class RhythmOverlayTests
 
         // Compose overlays: accent the backbeat, then apply swing feel.
         var accented = AccentPattern.Backbeat.Apply(basePattern.Bars[0].Events, basePattern.TimeSignature);
-        var composed = FeelTransform.Apply(accented, Feel.Swing, basePattern.TimeSignature);
+        var composed = FeelTransform.Apply(accented, TripletFeel.Triplet8th, basePattern.TimeSignature);
 
         // Beat 1 hit (offset 0, quarter) and beat 3 hit (offset 0, quarter) — neither is an off-beat
         // eighth, so timing is unchanged; neither is on beat 2/4, so accents stay Normal.
@@ -105,7 +105,7 @@ public class RhythmOverlayTests
 
         // Accent every downbeat (beats 1-4), then swing.
         var accentAll = new AccentPattern(new[] { 0, 1, 2, 3 }).Apply(events, TimeSignature.FourFour);
-        var composed = FeelTransform.Apply(accentAll, Feel.Swing, TimeSignature.FourFour);
+        var composed = FeelTransform.Apply(accentAll, TripletFeel.Triplet8th, TimeSignature.FourFour);
 
         // Both eighths share beat 0, so both carry the accent; the feel warp preserves the accents
         // while applying the long-short timing (on-beat lengthens, off-beat shifts).

@@ -179,10 +179,11 @@ window.ChordFlowContent = (function () {
       clearPreview();
       return;
     }
-    // Carry the preview component's current toggles so the re-rendered score reflects them (undefined
+    // Carry the preview component's current toggles + feel so the re-rendered score reflects them (undefined
     // before the score component exists ⇒ omitted ⇒ host defaults).
     const renderOptions = scoreView ? scoreView.getRenderOptions() : undefined;
-    Bridge.send({ type: "entityPreview", entity: current.key, dsl: dslEl.value, renderOptions });
+    const tripletFeel = scoreView ? scoreView.getTripletFeel() : undefined;
+    Bridge.send({ type: "entityPreview", entity: current.key, dsl: dslEl.value, renderOptions, tripletFeel });
   }
 
   // --- inbound ---------------------------------------------------------------
@@ -310,6 +311,7 @@ window.ChordFlowContent = (function () {
         player: true,
         controls: "full",
         debugPanel: true,   // the alphaTex scratchpad is available on every score-rendering page
+        tripletFeel: true,  // preview progression/song/rhythm with a chosen swing (carried on entityPreview)
         onNeedsRerender: () => requestPreview(),
       });
     }

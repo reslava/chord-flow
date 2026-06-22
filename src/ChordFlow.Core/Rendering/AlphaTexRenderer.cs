@@ -42,7 +42,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     {
     }
 
-    public string Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, Feel feel = Feel.Straight, RhythmPattern? lead = null, RenderOptions? options = null)
+    public string Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, RenderOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentNullException.ThrowIfNull(rhythm);
@@ -62,7 +62,9 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         // Comping (rhythm-guitar) track body: pickup + section bars, with inline \ks on key change. The state
         // collects each \chord diagram definition once for the score metadata block.
         var state = new RenderState();
-        List<string> compingBars = BuildCompingBars(song, rhythm, feel, ts, difficulty, opts, state);
+        List<string> compingBars = BuildCompingBars(song, rhythm, ts, difficulty, opts, state);
+        // Whole-song swing is delegated to alphaTab: emit one \tf on the first bar (None ⇒ nothing).
+        PrependTripletFeel(compingBars, tripletFeel);
 
         string title = $"{first.Label} — {NoteSpeller.Name(first.Key.Tonic, first.Key)}";
         string subtitle = $"{difficulty} — {rhythm.Name}";
@@ -82,7 +84,8 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         // Two tracks (IN5): score metadata + the lone "." first, then a \track per staff carrying its own
         // bar metadata (\ts/\ks). The lead pattern renders as dead notes (\x.3); both tracks span the same
         // master bars so the staves stay aligned. Bars-per-row is a JS display setting (display.barsPerRow).
-        List<string> leadBars = BuildLeadBars(song, rhythm, lead, feel, ts);
+        List<string> leadBars = BuildLeadBars(song, rhythm, lead, ts);
+        PrependTripletFeel(leadBars, tripletFeel);
 
         AppendScoreMetadata(sb, title, subtitle, tempo, opts, state.ChordDefinitions);
         AppendTrackHeader(sb, "Comping", "comp", ts, keySig);
@@ -97,10 +100,10 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     // an inline \ks only when the section key changes. The threaded state carries the ":N" duration and the
     // active chord label across section seams, and collects \chord diagram definitions for the header.
     private List<string> BuildCompingBars(
-        RealizedSong song, RhythmPattern rhythm, Feel feel, TimeSignature ts, Difficulty difficulty,
+        RealizedSong song, RhythmPattern rhythm, TimeSignature ts, Difficulty difficulty,
         RenderOptions opts, RenderState state)
     {
-        IReadOnlyList<IReadOnlyList<RhythmEvent>> feltBars = WarpBars(rhythm, feel, ts);
+        IReadOnlyList<IReadOnlyList<RhythmEvent>> patternBars = PatternEventBars(rhythm);
         RealizedSection first = song.Sections[0];
         var barLines = new List<string>();
 
@@ -127,7 +130,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
                 barLines.Add("\\ks " + NoteSpeller.KeySignatureToken(section.Key));
             }
 
-            RenderBars(section.Bars, feltBars, ts, difficulty, section.Key, opts, state, barLines);
+            RenderBars(section.Bars, patternBars, ts, difficulty, section.Key, opts, state, barLines);
             previousKey = section.Key;
         }
 
@@ -140,9 +143,9 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     // the ":N" duration for this track (alphaTex duration state does not carry across tracks). Inline \ks on
     // a key change mirrors the comping walk so the master bars line up.
     private List<string> BuildLeadBars(
-        RealizedSong song, RhythmPattern comping, RhythmPattern lead, Feel feel, TimeSignature ts)
+        RealizedSong song, RhythmPattern comping, RhythmPattern lead, TimeSignature ts)
     {
-        IReadOnlyList<IReadOnlyList<RhythmEvent>> leadFelt = WarpBars(lead, feel, ts);
+        IReadOnlyList<IReadOnlyList<RhythmEvent>> leadPatternBars = PatternEventBars(lead);
         RealizedSection first = song.Sections[0];
         var state = new RenderState();
         var barLines = new List<string>();
@@ -164,8 +167,8 @@ public sealed class AlphaTexRenderer : IScoreRenderer
 
             for (int i = 0; i < section.Bars.Count; i++)
             {
-                IReadOnlyList<RhythmEvent> feltEvents = leadFelt[i % leadFelt.Count];
-                IReadOnlyList<RhythmSlot> slots = RhythmQuantizer.Quantize(feltEvents, ts, Array.Empty<int>());
+                IReadOnlyList<RhythmEvent> barEvents = leadPatternBars[i % leadPatternBars.Count];
+                IReadOnlyList<RhythmSlot> slots = RhythmQuantizer.Quantize(barEvents, ts, Array.Empty<int>());
                 barLines.Add(RenderLeadBar(slots, state, allRests: false));
             }
 
@@ -248,11 +251,35 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         }
     }
 
-    // Warp every pattern bar by the groove feel once (identity for Straight). Returns one event list per
-    // PatternBar; the base pattern is never mutated (C4). RenderBars tiles these onto the progression.
-    private static IReadOnlyList<IReadOnlyList<RhythmEvent>> WarpBars(
-        RhythmPattern rhythm, Feel feel, TimeSignature ts) =>
-        rhythm.Bars.Select(b => FeelTransform.Apply(b.Events, feel, ts)).ToList();
+    // One event list per PatternBar — straight, never mutated (C4). Swing is delegated to alphaTab's native
+    // \tf directive (see PrependTripletFeel), so the engine no longer warps ticks here. RenderBars/
+    // RenderLeadBars tile these onto the progression.
+    private static IReadOnlyList<IReadOnlyList<RhythmEvent>> PatternEventBars(RhythmPattern rhythm) =>
+        rhythm.Bars.Select(b => b.Events).ToList();
+
+    // Prepend a single whole-song \tf to a track's first bar — bar metadata, ahead of the bar's :N/beats
+    // and any \ac pickup prefix. None emits nothing, so a straight song is byte-identical to pre-\tf output.
+    private static void PrependTripletFeel(List<string> bars, TripletFeel feel)
+    {
+        if (feel == TripletFeel.None || bars.Count == 0)
+        {
+            return;
+        }
+
+        bars[0] = $"\\tf {TripletFeelToken(feel)} " + bars[0];
+    }
+
+    // The alphaTex \tf ident for a feel (mirrors alphaTab's TripletFeel vocabulary).
+    private static string TripletFeelToken(TripletFeel feel) => feel switch
+    {
+        TripletFeel.Triplet8th => "triplet8th",
+        TripletFeel.Triplet16th => "triplet16th",
+        TripletFeel.Dotted8th => "dotted8th",
+        TripletFeel.Dotted16th => "dotted16th",
+        TripletFeel.Scottish8th => "scottish8th",
+        TripletFeel.Scottish16th => "scottish16th",
+        _ => "none",
+    };
 
     // Render a key-resolved run of bars, appending one line per bar. The per-bar logic (interior chord
     // boundaries → quantize → RenderBar) is shared verbatim by Render(Exercise) and Render(RealizedSong);

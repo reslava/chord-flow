@@ -21,11 +21,12 @@
 //     player: true,            // false = lite render-only (no soundfont, no transport)
 //     controls: "full",        // "full" | "mini" | "none"
 //     debugPanel: true,        // adds a collapsed editable alphaTex panel under the staff (default false)
+//     tripletFeel: true,       // adds a whole-song feel (swing) select to the transport (default false)
 //     options: { metronome:false, countIn:false, chordNames:false, diagrams:false, voicing:"byDifficulty" },
 //     onBeat:(bar,beat)=>…, onStateChange:(playing)=>…, onFinished:()=>…, onNeedsRerender:(ro)=>…,
 //   });
 //   view.load(tex, { tempo }); view.play(); view.stop(); view.setTempo(bpm);
-//   view.setOption("chordNames", true); view.getRenderOptions(); view.dispose();
+//   view.setOption("chordNames", true); view.getRenderOptions(); view.getTripletFeel(); view.dispose();
 "use strict";
 
 window.ChordFlowScore = (function () {
@@ -48,6 +49,15 @@ window.ChordFlowScore = (function () {
     voicing: "byDifficulty",
     autoLayout: false,       // false = honor the score's defaultSystemsLayout (fixed bars/row); true = fit to width
   };
+
+  // Triplet feel (swing) — a render/playback knob like tempo, delegated to alphaTab's \tf. Values are the C#
+  // TripletFeel enum names (the bridge parses them by name); only these three are wired today. Changing it is
+  // content-kind (the \tf line changes the alphaTex), so it re-renders via onNeedsRerender like a content toggle.
+  const TRIPLET_FEELS = [
+    { value: "None", label: "Straight" },
+    { value: "Triplet8th", label: "Triplet 8th (swing)" },
+    { value: "Triplet16th", label: "Triplet 16th" },
+  ];
 
   // Bars-per-row control. The score's authored `defaultSystemsLayout` only takes effect on multi-track scores
   // (and needs UseModelLayout), so it's unreliable as the single knob. `display.barsPerRow` on the Page layout
@@ -96,6 +106,8 @@ window.ChordFlowScore = (function () {
     const player = opts.player !== false;                 // default true
     const controls = opts.controls || (player ? "full" : "none");
     const debugPanel = !!opts.debugPanel;                 // opt-in alphaTex scratchpad, default off
+    const tripletFeelEnabled = !!opts.tripletFeel;        // opt-in feel select (Practice only), default off
+    let tripletFeel = "None";                             // current whole-song feel (C# TripletFeel name)
     const options = Object.assign({}, DEFAULT_OPTIONS, opts.options || {});
     const cb = {
       onBeat: opts.onBeat || function () {},
@@ -163,7 +175,7 @@ window.ChordFlowScore = (function () {
     });
 
     // Control refs, populated by buildControls when a strip is rendered.
-    const ui = { play: null, stop: null, tempo: null, soundFont: null, toggles: {} };
+    const ui = { play: null, stop: null, tempo: null, soundFont: null, tripletFeel: null, toggles: {} };
     // Debug-panel refs, populated by buildDebugPanel when debugPanel is on.
     const debugUi = { textarea: null, hint: null };
 
@@ -286,6 +298,15 @@ window.ChordFlowScore = (function () {
         const shown = ui.tempo ? parseInt(ui.tempo.value, 10) : NaN;
         return shown || baseTempo;
       },
+      // The current whole-song triplet feel (C# TripletFeel name). Tempo's twin — a component-owned value the
+      // consumer carries onto the next render request (kept OUT of getRenderOptions; it's a first-class param).
+      getTripletFeel() { return tripletFeel; },
+      // Set the feel and ask the consumer to re-render: the \tf line changes the alphaTex, so this is
+      // content-kind (harmony unchanged → a cheap re-emit, not a regenerate).
+      setTripletFeel(value) {
+        tripletFeel = value;
+        cb.onNeedsRerender(handle.getRenderOptions());
+      },
       dispose() {
         disposed = true;   // a late soundFontsListed fan-out must not touch a destroyed api
         try { api.destroy(); } catch (_) { /* already torn down */ }
@@ -343,7 +364,7 @@ window.ChordFlowScore = (function () {
       return panel;
     }
 
-    const strip = buildControls(player, controls, options, handle, ui);
+    const strip = buildControls(player, controls, options, handle, ui, tripletFeelEnabled);
     if (strip) container.appendChild(strip);
     container.appendChild(surface);
     if (debugPanel) container.appendChild(buildDebugPanel());
@@ -391,7 +412,7 @@ window.ChordFlowScore = (function () {
 
   // Build the control strip per profile. Transport + player-kind toggles need the player; content-kind
   // toggles render only in the "full" profile. Returns null when nothing is rendered (mini render-only / none).
-  function buildControls(player, controls, options, handle, ui) {
+  function buildControls(player, controls, options, handle, ui, tripletFeelEnabled) {
     if (controls === "none") return null;
 
     const strip = document.createElement("div");
@@ -416,6 +437,10 @@ window.ChordFlowScore = (function () {
         if (bpm) handle.setTempo(bpm);
       });
       strip.append(tempoLabel, ui.tempo, span("BPM"));
+    }
+
+    if (tripletFeelEnabled) {
+      strip.append(tripletFeelPicker(handle, ui));
     }
 
     if (player && controls === "full") {
@@ -464,6 +489,26 @@ window.ChordFlowScore = (function () {
     input.addEventListener("change", () => handle.setOption(name, input.checked));
     wrap.append(input, document.createTextNode(" " + label));
     ui.toggles[name] = input;
+    return wrap;
+  }
+
+  // The triplet-feel (swing) picker. Content-kind: a change re-renders via handle.setTripletFeel. Values are
+  // the C# TripletFeel enum names; the consumer reads the choice with handle.getTripletFeel().
+  function tripletFeelPicker(handle, ui) {
+    const wrap = document.createElement("label");
+    wrap.className = "cf-toggle";
+    const select = document.createElement("select");
+    select.className = "cf-feel";
+    for (const f of TRIPLET_FEELS) {
+      const o = document.createElement("option");
+      o.value = f.value;
+      o.textContent = f.label;
+      select.appendChild(o);
+    }
+    select.value = handle.getTripletFeel();
+    select.addEventListener("change", () => handle.setTripletFeel(select.value));
+    wrap.append(document.createTextNode("Feel "), select);
+    ui.tripletFeel = select;
     return wrap;
   }
 

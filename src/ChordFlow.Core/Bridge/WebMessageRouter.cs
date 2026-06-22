@@ -13,7 +13,7 @@ namespace ChordFlow.Bridge;
 /// </summary>
 public sealed record GenerateRequest(
     string HarmonyEntity, string HarmonyId, string CompingPatternId, string? LeadPatternId,
-    int? KeyPitchClass, int Tempo, Difficulty Difficulty, Feel Feel);
+    int? KeyPitchClass, int Tempo, Difficulty Difficulty, TripletFeel TripletFeel);
 
 /// <summary>
 /// Parses inbound JSON envelopes from the WebView (JS→C#) and raises typed
@@ -71,8 +71,8 @@ public sealed class WebMessageRouter
     /// <summary>Open one content definition for editing — <c>(entity, id)</c>.</summary>
     public event Action<string, string>? EntityGetRequested;
 
-    /// <summary>Live-preview an unsaved content DSL — <c>(entity, dsl, renderOptions)</c>.</summary>
-    public event Action<string, string, RenderOptions>? EntityPreviewRequested;
+    /// <summary>Live-preview an unsaved content DSL — <c>(entity, dsl, renderOptions, tripletFeel)</c>.</summary>
+    public event Action<string, string, RenderOptions, TripletFeel>? EntityPreviewRequested;
 
     /// <summary>Create/update a content definition — <c>(entity, id?, name, dsl)</c> (null id = create).</summary>
     public event Action<string, string?, string, string>? EntitySaveRequested;
@@ -136,7 +136,7 @@ public sealed class WebMessageRouter
                         envelope.KeyPitchClass,
                         envelope.Tempo ?? 80,
                         ParseEnum(envelope.Difficulty, Difficulty.Beginner),
-                        ParseEnum(envelope.Feel, Feel.Straight)),
+                        ParseEnum(envelope.TripletFeel, TripletFeel.None)),
                     ToRenderOptions(envelope.RenderOptions));
                 break;
             case "play":
@@ -181,7 +181,7 @@ public sealed class WebMessageRouter
             case "entityPreview":
                 if (envelope.Entity is { } prevEntity && envelope.Dsl is { } prevDsl)
                 {
-                    EntityPreviewRequested?.Invoke(prevEntity, prevDsl, ToRenderOptions(envelope.RenderOptions));
+                    EntityPreviewRequested?.Invoke(prevEntity, prevDsl, ToRenderOptions(envelope.RenderOptions), ParseEnum(envelope.TripletFeel, TripletFeel.None));
                 }
                 break;
             case "entitySave":
@@ -249,7 +249,7 @@ public sealed class WebMessageRouter
             ? strategy
             : VoicingStrategy.ByDifficulty;
 
-    // Parse a string enum param (Difficulty/Feel) case-insensitively; an absent or unrecognized value falls
+    // Parse a string enum param (Difficulty/TripletFeel) case-insensitively; an absent or unrecognized value falls
     // back to the supplied default (forward-compatible — a new value the host doesn't know is ignored).
     private static T ParseEnum<T>(string? value, T fallback) where T : struct, Enum =>
         Enum.TryParse(value, ignoreCase: true, out T parsed) && Enum.IsDefined(parsed) ? parsed : fallback;
@@ -257,10 +257,10 @@ public sealed class WebMessageRouter
     private sealed record InboundEnvelope(
         string? Type, int? Bar, int? Beat, int? Id,
         // generate references + params: a song/progression harmony discriminator + id, the comping pattern id,
-        // an optional lead pattern id, the chosen key (null → the Song's own key), tempo, and the Difficulty/Feel
+        // an optional lead pattern id, the chosen key (null → the Song's own key), tempo, and the Difficulty/TripletFeel
         // param values (enum names). KeyPitchClass/Tempo are reused by setTempo's Bpm sibling below.
         string? HarmonyEntity, string? HarmonyId, string? CompingPatternId, string? LeadPatternId,
-        int? KeyPitchClass, int? Tempo, string? Difficulty, string? Feel, int? Bpm,
+        int? KeyPitchClass, int? Tempo, string? Difficulty, string? TripletFeel, int? Bpm,
         // Content-CRUD fields: Entity discriminator, the string content id (distinct from the int Id used by
         // loadExercise), and the editor's Name/Dsl payload.
         string? Entity, string? EntityId, string? Name, string? Dsl,

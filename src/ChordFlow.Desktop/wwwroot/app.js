@@ -1,7 +1,7 @@
 // ChordFlow Practice view.
 //
 // Owns the Practice builder UI (definition pickers — harmony/comping/lead — sourced from the content stores
-// via the entity* bridge, plus the key/difficulty/feel param pickers), and hosts the shared ChordFlowScore
+// via the entity* bridge, plus the key/difficulty param pickers; feel lives on the score transport), and hosts the shared ChordFlowScore
 // render component (score-render-component.js) for notation + playback. The component owns alphaTab and the
 // transport strip (Play/Stop/Tempo + toggles); this view only feeds it alphaTex and wires its callbacks.
 //
@@ -21,9 +21,10 @@ const ChordFlow = (function () {
   // Key names per tonic pitch class (0 = C .. 11 = B), spelled to match the renderer's \ks. Key picker only.
   const KEY_NAMES = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
 
-  // Param enums — stable Domain enums (Difficulty / Feel); enumerated here rather than over a bridge.
+  // Param enums — stable Domain enums; enumerated here rather than over a bridge. Triplet feel (swing) is NOT
+  // here: it's a render/playback knob owned by the ChordFlowScore component (its transport), carried onto the
+  // render request via view.getTripletFeel() — see selections() and onNeedsRerender.
   const DIFFICULTIES = ["Beginner", "Intermediate", "Advanced"];
-  const FEELS = ["Straight", "Swing", "Shuffle", "Triplet"];
 
   // The boot definition the host renders on ready (12-bar blues, Bb, Beats 1 & 3). Mirrored here as the
   // generate-envelope defaults so an early content-toggle replay (before the catalog loads) is still valid.
@@ -31,7 +32,7 @@ const ChordFlow = (function () {
     type: "generate",
     harmonyEntity: "progression", harmonyId: "12bar_blues",
     compingPatternId: "beat_1_3", leadPatternId: null,
-    keyPitchClass: 10, tempo: 80, difficulty: "Beginner", feel: "Straight",
+    keyPitchClass: 10, tempo: 80, difficulty: "Beginner", tripletFeel: "None",
   };
 
   // Browser-dev fallback only — in the app the host pushes the real score.
@@ -85,11 +86,11 @@ const ChordFlow = (function () {
     sel.value = values.includes(prev) ? prev : (values.includes(fallbackValue) ? fallbackValue : (values[0] ?? ""));
   }
 
-  // The static param pickers (key/difficulty/feel) — built once. Harmony/comping/lead come from the catalog.
+  // The static param pickers (key/difficulty) — built once. Harmony/comping/lead come from the catalog; feel
+  // lives on the score component's transport.
   function populateStaticPickers() {
     fillSelect($("key"), KEY_NAMES.map((name, pc) => ({ value: String(pc), label: name })), "10"); // Bb default
     fillSelect($("difficulty"), DIFFICULTIES.map((d) => ({ value: d, label: d })), "Beginner");
-    fillSelect($("feel"), FEELS.map((f) => ({ value: f, label: f })), "Straight");
   }
 
   // Rebuild the harmony picker from songs + progressions; each option's value is "<entity>:<id>" so generate
@@ -140,7 +141,7 @@ const ChordFlow = (function () {
       keyPitchClass: parseInt($("key").value, 10) || 0,
       tempo: view ? view.getTempo() : 80,
       difficulty: $("difficulty").value || "Beginner",
-      feel: $("feel").value || "Straight",
+      tripletFeel: view ? view.getTripletFeel() : "None",
     };
   }
 
@@ -316,11 +317,14 @@ const ChordFlow = (function () {
       player: true,
       controls: "full",
       debugPanel: true,   // the alphaTex scratchpad lives on the score component now (replaces the Debug view)
+      tripletFeel: true,  // the whole-song feel (swing) select lives on the transport — see getTripletFeel()
       onBeat: (bar, beat) => { if (Bridge.available) Bridge.send({ type: "beatChanged", bar, beat }); },
       onFinished: () => { if (Bridge.available) Bridge.send({ type: "playbackFinished" }); },
       onNeedsRerender: (renderOptions) => {
         if (Bridge.available && lastScoreRequest) {
-          Bridge.send({ ...lastScoreRequest, renderOptions });
+          // Carry the component's current feel too (a feel change routes through here) — it's a first-class
+          // request param, not a renderOption.
+          Bridge.send({ ...lastScoreRequest, tripletFeel: view.getTripletFeel(), renderOptions });
         }
       },
     });

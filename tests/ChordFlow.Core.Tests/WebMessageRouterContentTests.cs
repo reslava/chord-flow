@@ -42,11 +42,23 @@ public class WebMessageRouterContentTests
     {
         var router = new WebMessageRouter();
         (string Entity, string Dsl)? got = null;
-        router.EntityPreviewRequested += (e, dsl, _) => got = (e, dsl);
+        router.EntityPreviewRequested += (e, dsl, _, _) => got = (e, dsl);
 
         router.Dispatch("""{"type":"entityPreview","entity":"rhythm","dsl":"X...X...X...X..."}""");
 
         Assert.Equal(("rhythm", "X...X...X...X..."), got);
+    }
+
+    [Fact]
+    public void EntityPreview_CarriesTripletFeel()
+    {
+        var router = new WebMessageRouter();
+        TripletFeel got = TripletFeel.None;
+        router.EntityPreviewRequested += (_, _, _, feel) => got = feel;
+
+        router.Dispatch("""{"type":"entityPreview","entity":"progression","dsl":"1 4 5","tripletFeel":"Triplet8th"}""");
+
+        Assert.Equal(TripletFeel.Triplet8th, got);
     }
 
     [Fact]
@@ -98,7 +110,7 @@ public class WebMessageRouterContentTests
 
         router.Dispatch("""
             {"type":"generate","harmonyEntity":"song","harmonyId":"blues_song_demo","compingPatternId":"beat_1_3",
-             "leadPatternId":"quarters","keyPitchClass":7,"tempo":90,"difficulty":"Intermediate","feel":"Swing"}
+             "leadPatternId":"quarters","keyPitchClass":7,"tempo":90,"difficulty":"Intermediate","tripletFeel":"Triplet8th"}
             """);
 
         Assert.NotNull(got);
@@ -109,7 +121,7 @@ public class WebMessageRouterContentTests
         Assert.Equal(7, got.KeyPitchClass);
         Assert.Equal(90, got.Tempo);
         Assert.Equal(Difficulty.Intermediate, got.Difficulty);
-        Assert.Equal(Feel.Swing, got.Feel);
+        Assert.Equal(TripletFeel.Triplet8th, got.TripletFeel);
     }
 
     [Fact]
@@ -126,7 +138,7 @@ public class WebMessageRouterContentTests
         Assert.Null(got.LeadPatternId);                     // no lead
         Assert.Equal(80, got.Tempo);                        // default tempo
         Assert.Equal(Difficulty.Beginner, got.Difficulty);  // default param
-        Assert.Equal(Feel.Straight, got.Feel);
+        Assert.Equal(TripletFeel.None, got.TripletFeel);
     }
 
     [Fact]
@@ -165,7 +177,7 @@ public class WebMessageRouterContentTests
     {
         var router = new WebMessageRouter();
         RenderOptions? got = null;
-        router.EntityPreviewRequested += (_, _, opts) => got = opts;
+        router.EntityPreviewRequested += (_, _, opts, _) => got = opts;
 
         router.Dispatch("""{"type":"entityPreview","entity":"progression","dsl":"1 4 5 1","renderOptions":{"showChordNames":true}}""");
 

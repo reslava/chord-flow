@@ -5,7 +5,7 @@ title: ChordFlow DSL
 status: active
 created: 2026-06-10
 updated: 2026-06-22
-version: 13
+version: 15
 tags: []
 parent_id: null
 requires_load: []
@@ -231,7 +231,7 @@ Intro, two verses (the 12-bar blues), then up a fifth for the chorus and a final
 
 ### Notes
 
-- A Song is pure harmony + arrangement. Rhythm, tempo, difficulty, and feel are chosen at **play** time (the same way a progression becomes a practice exercise) — so one Song works across many rhythm settings.
+- A Song is pure harmony + arrangement. Rhythm, tempo, difficulty, and **triplet feel (swing)** are chosen at **play** time (the same way a progression becomes a practice exercise) — so one Song works across many rhythm settings. There is **no feel/swing token** in the Progression, Song, or Rhythm grammar: swing is a play-time render setting (it becomes alphaTab's `\tf`), never written into the content.
 - Modulations never change the underlying progression; they only change the **key it's realized in** from that point onward.
 
 ---
@@ -306,6 +306,7 @@ Triplet beats (`:3`, `:6`) render as proper tuplets — the notation shows the `
 ### What you can't do yet
 
 - **No accent or stroke** inside the grid — those are overlays applied at play time (a pattern is timing only).
+- **No feel / swing** in the grid — triplet feel is a **play-time** setting (it becomes alphaTab's `\tf`), never written into a pattern; a straight pattern *plays* swung when you choose a swing feel. (For an explicit triplet *figure* — three attacks, or an attack on the middle slot — use a `:3` triplet beat; the swing pair `:3 X.X` is what a feel produces for you.)
 - **`*`** (a "hold/extend" sugar glyph) is reserved but not implemented — use `.` sustains.
 - **Ties and dotted-note tokens** beyond what the sustain rule yields are not emitted; a pattern that would require an explicit tie is rejected.
 

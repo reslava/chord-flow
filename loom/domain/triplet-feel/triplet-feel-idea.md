@@ -2,9 +2,10 @@
 type: idea
 id: id_01KVQGK9R3CNMJZRZVN3V65SJB
 title: Triplet Feel (\tf) — span/song-level swing
-status: draft
+status: done
 created: 2026-06-22
-version: 1
+updated: 2026-06-22
+version: 2
 tags: []
 parent_id: null
 requires_load: []

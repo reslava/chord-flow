@@ -95,7 +95,7 @@ public sealed class ContentCrudHandler
     }
 
     /// <summary>Render a live preview of an unsaved DSL. Any failure throws <see cref="FormatException"/> (IN3).</summary>
-    public EntityPreviewEnvelope Preview(string entity, string dsl, RenderOptions? options = null)
+    public EntityPreviewEnvelope Preview(string entity, string dsl, RenderOptions? options = null, TripletFeel tripletFeel = TripletFeel.None)
     {
         ContentEntity kind = ContentEntities.Parse(entity);
         ArgumentNullException.ThrowIfNull(dsl);
@@ -106,9 +106,9 @@ public sealed class ContentCrudHandler
             using var db = new ChordFlowDbContext(_dbOptions);
             return kind switch
             {
-                ContentEntity.Progression => ScorePreview(entity, ProgressionPreview(dsl), db, opts),
-                ContentEntity.Rhythm => ScorePreview(entity, RhythmPreview(dsl), db, opts),
-                ContentEntity.Song => SongPreview(entity, dsl, db, opts),
+                ContentEntity.Progression => ScorePreview(entity, ProgressionPreview(dsl, tripletFeel), db, opts),
+                ContentEntity.Rhythm => ScorePreview(entity, RhythmPreview(dsl, tripletFeel), db, opts),
+                ContentEntity.Song => SongPreview(entity, dsl, db, opts, tripletFeel),
                 ContentEntity.Voicing => VoicingPreview(entity, dsl),
                 _ => throw new FormatException($"Cannot preview entity \"{entity}\"."),
             };
@@ -129,29 +129,29 @@ public sealed class ContentCrudHandler
     private EntityPreviewEnvelope ScorePreview(string entity, Exercise exercise, ChordFlowDbContext db, RenderOptions options) =>
         new(entity, "score", ExerciseRendering.RenderToTex(exercise, new ProgressionStore(db), _renderer, options), exercise.Tempo);
 
-    private static Exercise ProgressionPreview(string dsl)
+    private static Exercise ProgressionPreview(string dsl, TripletFeel tripletFeel)
     {
         Progression progression = ProgressionParser.Parse("preview", "Preview", dsl, TimeSignature.FourFour);
         return new Exercise(
             Song.OfProgression(progression, PreviewKey), SeedData.Quarters, Lead: null, KeyOverride: null,
-            PreviewTempo, Difficulty.Beginner);
+            PreviewTempo, Difficulty.Beginner, tripletFeel);
     }
 
-    private static Exercise RhythmPreview(string dsl)
+    private static Exercise RhythmPreview(string dsl, TripletFeel tripletFeel)
     {
         // Preview a bare rhythm on a single I chord so the focus is the timing, not the harmony.
         Progression oneChord = ProgressionParser.Parse("preview", "Preview", "1", TimeSignature.FourFour);
         RhythmPattern rhythm = RhythmPatternParser.Parse("preview", "Preview", dsl, TimeSignature.FourFour);
         return new Exercise(
             Song.OfProgression(oneChord, PreviewKey), rhythm, Lead: null, KeyOverride: null,
-            PreviewTempo, Difficulty.Beginner);
+            PreviewTempo, Difficulty.Beginner, tripletFeel);
     }
 
-    private EntityPreviewEnvelope SongPreview(string entity, string dsl, ChordFlowDbContext db, RenderOptions options)
+    private EntityPreviewEnvelope SongPreview(string entity, string dsl, ChordFlowDbContext db, RenderOptions options, TripletFeel tripletFeel)
     {
         Song song = SongParser.Parse("preview", "Preview", dsl, TimeSignature.FourFour);
         RealizedSong realized = SongExpander.Expand(song, new ProgressionStore(db));
-        string tex = _renderer.Render(realized, SeedData.Quarters, PreviewTempo, Difficulty.Beginner, options: options);
+        string tex = _renderer.Render(realized, SeedData.Quarters, PreviewTempo, Difficulty.Beginner, tripletFeel, options: options);
         return new EntityPreviewEnvelope(entity, "score", tex, PreviewTempo);
     }
 

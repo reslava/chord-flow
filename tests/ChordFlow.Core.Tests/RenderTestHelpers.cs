@@ -18,12 +18,12 @@ internal static class RenderTestHelpers
 {
     public static string RenderProgression(
         this AlphaTexRenderer renderer, Key key, Progression progression, RhythmPattern rhythm, int tempo,
-        Difficulty difficulty, Feel feel = Feel.Straight, RenderOptions? options = null)
+        Difficulty difficulty, TripletFeel tripletFeel = TripletFeel.None, RenderOptions? options = null)
     {
         var realized = new RealizedSong(new[]
         {
             new RealizedSection(progression.Name, key, Transposer.RealizeBars(progression, key)),
         });
-        return renderer.Render(realized, rhythm, tempo, difficulty, feel, options: options);
+        return renderer.Render(realized, rhythm, tempo, difficulty, tripletFeel, options: options);
     }
 }

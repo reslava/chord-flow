@@ -38,7 +38,7 @@ public class GenerateExerciseTests
 
         Exercise ex = handler.Build(
             db, "progression", "12bar_blues", "beat_1_3", leadPatternId: null,
-            keyPitchClass: 10, tempo: 80, Difficulty.Beginner, Feel.Straight);
+            keyPitchClass: 10, tempo: 80, Difficulty.Beginner, TripletFeel.None);
 
         Assert.Equal("12bar_blues", ex.Song.Id);                 // bare progression lifted to a Song
         Assert.Equal("beat_1_3", ex.Comping.Id);
@@ -55,12 +55,12 @@ public class GenerateExerciseTests
 
         Exercise ex = handler.Build(
             db, "song", "blues_song_demo", "beat_1_3", leadPatternId: "quarters",
-            keyPitchClass: null, tempo: 90, Difficulty.Intermediate, Feel.Swing);
+            keyPitchClass: null, tempo: 90, Difficulty.Intermediate, TripletFeel.Triplet8th);
 
         Assert.Equal("blues_song_demo", ex.Song.Id);
         Assert.Equal("quarters", ex.Lead?.Id);                   // optional lead resolved
         Assert.Null(ex.KeyOverride);                             // absent key → the Song's own InitialKey
-        Assert.Equal(Feel.Swing, ex.Feel);
+        Assert.Equal(TripletFeel.Triplet8th, ex.TripletFeel);
     }
 
     [Fact]
@@ -72,6 +72,6 @@ public class GenerateExerciseTests
 
         Assert.Throws<InvalidOperationException>(() => handler.Build(
             db, "progression", "does_not_exist", "beat_1_3", leadPatternId: null,
-            keyPitchClass: 0, tempo: 80, Difficulty.Beginner, Feel.Straight));
+            keyPitchClass: 0, tempo: 80, Difficulty.Beginner, TripletFeel.None));
     }
 }

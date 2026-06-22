@@ -5,7 +5,7 @@ title: alphaTex Syntax Reference
 status: active
 created: 2026-06-07
 updated: 2026-06-22
-version: 8
+version: 10
 tags: []
 parent_id: null
 requires_load: []
@@ -90,6 +90,28 @@ ChordFlow emits `\ac` as a prefix on the leading **pickup bar** only (when a `Pi
 \ac :4 r |                 ← lead pickup, rests (the lead doesn't play during the anacrusis in v1)
 ```
 
+## Triplet feel (swing) — `\tf`
+
+**`\tf <value>`** — bar metadata that sets the **triplet feel** (aka. swing) play style for the bar **and every bar after it, until the next `\tf` or the song end**. It swings both **rendering and playback** natively (alphaTab owns the long-short groove), so straight 8ths written in the score read and play swung — no need to hand-author the warp. Verified 2026-06-22 against the [bar-metadata `#tf`](https://www.alphatab.net/docs/alphatex/bar-metadata#tf) docs.
+
+Values (`Ident | Number`). ChordFlow emits the lowercase ident; wired today are the first three:
+
+| Value | Meaning |
+|-------|---------|
+| `none` | no triplet feel (even) — ChordFlow emits **no** `\tf` for this |
+| `triplet8th` | triplet-8th swing — a straight 8th pair plays as 2/3 + 1/3 of the beat (≡ a `:3 X.X` triplet) |
+| `triplet16th` | triplet-16th swing — the same shape at the 16th level |
+| `dotted8th` / `dotted16th` / `scottish8th` / `scottish16th` | reserved (defined in the engine, not yet emitted) |
+
+- Placed at the **start of the bar's content**, before the stateful `:N`/beats (bar-level, like `\ts`/`\ks`/`\ac`). For a whole-song feel ChordFlow emits it **once on the first bar of each track**.
+- **Composes with `{tu}` beat tuplets — not mutually exclusive.** `\tf` only reshapes straight 8th/16th *pairs*; an explicit `:3` triplet beat is already a tuplet (no straight pair to warp), so `\tf` leaves it alone. In one bar, plain-8th beats swing while `:3` beats render as authored — no double-swing.
+
+```
+\tf triplet8th :2 (1.5 0.4 1.3) (1.5 0.4 1.3) |   ← whole-song swing on the first bar; plain 8ths play swung
+```
+
+ChordFlow emits `\tf` only when the chosen `TripletFeel` ≠ `None` (a straight song emits no directive — byte-identical to the un-swung output).
+
 ## Chord names & diagrams
 
 Verified 2026-06-15 against the alphaTab docs ([score-metadata](https://www.alphatab.net/docs/alphatex/score-metadata#chorddiagramsinscore), [Chord model](https://www.alphatab.net/docs/reference/types/model/chord/)) and confirmed in the running app. **`\chordDiagramsInScore` and `\chord` are score-metadata directives — they go in the header, before the lone `.`, NOT inline in the music** (inline `\chord` is silently ignored — names show, diagrams don't). Canonical shape:
@@ -138,6 +160,7 @@ A "beats 1 & 3" bar in 4/4 = four quarters: chord, rest, chord, rest. Frets belo
 | `RenderOptions.ShowChordNames` | `{ch "Name"}` at each chord change + `\chordDiagramsInScore false` |
 | `RenderOptions.ShowChordDiagrams` | `\chordDiagramsInScore true` + inline `\chord ("Name" f1…f6)` (once) + `{ch "Name"}` |
 | `PickupMeasure` (anacrusis) | `\ac` prefixing the leading pickup bar (both tracks) |
+| `Exercise.TripletFeel` (≠ `None`) | `\tf <ident>` on the first bar of each track (whole-song swing) |
 
 ## Sources
 - https://www.alphatab.net/docs/alphatex/introduction

@@ -29,6 +29,6 @@ public sealed class SwappableRenderer : IScoreRenderer
         _inner = inner;
     }
 
-    public string Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, Feel feel = Feel.Straight, RhythmPattern? lead = null, RenderOptions? options = null) =>
-        _inner.Render(song, rhythm, tempo, difficulty, feel, lead, options);
+    public string Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, RenderOptions? options = null) =>
+        _inner.Render(song, rhythm, tempo, difficulty, tripletFeel, lead, options);
 }

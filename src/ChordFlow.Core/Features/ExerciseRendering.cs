@@ -29,7 +29,7 @@ public static class ExerciseRendering
         Key baseKey = exercise.KeyOverride ?? exercise.Song.InitialKey;
         RealizedSong realized = SongExpander.Expand(exercise.Song, store, startKey: baseKey);
         return renderer.Render(
-            realized, exercise.Comping, exercise.Tempo, exercise.Difficulty, exercise.Feel,
+            realized, exercise.Comping, exercise.Tempo, exercise.Difficulty, exercise.TripletFeel,
             lead: exercise.Lead, options: options);
     }
 }

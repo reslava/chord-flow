@@ -21,5 +21,5 @@ public interface IScoreRenderer
     /// </summary>
     /// <param name="lead">Optional lead-guitar pattern; <c>null</c> ⇒ single-track output (no lead staff).</param>
     /// <param name="options">Render-time presentation options; <c>null</c> ⇒ <see cref="RenderOptions.Default"/> (today's render).</param>
-    string Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, Feel feel = Feel.Straight, RhythmPattern? lead = null, RenderOptions? options = null);
+    string Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, RenderOptions? options = null);
 }

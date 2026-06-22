@@ -47,10 +47,10 @@ public sealed class ChordFlowDbContext : DbContext
         modelBuilder.Entity<ExerciseEntity>(e =>
         {
             e.HasKey(x => x.Id);
-            // Store the enums by name (Difficulty: Beginner/…, Feel: Straight/…) — readable in the DB
-            // and stable if numeric values shift later.
+            // Store the enums by name (Difficulty: Beginner/…, TripletFeel: None/Triplet8th/…) — readable
+            // in the DB and stable if numeric values shift later.
             e.Property(x => x.Difficulty).HasConversion<string>();
-            e.Property(x => x.Feel).HasConversion<string>();
+            e.Property(x => x.TripletFeel).HasConversion<string>();
             e.HasMany(x => x.PracticeRecords)
                 .WithOne(r => r.Exercise!)
                 .HasForeignKey(r => r.ExerciseId)

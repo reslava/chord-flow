@@ -35,8 +35,8 @@ public sealed class ExerciseEntity
     /// <summary>Difficulty level (stored as its name, e.g. <c>Beginner</c>).</summary>
     public Difficulty Difficulty { get; set; }
 
-    /// <summary>Groove feel (stored as its name, e.g. <c>Straight</c>).</summary>
-    public Feel Feel { get; set; }
+    /// <summary>Triplet feel / swing (stored as its name, e.g. <c>None</c>, <c>Triplet8th</c>).</summary>
+    public TripletFeel TripletFeel { get; set; }
 
     /// <summary>When this definition was first saved (UTC).</summary>
     public DateTime CreatedUtc { get; set; }

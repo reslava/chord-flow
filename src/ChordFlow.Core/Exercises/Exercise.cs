@@ -12,13 +12,13 @@ namespace ChordFlow.Exercises;
 /// <see cref="Comping"/> rhythm-guitar pattern, and an optional <see cref="Lead"/> pattern (v1 renders
 /// as dead notes). Params are values with saved defaults: <see cref="KeyOverride"/> (null →
 /// <see cref="Song.InitialKey"/>; else a global transpose), <see cref="Tempo"/>,
-/// <see cref="Difficulty"/>, and groove <see cref="Feel"/>.
+/// <see cref="Difficulty"/>, and groove <see cref="TripletFeel"/>.
 /// <para>
 /// Realization is the single path <see cref="SongExpander.Expand"/> → <c>RealizedSong</c> →
 /// <c>AlphaTexRenderer.Render(RealizedSong, …)</c>; the expansion (the one I/O seam, needs the
 /// <see cref="IProgressionStore"/>) lives in the Features layer, never the renderer (decision (a)).
-/// Pure/immutable, no I/O (C3). <see cref="Feel"/> is a render-time transform, never baked into the
-/// pattern.
+/// Pure/immutable, no I/O (C3). <see cref="TripletFeel"/> is a play-time choice delegated to alphaTab's
+/// <c>\tf</c> directive at render, never baked into the pattern.
 /// </para>
 /// </summary>
 public sealed record Exercise(
@@ -31,4 +31,4 @@ public sealed record Exercise(
     Key? KeyOverride,
     int Tempo,
     Difficulty Difficulty,
-    Feel Feel = Feel.Straight);
+    TripletFeel TripletFeel = TripletFeel.None);
