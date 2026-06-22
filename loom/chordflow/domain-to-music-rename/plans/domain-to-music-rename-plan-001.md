@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVP2BZJANXQR4TD9DQ4DVECH
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.10.0
 steps:
   - id: move-kernel-files-into-the-music
     order: 1

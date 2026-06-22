@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVR89QNHC6NE2XHTJ6EM9MDQ
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.10.0
 steps:
   - id: tripletfeel-enum-propagate-the-c-rename
     order: 1

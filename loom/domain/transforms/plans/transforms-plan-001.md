@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVQ23HY2X7VM6JY2S51F0NCH
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.10.0
 steps:
   - id: transform-contract-take
     order: 1

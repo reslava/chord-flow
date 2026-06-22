@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVQK4VV6C4YHS2N04PMGFSC6
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.10.0
 steps:
   - id: debugpanel-in-score-render-component-js
     order: 1

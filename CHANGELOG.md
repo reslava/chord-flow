@@ -6,7 +6,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-06-22
+
+Swing arrives. ChordFlow gains a whole-song **triplet feel** — pick a swing in the score transport
+and the notation *reads* and plays swung, delegated to alphaTab's native `\tf` (no more straight-looking
+8ths that merely play swung). Plus an editable **alphaTex debug panel** on the shared score component,
+true **pickup (anacrusis)** rendering, a **maj7** beginner voicing, and the first **progression
+transform** (`@take`). Under the hood the music kernel was renamed `Domain → Music`.
+
+### Added
+- **Progression transforms (slice 1) — `@take(n)`.** A Song play-line can now rewrite its progression
+  before it's realized: `head @take(4)` drills just the first 4 bars. The `IProgressionTransform` seam
+  and the `@op` play-line grammar (composable, in either order with `x<n>`) are in place; `@take` is the
+  first transform (`@repeat` stays reserved — `x<n>` already covers it).
+- **Editable alphaTex debug panel** on the shared `ChordFlowScore` component — an opt-in, collapsed
+  scratchpad showing the tex the staff last rendered, with *Render from alphaTex* (re-renders edits
+  locally via `api.tex`, bypassing C#) and *Reload from engine*; dirty-state preserves edits against host
+  re-renders. Available on every score page (Practice + Content preview); retires the standalone Debug view.
+- **maj7 beginner shell voicing** — the beginner shell strategy now covers Major 7th alongside Dominant 7th
+  / Minor 7th, so maj7 standards (e.g. a ii–V–Imaj7) render end-to-end instead of throwing.
+
 ### Changed
+- **Whole-song triplet feel (swing) via alphaTab `\tf`.** The `Feel` model became **`TripletFeel`**
+  (alphaTab's vocabulary — `None` / `Triplet8th` / `Triplet16th` wired, the dotted/Scottish feels
+  reserved). Swing is now **delegated to alphaTab's native `\tf` directive** instead of a self-computed
+  tick warp, so the score *reads* swung, not just plays swung. The feel control moved out of the Practice
+  builder into the **score transport** (and the Content preview), where changing it is a cheap re-render
+  — feel stays a play-time choice, never baked into content. (`FeelTransform` is retained, unused, for the
+  future MIDI/GuitarPro export seam.)
+- **Pickup bars render as a true anacrusis (`\ac`).** A leading `PickupMeasure` now emits `\ac` on both
+  the comping and lead tracks, so alphaTab draws a real incomplete pickup instead of an illegal/padded
+  full bar. (Known limit: alphaTab still numbers the pickup as bar 1 — alphaTex exposes no directive to
+  renumber.)
 - **`Domain` kernel renamed to `Music` and split into concept-named flat siblings.** The single
   `ChordFlow.Domain` namespace / `Domain/` folder became `ChordFlow.Music.{Harmony,Rhythm,Melody,
   Progressions,Songs}`, with the non-theory practice types moved to `ChordFlow.Exercises`
@@ -14,6 +45,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   now locked in by `NetArchTest` layering tests: `Harmony`/`Rhythm` are sinks and the `Music.*`
   namespaces form an acyclic DAG (`Transposer` moved to `Progressions` so `Harmony` depends on
   nothing). The instrument-boundary test was retargeted from `ChordFlow.Domain` to `ChordFlow.Music`.
+
+### Tests
+- Full `ChordFlow.Core` xUnit suite green (635).
 
 ## [0.9.0] — 2026-06-21
 
@@ -356,6 +390,7 @@ as tablature, and plays it back with a synchronized beat cursor.
   the next phase).
 - No audio-input accuracy detection (out of scope for v1).
 
+[0.10.0]: https://github.com/reslava/chord-flow/releases/tag/v0.10.0
 [0.9.0]: https://github.com/reslava/chord-flow/releases/tag/v0.9.0
 [0.8.0]: https://github.com/reslava/chord-flow/releases/tag/v0.8.0
 [0.7.0]: https://github.com/reslava/chord-flow/releases/tag/v0.7.0

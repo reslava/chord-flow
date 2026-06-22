@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVQ4HM9ZV5SSRR86P1TGZ9H2
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.10.0
 steps:
   - id: emit-ac-on-both-pickup-bars
     order: 1
