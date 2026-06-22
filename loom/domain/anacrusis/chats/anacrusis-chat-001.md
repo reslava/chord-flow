@@ -9,7 +9,7 @@ version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 10
+last_ai_block: 12
 ---
 # anacrusis Chat
 
@@ -229,3 +229,23 @@ commit
 
 (2) capture those two ideas as threads now
 
+## AI:
+
+All done — gap recorded, plan closed, ideas captured, committed.
+
+**Gap reflected (the bar-1 limitation):**
+- `req.md` v2 → new constraint **`C6`** (known limitation, accepted) and `IN6` re-scoped to the achievable outcome (true incomplete pickup bar); re-locked.
+- `anacrusis-design.md` → **Known limitation** section.
+- `alphatex-syntax-reference.md` → limitation note on the Anacrusis section.
+
+**Plan closed:** `anacrusis-plan-001` → all 4 steps ✅, done doc written. Feature ships with the bar-numbering limitation documented (alphaTab numbers the pickup as bar 1; no alphaTex renumber directive — only visibility is controllable, JS-side).
+
+**Two ideas captured as threads:**
+- `ui/debug-alphatex-view` — always-visible alphaTex debug view in the score-render component (→ later: edit DSL / save as custom entity).
+- `domain/triplet-feel` — span/song-level swing via alphaTab `\tf`; flagged the design fork against the existing `Feel`/`FeelTransform` (tick-warp) model, and noted the `tu`-not-rendering report as a *separate* small bug to chase.
+
+**Committed to `main` (2 commits):**
+- `9cbe6ae` feat: render pickup as a true anacrusis via alphaTex `\ac`
+- `daff0ec` docs: capture triplet-feel + debug-alphatex-view idea threads
+
+Not pushed (you didn't ask). The `anacrusis` thread is effectively complete; `triplet-feel` and `debug-alphatex-view` sit as fresh draft ideas whenever you want to pick one up.
