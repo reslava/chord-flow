@@ -2,13 +2,14 @@
 type: chat
 id: ch_01KVR2BPBMHM8SF34070D2SASD
 title: triplet-feel Chat
-status: active
+status: done
 created: 2026-06-22
-version: 1
+updated: 2026-06-22
+version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 34
+last_ai_block: 35
 ---
 # triplet-feel Chat
 
@@ -483,3 +484,17 @@ Executing your TODO in order:
    - `ui` — *Comping picker in the Content preview* (page-level, not ScoreR).
 
 Starting now; I'll report back here as each lands.
+
+## AI:
+
+All done — your three TODOs are complete.
+
+**1. Committed** — `48fbb90` (feat: whole-song triplet feel via alphaTex `\tf`).
+
+**2. Released v0.10.0** 🎉 — the GitHub release is **published** with `ChordFlow-v0.10.0-win-x64.zip` attached; the workflow (`guard → build-test → release`) went green in one pass. Release build + 635 tests green in Release config. `loom record-release 0.10.0` stamped the 5 done plans that shipped in it (anacrusis, transforms, **triplet-feel**, debug-alphatex-view, domain-to-music-rename). Changelog `[0.10.0]` + README (Status / Features / 635 tests) updated and shipped in the `release: v0.10.0` commit (`a0199ec`). Note the release bundled the whole unreleased range since v0.9.0, not just this thread.
+
+**3. Two follow-up ideas created** (committed `150c9d9`):
+- `domain/song-default-feel` — **Default triplet feel as Song catalog metadata** (the deferred C4-carve-out follow-up; design must settle the C4 amendment first).
+- `ui/content-preview-comping` — **Comping picker in the Content preview** (page-level in `content-crud.js`, not ScoreR — with the reasoning we agreed recorded in the idea).
+
+That closes out the triplet-feel thread end-to-end: idea → design → req(v2, locked) → plan(done, 8 steps) → shipped in v0.10.0, with both follow-ons captured. Nothing pending on my side — say `close` when you want to close this chat, or open either follow-up thread whenever you're ready.
