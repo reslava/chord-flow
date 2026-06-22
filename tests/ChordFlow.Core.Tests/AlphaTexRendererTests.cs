@@ -90,10 +90,10 @@ public class AlphaTexRendererTests
 
         string tex = Renderer.RenderProgression(Bb, progression, rhythm, 80, Difficulty.Beginner);
 
-        // Pickup bar + the single progression bar = 2 pipes. The pickup carries the ":4"; the main
-        // bar is Beat 1 ringing the whole bar → a whole note (":1").
+        // Pickup bar + the single progression bar = 2 pipes (\ac is a prefix, not a new bar). The pickup
+        // is marked an anacrusis and carries the ":4"; the main bar is Beat 1 ringing the whole bar → ":1".
         Assert.Equal(2, tex.Count(c => c == '|'));
-        Assert.EndsWith(":4 (1.5 0.4 1.3) |\n:1 (1.5 0.4 1.3) |", tex);
+        Assert.EndsWith("\\ac :4 (1.5 0.4 1.3) |\n:1 (1.5 0.4 1.3) |", tex);
     }
 
     [Fact]
@@ -290,6 +290,8 @@ public class AlphaTexRendererTests
         string tex = Renderer.RenderProgression(Bb, I7Progression(), SeedData.Beat1, 80, Difficulty.Beginner);
 
         Assert.DoesNotContain("\\track", tex);
+        // Guard: a render with no pickup never emits an anacrusis marker on a regular section bar (C3).
+        Assert.DoesNotContain("\\ac", tex);
     }
 
     [Fact]
@@ -305,7 +307,7 @@ public class AlphaTexRendererTests
         // Pickup bar + one main bar, on each of the two tracks → 4 pipes.
         Assert.Equal(4, tex.Count(c => c == '|'));
         string leadSection = tex[tex.IndexOf("\\track \"Lead\"", System.StringComparison.Ordinal)..];
-        Assert.Contains(":4 r |", leadSection); // the lead pickup is a rest
+        Assert.Contains("\\ac :4 r |", leadSection); // the lead pickup is a rest, marked as an anacrusis
     }
 
     private static Progression I7Progression() =>

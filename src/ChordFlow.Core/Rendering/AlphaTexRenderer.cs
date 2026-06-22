@@ -110,7 +110,10 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         {
             Chord firstChord = first.Bars[0].Spans[0].Chord;
             IReadOnlyList<RhythmSlot> pickupSlots = RhythmQuantizer.Quantize(pickup);
-            barLines.Add(RenderBar(pickupSlots, _ => firstChord, difficulty, first.Key, opts, state));
+            // \ac marks the bar as an anacrusis: alphaTab sizes it by its actual beats (not the time
+            // signature) instead of counting it as a full bar 1. It is bar metadata at the bar's start,
+            // ahead of the ":N"/beats — so we prefix the already-correct short bar string (C2: still one bar).
+            barLines.Add("\\ac " + RenderBar(pickupSlots, _ => firstChord, difficulty, first.Key, opts, state));
         }
 
         Key? previousKey = null;
@@ -147,7 +150,8 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         if (comping.Pickup is { } pickup && first.Bars.Count > 0)
         {
             IReadOnlyList<RhythmSlot> pickupSlots = RhythmQuantizer.Quantize(pickup);
-            barLines.Add(RenderLeadBar(pickupSlots, state, allRests: true));
+            // Mirror the comping pickup as a true anacrusis on the lead staff so both bars stay aligned.
+            barLines.Add("\\ac " + RenderLeadBar(pickupSlots, state, allRests: true));
         }
 
         Key? previousKey = null;

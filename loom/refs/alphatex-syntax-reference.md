@@ -3,9 +3,9 @@ type: reference
 id: rf_01KTHJN829FMW964FTNCFSS2GM
 title: alphaTex Syntax Reference
 status: active
-created: "2026-06-07T00:00:00.000Z"
-updated: 2026-06-15
-version: 5
+created: 2026-06-07
+updated: 2026-06-22
+version: 8
 tags: []
 parent_id: null
 requires_load: []
@@ -73,6 +73,23 @@ Bar-level metadata can also appear at the start of any bar, before notes: `\ts 3
 
 ⚠️ **Dotted notes and ties** — exact token NOT yet verified. The early-exploration notation `(...)h.2` / `h.2` is **wrong — do not use**. MVP rhythms (beat-1, beat-1+3, quarters) need only `:4` + `r`, so this is not required for v1.
 
+## Anacrusis (pickup bars)
+
+**`\ac`** — bar metadata marking a bar as an **anacrusis** (pickup). Anacrusis bars do **not** follow the strict time-signature timing: the bar's length is defined by the **actual beats/notes in it**, so a pickup is *not* padded to a full bar and is *not* counted as bar 1. It is emitted at the **start of the bar's content**, before the stateful `:N` and the beats (like `\ts`/`\ks`, it is bar-level). Verified 2026-06-22 — the bundled alphaTab supports anacrusis (`isAnacrusis`).
+
+> **Limitation:** `\ac` does **not** suppress the bar number — alphaTab still numbers the anacrusis as **bar 1** (the first full bar then shows as bar 2). alphaTex exposes no directive to renumber; only bar-number *visibility* (show/hide) is controllable JS-side. Musically a pickup is unnumbered, so this is a known, accepted gap.
+
+```
+\ks D \ts 24 16 \ac r.16 6.3 7.3 9.3 7.3 6.3 |   ← incomplete pickup bar, then full bars follow
+```
+
+ChordFlow emits `\ac` as a prefix on the leading **pickup bar** only (when a `PickupMeasure` is present) — on both the comping and the lead track so the staves stay aligned. The pickup remains a single bar (`\ac` is a prefix, not a new bar):
+
+```
+\ac :4 (1.5 0.4 1.3) |     ← comping pickup, voiced with the first chord
+\ac :4 r |                 ← lead pickup, rests (the lead doesn't play during the anacrusis in v1)
+```
+
 ## Chord names & diagrams
 
 Verified 2026-06-15 against the alphaTab docs ([score-metadata](https://www.alphatab.net/docs/alphatex/score-metadata#chorddiagramsinscore), [Chord model](https://www.alphatab.net/docs/reference/types/model/chord/)) and confirmed in the running app. **`\chordDiagramsInScore` and `\chord` are score-metadata directives — they go in the header, before the lone `.`, NOT inline in the music** (inline `\chord` is silently ignored — names show, diagrams don't). Canonical shape:
@@ -120,6 +137,7 @@ A "beats 1 & 3" bar in 4/4 = four quarters: chord, rest, chord, rest. Frets belo
 | bar boundary | `|` |
 | `RenderOptions.ShowChordNames` | `{ch "Name"}` at each chord change + `\chordDiagramsInScore false` |
 | `RenderOptions.ShowChordDiagrams` | `\chordDiagramsInScore true` + inline `\chord ("Name" f1…f6)` (once) + `{ch "Name"}` |
+| `PickupMeasure` (anacrusis) | `\ac` prefixing the leading pickup bar (both tracks) |
 
 ## Sources
 - https://www.alphatab.net/docs/alphatex/introduction
