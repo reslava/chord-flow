@@ -57,6 +57,26 @@ public class VoicingBookTests
         Assert.All(voicing.Positions, p => Assert.True(p.Fret >= 0));
     }
 
+    // The major-7 shell shares the movable shape: a major 3rd and the major 7th (the G-string note one
+    // fret up from the dom7/min7 minor-7th shell).
+    [Theory]
+    [InlineData(0)] [InlineData(1)] [InlineData(2)] [InlineData(3)]
+    [InlineData(4)] [InlineData(5)] [InlineData(6)] [InlineData(7)]
+    [InlineData(8)] [InlineData(9)] [InlineData(10)] [InlineData(11)]
+    public void Lookup_Major7Shell_SpellsRootMajorThirdMajorSeventh(int root)
+    {
+        var chord = new Chord(new PitchClass(root), Quality.Major7);
+
+        Voicing voicing = StrategyOnly().Lookup(chord, Difficulty.Beginner);
+
+        var actual = voicing.Positions.Select(NotePc).ToHashSet();
+        var expected = new HashSet<int> { root % 12, (root + 4) % 12, (root + 11) % 12 };
+        Assert.Equal(3, voicing.Positions.Count);
+        Assert.Equal(expected, actual);
+        // Shape stays contiguous and never needs a negative fret.
+        Assert.All(voicing.Positions, p => Assert.True(p.Fret >= 0));
+    }
+
     // The three previously hand-authored rows must come out byte-identical so existing
     // Bb-blues rendering (and the renderer tests) are unchanged.
     [Theory]
@@ -106,7 +126,7 @@ public class VoicingBookTests
     [Fact]
     public void Lookup_NonDominant7Quality_WithNoStored_Throws()
     {
-        var cMajor = new Chord(new PitchClass(0), Quality.Major); // shell covers dom7/min7; Major still throws
+        var cMajor = new Chord(new PitchClass(0), Quality.Major); // shell covers dom7/min7/maj7; the Major triad still throws
 
         Assert.Throws<NotSupportedException>(() => StrategyOnly().Lookup(cMajor, Difficulty.Beginner));
     }

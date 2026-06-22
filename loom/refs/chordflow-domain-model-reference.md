@@ -5,7 +5,7 @@ title: ChordFlow Domain Model
 status: active
 created: 2026-06-08
 updated: 2026-06-22
-version: 54
+version: 55
 tags: []
 parent_id: null
 requires_load: []
@@ -83,7 +83,7 @@ Even split: `17_67` → I7 half · VI7 half. Explicit slots: `17:2_67:1_27:1` �
 | `FretPosition(int String, int Fret)` | alphaTab string numbering (1=high E .. 6=low E), fret 0=open. |
 | `Voicing(Positions, BarreFret?, FirstFret?, MutedStrings?)` | A list of fret positions + optional **diagram metadata** (presentation hints for `\chord (...)`; positions stay authoritative). |
 | `IVoicingStrategy` | `Difficulty Difficulty`, `Voice(chord) → Voicing`. Selection is a strategy, not a table. |
-| `BeginnerShellStrategy` | Movable dom7 shell (root + maj3 + min7 on strings 5/4/3); covers all 12 roots; emits FirstFret + muted {1,2,6}. |
+| `BeginnerShellStrategy` | One movable shell shape (root + 3rd + 7th on strings 5/4/3) covering **Dominant7, Minor7, and Major7** across all 12 roots: the D-string 3rd is maj (−1, dom7/maj7) or min (−2, m7); the G-string 7th is min (+0, dom7/m7) or maj (+1, maj7). Emits FirstFret + muted {1,2,6}. The Major triad and richer qualities still throw (authored/derived voicings cover those). |
 | `VoicingShape(Quality, CagedShape Shape, int RootString, Voicing Canonical)` | **voicings slice (`Instruments/Guitar/Voicings/`).** An authored voicing entry: a CAGED shape captured at the canonical **C** anchor (`Canonical` holds C-anchored frets). Inherently movable — there is **no `fixed` flag**. |
 | `CagedShape` (enum C/A/G/E/D) + `CagedShapeRanking.FamiliarityRank()` | CAGED family (diagram label + ranked-list tiebreak). Familiarity order **E A G C D** (barre-roots first); pack-overridable later. |
 | `VoicingDslParser` / `VoicingDslWriter` | **voicings slice.** Parse `voicing <Chord> shape:<C\|A\|G\|E\|D> root:<6..1> frets: <s6…s1>` → `VoicingShape`, **normalizing any anchor to the lowest non-negative C placement** so `(Quality, Shape)` dedups; the writer serializes the canonical-C DSL back (round-trips). See `chordflow-dsl-reference`. |

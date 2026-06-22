@@ -108,26 +108,25 @@ public class SongParserTransformTests
     }
 
     [Fact]
-    public void Dogfood_RealJazzBlues_TakeDrillsTheHead()
+    public void Dogfood_RealStandard_TakeDrillsTheHead()
     {
-        // A real 12-bar jazz blues in F authored in the Song DSL (dom7 + ii-V turnaround); @take(4) drills
-        // just the first line of the head. All chords are Dominant7/Minor7, which the MVP voicing strategy
-        // renders today (maj7 voicings are a separate, out-of-scope gap).
+        // A real ii-V-I standard in Bb authored in the Song DSL (ii-7 V7 Imaj7 + a vi-ii-V-I turnaround);
+        // @take(2) drills just the ii-V of the head. Exercises maj7 voicings end-to-end.
         const string dsl = """
-            key F
-            head = 17 47 17 17 47 47 17 67 2-7 57 17 57
-            turn = 2-7 57 17 57
+            key Bb
+            head = 2-7 57 1maj7 1maj7
+            turn = 6-7 2-7 57 1maj7
             head x2
             turn
-            head @take(4)
+            head @take(2)
             """;
 
         RealizedSong realized = SongExpander.Expand(Parse(dsl), new EmptyStore());
 
-        Assert.Equal(4, realized.Sections.Count);                       // head, head, turn, head@take(4)
-        Assert.Equal(new[] { 12, 12, 4, 4 }, realized.Sections.Select(s => s.Bars.Count));
+        Assert.Equal(4, realized.Sections.Count);                      // head, head, turn, head@take(2)
+        Assert.Equal(new[] { 4, 4, 4, 2 }, realized.Sections.Select(s => s.Bars.Count));
 
-        // …and it renders end-to-end to alphaTex.
+        // …and it renders end-to-end to alphaTex (maj7 chords included).
         string tex = new AlphaTexRenderer().Render(realized, SeedData.Beat1And3, 120, Difficulty.Beginner);
         Assert.False(string.IsNullOrWhiteSpace(tex));
     }
