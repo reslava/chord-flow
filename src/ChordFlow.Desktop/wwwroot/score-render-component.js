@@ -96,12 +96,12 @@ window.ChordFlowScore = (function () {
         enableElementHighlighting: true,
         soundFont: fontUrl(DEFAULT_SOUNDFONT),   // boot default; replaced live once the host reports the saved choice
         // Auto-follow the cursor only when the consumer opts in (Practice); scrollElement + a bounded surface
-        // are wired after the api exists (see below). Off by default keeps the Content preview's free layout.
-        // Smooth (manual rAF scroll of the container) is steadier than Continuous for an inner scroll container —
-        // Continuous leans on native offset math that miscomputes across row/page boundaries. Disable the native
-        // smooth-scroll so the two don't fight.
-        scrollMode: scroll ? alphaTab.ScrollMode.Smooth : alphaTab.ScrollMode.Off,
-        nativeBrowserSmoothScroll: !scroll,
+        // are wired after the api exists (see applyScroll). Off by default keeps the Content preview's free layout.
+        // OffScreen page-flips the surface only when the cursor would leave view — no per-frame creep (Smooth's
+        // problem) and no cross-row offset miscompute (Continuous's). The native browser smooth-scroll animates
+        // each flip so it glides instead of snapping.
+        scrollMode: scroll ? alphaTab.ScrollMode.OffScreen : alphaTab.ScrollMode.Off,
+        nativeBrowserSmoothScroll: scroll,
       };
     }
     return settings;
@@ -120,6 +120,7 @@ window.ChordFlowScore = (function () {
       onStateChange: opts.onStateChange || function () {},
       onFinished: opts.onFinished || function () {},
       onNeedsRerender: opts.onNeedsRerender || function () {},
+      onToggleNowNext: opts.onToggleNowNext || function () {},
     };
 
     container.classList.add("cf-score");
@@ -128,15 +129,33 @@ window.ChordFlowScore = (function () {
 
     const api = new alphaTab.AlphaTabApi(surface, buildSettings(player, options, opts.scroll));
 
-    if (player && opts.scroll) {
-      // Keep the played bar in view by scrolling the score's OWN surface — not the window, which would carry the
-      // Now/Next boards + transport off the top. Bound the surface so it becomes the scroll container; the small
-      // negative scrollOffsetY leaves headroom so the active bar sits just below those boards, not glued to the top.
-      surface.style.maxHeight = "60vh";
-      api.settings.player.scrollElement = surface;
-      api.settings.player.scrollOffsetY = -15;
+    // Auto-follow the cursor by scrolling the score's OWN bounded surface (Model A) — never the window, which
+    // would carry the Now/Next boards + transport off the top. Mode is "off" | "offscreen" | "continuous":
+    //   - offscreen  → page-flip only when the cursor would leave view; nativeBrowserSmoothScroll animates the flip.
+    //   - continuous → keep the cursor in view every beat; native smooth-scroll OFF so it doesn't fight the
+    //                  per-frame repositioning (it would rubber-band).
+    //   - off        → release the bound so the full score sits in normal flow for manual scrolling.
+    // Both follow modes share the same 60vh bound + scrollOffsetY headroom; switching them is just scrollMode +
+    // the paired nativeBrowserSmoothScroll. The transport mode-select flips this live via handle.setScrollMode.
+    const SCROLL_MODES = { off: alphaTab.ScrollMode.Off, offscreen: alphaTab.ScrollMode.OffScreen, continuous: alphaTab.ScrollMode.Continuous };
+    let scrollMode = "off";
+    function applyScrollMode(mode) {
+      if (!player) return;
+      scrollMode = SCROLL_MODES[mode] !== undefined ? mode : "off";
+      const p = api.settings.player;
+      p.scrollMode = SCROLL_MODES[scrollMode];
+      if (scrollMode === "off") {
+        surface.style.maxHeight = "";
+        p.scrollElement = "html,body";   // alphaTab default; inert while scrollMode is Off
+      } else {
+        p.nativeBrowserSmoothScroll = scrollMode === "offscreen";   // animate the flip; instant for Continuous
+        surface.style.maxHeight = "60vh";
+        p.scrollElement = surface;
+        p.scrollOffsetY = -15;
+      }
       api.updateSettings();
     }
+    if (player) applyScrollMode(opts.scroll ? "offscreen" : "off");
 
     let baseTempo = 80;   // the score's authored \tempo; runtime tempo scales off it
     let lastHostTex = null;   // the alphaTex this component last rendered from a host load() — for the debug panel
@@ -308,6 +327,11 @@ window.ChordFlowScore = (function () {
           voicing: options.voicing,
         };
       },
+      // Auto-follow mode ("off" | "offscreen" | "continuous") — flips scrollMode + the bounded-surface binding
+      // + the paired nativeBrowserSmoothScroll live (see applyScrollMode).
+      setScrollMode(mode) { applyScrollMode(mode); },
+      // Ask the consumer to show/hide its Now/Next fretboards (the component doesn't own that container).
+      toggleNowNext(visible) { cb.onToggleNowNext(!!visible); },
       getApi() { return api; },
       // The current tempo shown in the transport (BPM), else the loaded score's authored tempo. Lets a
       // consumer carry the user's tempo choice onto the next generate request.
@@ -381,7 +405,10 @@ window.ChordFlowScore = (function () {
       return panel;
     }
 
-    const strip = buildControls(player, controls, options, handle, ui, tripletFeelEnabled);
+    const strip = buildControls(player, controls, options, handle, ui, tripletFeelEnabled, {
+      scrollMode,
+      nowNextToggle: !!opts.onToggleNowNext,
+    });
     if (strip) container.appendChild(strip);
     container.appendChild(surface);
     if (debugPanel) container.appendChild(buildDebugPanel());
@@ -431,8 +458,9 @@ window.ChordFlowScore = (function () {
 
   // Build the control strip per profile. Transport + player-kind toggles need the player; content-kind
   // toggles render only in the "full" profile. Returns null when nothing is rendered (mini render-only / none).
-  function buildControls(player, controls, options, handle, ui, tripletFeelEnabled) {
+  function buildControls(player, controls, options, handle, ui, tripletFeelEnabled, extra) {
     if (controls === "none") return null;
+    extra = extra || {};
 
     const strip = document.createElement("div");
     strip.className = "cf-controls";
@@ -464,12 +492,17 @@ window.ChordFlowScore = (function () {
 
     if (player && controls === "full") {
       strip.append(
+        scrollModeSelect(handle, ui, extra.scrollMode),
         toggle("metronome", "Metronome", options, handle, ui),
         toggle("countIn", "Count-in", options, handle, ui),
         volumeSlider("rhythm", "Rhythm vol", handle, ui),
         volumeSlider("lead", "Lead vol", handle, ui),
         soundFontPicker(handle, ui),
       );
+    }
+
+    if (extra.nowNextToggle) {
+      strip.append(nowNextToggle(handle, ui));
     }
 
     if (controls === "full") {
@@ -508,6 +541,46 @@ window.ChordFlowScore = (function () {
     input.addEventListener("change", () => handle.setOption(name, input.checked));
     wrap.append(input, document.createTextNode(" " + label));
     ui.toggles[name] = input;
+    return wrap;
+  }
+
+  // Auto-follow mode select (player-kind, local). Not a render-`options` toggle: it flips scrollMode + the
+  // bounded-surface binding live via handle.setScrollMode, no re-render. Off / OffScreen / Continuous so both
+  // follow modes can be A/B-tested live. Starts from the consumer's initial mode.
+  const SCROLL_MODE_OPTIONS = [
+    { value: "off", label: "Off" },
+    { value: "offscreen", label: "OffScreen" },
+    { value: "continuous", label: "Continuous" },
+  ];
+  function scrollModeSelect(handle, ui, initial) {
+    const wrap = document.createElement("label");
+    wrap.className = "cf-toggle";
+    const select = document.createElement("select");
+    select.className = "cf-scroll-mode";
+    for (const m of SCROLL_MODE_OPTIONS) {
+      const o = document.createElement("option");
+      o.value = m.value;
+      o.textContent = m.label;
+      select.appendChild(o);
+    }
+    select.value = initial || "off";
+    select.addEventListener("change", () => handle.setScrollMode(select.value));
+    wrap.append(document.createTextNode("Scroll "), select);
+    ui.toggles.scrollMode = select;
+    return wrap;
+  }
+
+  // Show/hide the consumer's Now/Next fretboards. The component doesn't own that container — it just fires
+  // handle.toggleNowNext and lets the consumer (app.js) flip its visibility. Defaults visible.
+  function nowNextToggle(handle, ui) {
+    const wrap = document.createElement("label");
+    wrap.className = "cf-toggle";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = true;
+    input.addEventListener("change", () => handle.toggleNowNext(input.checked));
+    wrap.append(input, document.createTextNode(" Now/Next"));
+    ui.toggles.nowNext = input;
     return wrap;
   }
 

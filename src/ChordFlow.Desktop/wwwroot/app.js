@@ -331,6 +331,11 @@ const ChordFlow = (function () {
         if (nowNext) nowNext.reset(); // back to the first chord on stop / end (schedule kept for replay)
         if (Bridge.available) Bridge.send({ type: "playbackFinished" });
       },
+      onToggleNowNext: (visible) => {
+        // The score component owns the transport toggle but not the boards — flip the pane it doesn't see.
+        const pane = $("now-next-pane");
+        if (pane) pane.hidden = !visible;
+      },
       onNeedsRerender: (renderOptions) => {
         if (Bridge.available && lastScoreRequest) {
           // Carry the component's current feel too (a feel change routes through here) — it's a first-class
