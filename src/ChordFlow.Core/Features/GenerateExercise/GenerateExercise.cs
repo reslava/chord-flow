@@ -10,20 +10,24 @@ namespace ChordFlow.Features.GenerateExercise;
 
 /// <summary>
 /// Outbound bridge envelope: load a freshly rendered score into the WebView.
-/// Serializes to <c>{"type":"loadScore","tex":"…","tempo":N}</c>. The alphaTex
-/// string is the real payload; tempo rides along for the transport controls.
+/// Serializes to <c>{"type":"loadScore","tex":"…","tempo":N,"schedule":[…]}</c>. The alphaTex string is the
+/// real payload; tempo rides along for the transport controls, and <see cref="Schedule"/> (one entry per chord
+/// change, each with a fretboard diagram of the comped voicing) feeds the now/next fretboards.
 /// </summary>
-public sealed record LoadScoreEnvelope(string Type, string Tex, int Tempo)
+public sealed record LoadScoreEnvelope(string Type, string Tex, int Tempo, IReadOnlyList<ChordChange> Schedule)
 {
     /// <summary>
-    /// Render an <see cref="Exercise"/> to alphaTex and wrap it for the bridge. The single place a loadScore
-    /// envelope is built — shared by GenerateExercise (fresh) and ExerciseLibrary (regenerated on load), so
-    /// alphaTex is never persisted. Expansion (the one I/O seam) runs through <see cref="ExerciseRendering"/>
-    /// against <paramref name="store"/>; the renderer stays pure (merge decision (a)).
+    /// Render an <see cref="Exercise"/> to alphaTex + chord schedule and wrap it for the bridge. The single
+    /// place a loadScore envelope is built — shared by GenerateExercise (fresh) and ExerciseLibrary
+    /// (regenerated on load), so alphaTex is never persisted. Expansion (the one I/O seam) runs through
+    /// <see cref="ExerciseRendering"/> against <paramref name="store"/>; the renderer stays pure (merge decision (a)).
     /// </summary>
     public static LoadScoreEnvelope From(
-        Exercise exercise, IProgressionStore store, IScoreRenderer renderer, RenderOptions? options = null) =>
-        new("loadScore", ExerciseRendering.RenderToTex(exercise, store, renderer, options), exercise.Tempo);
+        Exercise exercise, IProgressionStore store, IScoreRenderer renderer, RenderOptions? options = null)
+    {
+        RenderResult result = ExerciseRendering.Render(exercise, store, renderer, options);
+        return new("loadScore", result.Tex, exercise.Tempo, result.Schedule);
+    }
 }
 
 /// <summary>

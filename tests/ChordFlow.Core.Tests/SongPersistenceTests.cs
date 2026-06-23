@@ -58,7 +58,7 @@ public class SongPersistenceTests
             Assert.Equal(5, realized.Sections.Count);
             Assert.Contains(realized.Sections, s => s.Bars.Count == 12);
 
-            string tex = new AlphaTexRenderer().Render(realized, SeedData.Beat1And3, 100, Difficulty.Beginner);
+            string tex = new AlphaTexRenderer().Render(realized, SeedData.Beat1And3, 100, Difficulty.Beginner).Tex;
             Assert.Contains("\\title", tex);
             Assert.Contains("\\ks", tex);   // header key + the inline change at "mod V"
         }

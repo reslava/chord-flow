@@ -58,6 +58,7 @@ const ChordFlow = (function () {
   ].join("\n");
 
   let view = null;             // the ChordFlowScore handle (owns alphaTab + transport)
+  let nowNext = null;          // the ChordFlowNowNext handle (the now/next chord fretboards, synced to playback)
   let lastScoreRequest = null; // last render-producing envelope (sans renderOptions), for onNeedsRerender replay
 
   // Content catalog, populated from the entity* bridge — the pickers' source and the library's name map.
@@ -281,6 +282,7 @@ const ChordFlow = (function () {
     switch (msg.type) {
       case "loadScore":
         view.load(msg.tex, { tempo: msg.tempo });
+        if (nowNext) nowNext.setSchedule(msg.schedule);
         setStatus("score loaded");
         break;
       case "exerciseList":
@@ -316,10 +318,19 @@ const ChordFlow = (function () {
     view = window.ChordFlowScore.create($("score-pane"), {
       player: true,
       controls: "full",
+      scroll: true,       // auto-follow the cursor: bound the staff + scroll it so the played bar stays under Now/Next
       debugPanel: true,   // the alphaTex scratchpad lives on the score component now (replaces the Debug view)
       tripletFeel: true,  // the whole-song feel (swing) select lives on the transport — see getTripletFeel()
-      onBeat: (bar, beat) => { if (Bridge.available) Bridge.send({ type: "beatChanged", bar, beat }); },
-      onFinished: () => { if (Bridge.available) Bridge.send({ type: "playbackFinished" }); },
+      onBeat: (bar, beat) => {
+        // The score component reports 1-based (bar, beat); the chord schedule is 0-based (alphaTab raw), so
+        // step the now/next boards down by one.
+        if (nowNext) nowNext.onBeat(bar - 1, beat - 1);
+        if (Bridge.available) Bridge.send({ type: "beatChanged", bar, beat });
+      },
+      onFinished: () => {
+        if (nowNext) nowNext.reset(); // back to the first chord on stop / end (schedule kept for replay)
+        if (Bridge.available) Bridge.send({ type: "playbackFinished" });
+      },
       onNeedsRerender: (renderOptions) => {
         if (Bridge.available && lastScoreRequest) {
           // Carry the component's current feel too (a feel change routes through here) — it's a first-class
@@ -328,6 +339,12 @@ const ChordFlow = (function () {
         }
       },
     });
+
+    // The now/next chord fretboards live above the score; they're fed the loadScore schedule and the score
+    // component's beat signal (wired in the onBeat callback above).
+    if (window.ChordFlowNowNext) {
+      nowNext = window.ChordFlowNowNext.create($("now-next-pane"));
+    }
 
     setupControls();
     setupViewToggle();

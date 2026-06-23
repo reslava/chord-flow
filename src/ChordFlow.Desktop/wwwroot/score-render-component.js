@@ -79,7 +79,7 @@ window.ChordFlowScore = (function () {
 
   // The single alphaTab settings source of truth. Player settings are added only in player mode so a
   // lite preview never pays the soundfont/worker-player cost.
-  function buildSettings(player, options) {
+  function buildSettings(player, options, scroll) {
     const settings = {
       core: {
         fontDirectory: "font/",   // relative to index.html, served same-origin under the virtual host
@@ -95,7 +95,13 @@ window.ChordFlowScore = (function () {
         enableAnimatedBeatCursor: true,
         enableElementHighlighting: true,
         soundFont: fontUrl(DEFAULT_SOUNDFONT),   // boot default; replaced live once the host reports the saved choice
-        scrollMode: alphaTab.ScrollMode.Off,
+        // Auto-follow the cursor only when the consumer opts in (Practice); scrollElement + a bounded surface
+        // are wired after the api exists (see below). Off by default keeps the Content preview's free layout.
+        // Smooth (manual rAF scroll of the container) is steadier than Continuous for an inner scroll container —
+        // Continuous leans on native offset math that miscomputes across row/page boundaries. Disable the native
+        // smooth-scroll so the two don't fight.
+        scrollMode: scroll ? alphaTab.ScrollMode.Smooth : alphaTab.ScrollMode.Off,
+        nativeBrowserSmoothScroll: !scroll,
       };
     }
     return settings;
@@ -120,7 +126,18 @@ window.ChordFlowScore = (function () {
     const surface = document.createElement("div");
     surface.className = "cf-score-surface";
 
-    const api = new alphaTab.AlphaTabApi(surface, buildSettings(player, options));
+    const api = new alphaTab.AlphaTabApi(surface, buildSettings(player, options, opts.scroll));
+
+    if (player && opts.scroll) {
+      // Keep the played bar in view by scrolling the score's OWN surface — not the window, which would carry the
+      // Now/Next boards + transport off the top. Bound the surface so it becomes the scroll container; the small
+      // negative scrollOffsetY leaves headroom so the active bar sits just below those boards, not glued to the top.
+      surface.style.maxHeight = "60vh";
+      api.settings.player.scrollElement = surface;
+      api.settings.player.scrollOffsetY = -15;
+      api.updateSettings();
+    }
+
     let baseTempo = 80;   // the score's authored \tempo; runtime tempo scales off it
     let lastHostTex = null;   // the alphaTex this component last rendered from a host load() — for the debug panel
     let debugDirty = false;   // user has edited the debug textarea; host re-renders stop overwriting it until reload
@@ -380,7 +397,9 @@ window.ChordFlowScore = (function () {
       });
       // activeBeatsChanged: report the first active beat's (bar, beat), both 1-based.
       api.activeBeatsChanged.on((e) => {
-        const beats = e && e.activeBeats && e.activeBeats.beats;
+        // alphaTab's ActiveBeatsChangedEventArgs.activeBeats is a Beat[]; tolerate a { beats: [] } wrapper too.
+        const active = e && e.activeBeats;
+        const beats = Array.isArray(active) ? active : active && active.beats;
         if (!beats || beats.length === 0) return;
         const beat = beats[0];
         const bar = (beat.voice && beat.voice.bar ? beat.voice.bar.index : 0) + 1;

@@ -160,7 +160,7 @@ public sealed class ContentCrudHandler
     {
         Song song = SongParser.Parse("preview", "Preview", dsl, TimeSignature.FourFour);
         RealizedSong realized = SongExpander.Expand(song, new ProgressionStore(db));
-        string tex = _renderer.Render(realized, comping, PreviewTempo, Difficulty.Beginner, tripletFeel, options: options);
+        string tex = _renderer.Render(realized, comping, PreviewTempo, Difficulty.Beginner, tripletFeel, options: options).Tex;
         return new EntityPreviewEnvelope(entity, "score", tex, PreviewTempo);
     }
 

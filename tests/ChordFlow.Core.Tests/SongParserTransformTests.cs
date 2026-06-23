@@ -127,7 +127,7 @@ public class SongParserTransformTests
         Assert.Equal(new[] { 4, 4, 4, 2 }, realized.Sections.Select(s => s.Bars.Count));
 
         // …and it renders end-to-end to alphaTex (maj7 chords included).
-        string tex = new AlphaTexRenderer().Render(realized, SeedData.Beat1And3, 120, Difficulty.Beginner);
+        string tex = new AlphaTexRenderer().Render(realized, SeedData.Beat1And3, 120, Difficulty.Beginner).Tex;
         Assert.False(string.IsNullOrWhiteSpace(tex));
     }
 }

@@ -24,6 +24,6 @@ internal static class RenderTestHelpers
         {
             new RealizedSection(progression.Name, key, Transposer.RealizeBars(progression, key)),
         });
-        return renderer.Render(realized, rhythm, tempo, difficulty, tripletFeel, options: options);
+        return renderer.Render(realized, rhythm, tempo, difficulty, tripletFeel, options: options).Tex;
     }
 }

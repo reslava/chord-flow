@@ -46,8 +46,8 @@ public class SongRenderTests
         RealizedSong viaLift = SongExpander.Expand(Song.OfProgression(Blues, CMajor), new EmptyStore());
         RealizedSong viaManual = SongExpander.Expand(OneBluesSong(new PartPlay("blues", 1)), new EmptyStore());
 
-        string liftTex = Renderer.Render(viaLift, SeedData.Beat1And3, 100, Difficulty.Beginner);
-        string manualTex = Renderer.Render(viaManual, SeedData.Beat1And3, 100, Difficulty.Beginner);
+        string liftTex = Renderer.Render(viaLift, SeedData.Beat1And3, 100, Difficulty.Beginner).Tex;
+        string manualTex = Renderer.Render(viaManual, SeedData.Beat1And3, 100, Difficulty.Beginner).Tex;
 
         Assert.Equal(Body(liftTex), Body(manualTex));
     }
@@ -56,7 +56,7 @@ public class SongRenderTests
     public void Render_TwoSameKeySections_Concatenates24Bars_NoKeyChange()
     {
         RealizedSong realized = SongExpander.Expand(OneBluesSong(new PartPlay("blues", 2)), new EmptyStore());
-        string body = Body(Renderer.Render(realized, SeedData.Beat1And3, 100, Difficulty.Beginner));
+        string body = Body(Renderer.Render(realized, SeedData.Beat1And3, 100, Difficulty.Beginner).Tex);
 
         Assert.Equal(24, body.Split(" |").Length - 1);   // 24 bar terminators
         Assert.DoesNotContain("\\ks", body);             // same key throughout → no inline key change
@@ -72,7 +72,7 @@ public class SongRenderTests
             new PartPlay("blues", 1),
         };
         RealizedSong realized = SongExpander.Expand(OneBluesSong(items), new EmptyStore());
-        string body = Body(Renderer.Render(realized, SeedData.Beat1And3, 100, Difficulty.Beginner));
+        string body = Body(Renderer.Render(realized, SeedData.Beat1And3, 100, Difficulty.Beginner).Tex);
 
         // The header carries the first key; exactly one inline \ks appears at the G section.
         Assert.Equal(1, CountOccurrences(body, "\\ks"));
@@ -85,10 +85,10 @@ public class SongRenderTests
         // later slot is bare. If currentDuration carries across the section seam, two sections still emit it once.
         string oneBody = Body(Renderer.Render(
             SongExpander.Expand(OneBluesSong(new PartPlay("blues", 1)), new EmptyStore()),
-            SeedData.Beat1And3, 100, Difficulty.Beginner));
+            SeedData.Beat1And3, 100, Difficulty.Beginner).Tex);
         string twoBody = Body(Renderer.Render(
             SongExpander.Expand(OneBluesSong(new PartPlay("blues", 2)), new EmptyStore()),
-            SeedData.Beat1And3, 100, Difficulty.Beginner));
+            SeedData.Beat1And3, 100, Difficulty.Beginner).Tex);
 
         Assert.Equal(1, CountOccurrences(oneBody, ":"));
         Assert.Equal(1, CountOccurrences(twoBody, ":"));   // not 2 — the ":4" carried over the seam

@@ -51,7 +51,7 @@ public class SongSeedTests
             RealizedSong realized = SongExpander.Expand(song, store);
 
             Assert.NotEmpty(realized.Sections);
-            string tex = renderer.Render(realized, SeedData.Beat1And3, 100, Difficulty.Beginner);
+            string tex = renderer.Render(realized, SeedData.Beat1And3, 100, Difficulty.Beginner).Tex;
             Assert.StartsWith("\\title", tex);
         }
     }

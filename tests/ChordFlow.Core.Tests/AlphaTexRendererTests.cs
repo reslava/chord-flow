@@ -4,6 +4,7 @@ using ChordFlow.Music.Harmony;
 using ChordFlow.Music.Progressions;
 using ChordFlow.Music.Songs;
 using ChordFlow.Rendering;
+using ChordFlow.Instruments.Guitar;
 using Xunit;
 
 namespace ChordFlow.Core.Tests;
@@ -267,7 +268,7 @@ public class AlphaTexRendererTests
         // Comping = Beat 1 (a whole-note strike); Lead = quarters → four dead notes on string 3.
         RealizedSong song = OneBarI7();
 
-        string tex = Renderer.Render(song, SeedData.Beat1, 80, Difficulty.Beginner, lead: SeedData.Quarters);
+        string tex = Renderer.Render(song, SeedData.Beat1, 80, Difficulty.Beginner, lead: SeedData.Quarters).Tex;
 
         // Score metadata + the lone "." precede the first \track (\ts/\ks moved into each track). Bars-per-row
         // is a JS display setting now, so no `{ defaultSystemsLayout }` block on the \track line.
@@ -302,12 +303,58 @@ public class AlphaTexRendererTests
         var pickup = new PickupMeasure(new[] { RhythmEvent.Hit(0, 48) }, LengthTicks: 48);
         var rhythm = RhythmPattern.SingleBar("p", "Pickup", SeedData.Beat1.Bars[0].Events, TimeSignature.FourFour, pickup);
 
-        string tex = Renderer.Render(OneBarI7(), rhythm, 80, Difficulty.Beginner, lead: SeedData.Quarters);
+        string tex = Renderer.Render(OneBarI7(), rhythm, 80, Difficulty.Beginner, lead: SeedData.Quarters).Tex;
 
         // Pickup bar + one main bar, on each of the two tracks → 4 pipes.
         Assert.Equal(4, tex.Count(c => c == '|'));
         string leadSection = tex[tex.IndexOf("\\track \"Lead\"", System.StringComparison.Ordinal)..];
         Assert.Contains("\\ac :4 r |", leadSection); // the lead pickup is a rest, marked as an anacrusis
+    }
+
+    [Fact]
+    public void Render_Schedule_RecordsOneEntryPerChordChangeAcrossBars()
+    {
+        var realized = new RealizedSong(new[]
+        {
+            new RealizedSection(SeedData.TwelveBarBlues.Name, Bb, Transposer.RealizeBars(SeedData.TwelveBarBlues, Bb)),
+        });
+
+        RenderResult result = Renderer.Render(realized, SeedData.Beat1, 80, Difficulty.Beginner);
+
+        // 12-bar blues in Bb (Bb7×4, Eb7×2, Bb7×2, F7, Eb7, Bb7, F7): one entry per *change*, each on beat 0.
+        Assert.Equal(
+            new[]
+            {
+                (0, 0, "Bb7"), (4, 0, "Eb7"), (6, 0, "Bb7"),
+                (8, 0, "F7"), (9, 0, "Eb7"), (10, 0, "Bb7"), (11, 0, "F7"),
+            },
+            result.Schedule.Select(c => (c.Bar, c.Beat, c.Name)).ToArray());
+
+        // Each entry carries a real-root diagram matching the comped voicing: the first is the (1.5 0.4 1.3)
+        // Bb7 shell the tab plays, titled "Bb7", root on the A string (proves fidelity + real-root anchoring).
+        FretboardDiagram bb7 = result.Schedule[0].Diagram;
+        Assert.Equal("Bb7", bb7.Title);
+        Assert.Equal(
+            new Dictionary<int, int> { { 5, 1 }, { 4, 0 }, { 3, 1 } },
+            bb7.Markers.ToDictionary(m => m.String, m => m.Fret));
+        Assert.Equal("R", bb7.Markers.Single(m => m.String == 5).Interval);
+    }
+
+    [Fact]
+    public void Render_Schedule_InteriorChordChange_RecordsTheSecondChordAtItsBeatOrdinal()
+    {
+        // One bar, two chords (I7 then VI7), even split → VI7 starts at the half bar = beat 2 of a quarters grid.
+        Progression prog = ProgressionParser.Parse("t", "Test", "17_67", TimeSignature.FourFour);
+        var realized = new RealizedSong(new[]
+        {
+            new RealizedSection(prog.Name, Bb, Transposer.RealizeBars(prog, Bb)),
+        });
+
+        RenderResult result = Renderer.Render(realized, SeedData.Quarters, 80, Difficulty.Beginner);
+
+        Assert.Equal(
+            new[] { (0, 0, "Bb7"), (0, 2, "G7") },
+            result.Schedule.Select(c => (c.Bar, c.Beat, c.Name)).ToArray());
     }
 
     private static Progression I7Progression() =>

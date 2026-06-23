@@ -17,9 +17,10 @@ public static class ExerciseRendering
     /// <summary>
     /// Expand <paramref name="exercise"/>'s Song (re-anchored to <see cref="Exercise.KeyOverride"/> when set,
     /// else <see cref="Song.InitialKey"/>) against <paramref name="store"/>, then render both tracks
-    /// (<see cref="Exercise.Comping"/> + optional <see cref="Exercise.Lead"/>) to alphaTex.
+    /// (<see cref="Exercise.Comping"/> + optional <see cref="Exercise.Lead"/>) — returning the alphaTex string
+    /// and its chord schedule (the now/next-fretboards feed).
     /// </summary>
-    public static string RenderToTex(
+    public static RenderResult Render(
         Exercise exercise, IProgressionStore store, IScoreRenderer renderer, RenderOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(exercise);
@@ -32,4 +33,9 @@ public static class ExerciseRendering
             realized, exercise.Comping, exercise.Tempo, exercise.Difficulty, exercise.TripletFeel,
             lead: exercise.Lead, options: options);
     }
+
+    /// <summary>The alphaTex string only — for callers that don't need the chord schedule (e.g. Content preview).</summary>
+    public static string RenderToTex(
+        Exercise exercise, IProgressionStore store, IScoreRenderer renderer, RenderOptions? options = null) =>
+        Render(exercise, store, renderer, options).Tex;
 }

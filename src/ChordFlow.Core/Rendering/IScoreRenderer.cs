@@ -21,5 +21,6 @@ public interface IScoreRenderer
     /// </summary>
     /// <param name="lead">Optional lead-guitar pattern; <c>null</c> ⇒ single-track output (no lead staff).</param>
     /// <param name="options">Render-time presentation options; <c>null</c> ⇒ <see cref="RenderOptions.Default"/> (today's render).</param>
-    string Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, RenderOptions? options = null);
+    /// <returns>The alphaTex string plus the chord schedule (one entry per chord change), produced in one pass so they cannot drift.</returns>
+    RenderResult Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, RenderOptions? options = null);
 }

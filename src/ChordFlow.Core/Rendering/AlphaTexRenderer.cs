@@ -42,7 +42,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     {
     }
 
-    public string Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, RenderOptions? options = null)
+    public RenderResult Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, RenderOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentNullException.ThrowIfNull(rhythm);
@@ -78,7 +78,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
             // and there is no \track wrapper.
             AppendHeader(sb, title, subtitle, tempo, ts, keySig, opts, state.ChordDefinitions);
             sb.Append(string.Join("\n", compingBars));
-            return sb.ToString();
+            return new RenderResult(sb.ToString(), state.Schedule);
         }
 
         // Two tracks (IN5): score metadata + the lone "." first, then a \track per staff carrying its own
@@ -93,7 +93,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         AppendTrackHeader(sb, "Lead", "lead", ts, keySig);
         sb.Append(string.Join("\n", leadBars));
 
-        return sb.ToString();
+        return new RenderResult(sb.ToString(), state.Schedule);
     }
 
     // The comping track body: a pickup measure (voiced with the first chord) then each section's bars, with
@@ -339,6 +339,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         RenderState state)
     {
         var tokens = new List<string>(slots.Count);
+        int beatOrdinal = 0; // the slot's index within this bar — lines up with alphaTab's beat.index
 
         foreach (RhythmSlot slot in slots)
         {
@@ -358,6 +359,11 @@ public sealed class AlphaTexRenderer : IScoreRenderer
                 state.CurrentDuration = durationToken;
             }
 
+            // The chord covering this slot's onset tick (harmonic-rhythm lookup) — needed both to voice a
+            // sounding beat and to detect a chord change for the schedule (independent of the display options).
+            Chord chord = chordForTick(slot.StartTick);
+            Voicing? voicing = null;
+
             // Beat effects collect into one brace group ({ch "…" tu N}); the chord label is added only at a
             // chord change, the tuplet on every triplet-grid slot ({tu} does not persist like :N duration).
             var effects = new List<string>(2);
@@ -369,9 +375,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
             }
             else
             {
-                // Each slot is voiced with the chord covering its onset tick (harmonic-rhythm lookup).
-                Chord chord = chordForTick(slot.StartTick);
-                Voicing voicing = Voice(chord, difficulty, options);
+                voicing = Voice(chord, difficulty, options);
                 body = NoteGroup(voicing);
 
                 bool wantsDiagram = options.ShowChordDiagramsOverStaff || options.ShowChordDiagramsOnTop;
@@ -392,6 +396,8 @@ public sealed class AlphaTexRenderer : IScoreRenderer
                 }
             }
 
+            RecordChordChange(state, chord, key, beatOrdinal, difficulty, options, voicing);
+
             if (slot.Tuplet is { } tuplet)
             {
                 effects.Add("tu " + tuplet.Numerator.ToString(CultureInfo.InvariantCulture));
@@ -399,9 +405,30 @@ public sealed class AlphaTexRenderer : IScoreRenderer
 
             string effectGroup = effects.Count > 0 ? "{" + string.Join(" ", effects) + "}" : string.Empty;
             tokens.Add(prefix + body + effectGroup);
+            beatOrdinal++;
         }
 
+        state.BarIndex++; // advance once per rendered bar (this is the comping walk; \ks/\tf lines aren't bars)
         return string.Join(" ", tokens) + " |";
+    }
+
+    // Push a schedule entry the first time a chord appears in playback order (the now/next-fretboards feed).
+    // The diagram is built from the same voicing the tab comps for the chord (req C2): for a sounding beat
+    // that voicing is already realized and reused; only a change landing on a rest realizes one here.
+    private void RecordChordChange(
+        RenderState state, Chord chord, Key key, int beatOrdinal,
+        Difficulty difficulty, RenderOptions options, Voicing? voicing)
+    {
+        string name = ChordSymbol.Format(chord, key);
+        if (string.Equals(name, state.ScheduleChordName, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        state.ScheduleChordName = name;
+        state.Schedule.Add(new ChordChange(
+            state.BarIndex, beatOrdinal, name,
+            RealizedVoicingDiagram.Build(chord, voicing ?? Voice(chord, difficulty, options), key)));
     }
 
     // Render one lead-track bar (v1 = dead/muted notes): each hit is a dead note on string 3 (\x.3 —
@@ -483,5 +510,17 @@ public sealed class AlphaTexRenderer : IScoreRenderer
 
         // The \chord diagram definition lines, in first-use order — emitted in the header before the ".".
         public readonly List<string> ChordDefinitions = new();
+
+        // --- Chord-schedule capture (the now/next-fretboards feed) ---
+        // The master-bar index of the bar currently being rendered; advanced once per RenderBar (the comping
+        // walk only — \ks/\tf lines are inline metadata, not bars, so they don't advance it).
+        public int BarIndex;
+
+        // The last chord label pushed to the schedule, so an entry is recorded only when the chord changes
+        // (independent of the {ch "…"} option-gated label, which uses CurrentChordName).
+        public string? ScheduleChordName;
+
+        // One ChordChange per chord change, in playback order.
+        public readonly List<ChordChange> Schedule = new();
     }
 }
