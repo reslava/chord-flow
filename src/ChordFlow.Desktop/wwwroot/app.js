@@ -26,13 +26,13 @@ const ChordFlow = (function () {
   // render request via view.getTripletFeel() — see selections() and onNeedsRerender.
   const DIFFICULTIES = ["Beginner", "Intermediate", "Advanced"];
 
-  // The boot definition the host renders on ready (12-bar blues, Bb, Beats 1 & 3). Mirrored here as the
+  // The boot definition the host renders on ready (12-bar blues, C, Beats 1 & 3). Mirrored here as the
   // generate-envelope defaults so an early content-toggle replay (before the catalog loads) is still valid.
   const BOOT_REQUEST = {
     type: "generate",
     harmonyEntity: "progression", harmonyId: "12bar_blues",
     compingPatternId: "beat_1_3", leadPatternId: null,
-    keyPitchClass: 10, tempo: 80, difficulty: "Beginner", tripletFeel: "None",
+    keyPitchClass: 0, tempo: 80, difficulty: "Beginner", tripletFeel: "None",
   };
 
   // Browser-dev fallback only — in the app the host pushes the real score.
@@ -90,8 +90,26 @@ const ChordFlow = (function () {
   // The static param pickers (key/difficulty) — built once. Harmony/comping/lead come from the catalog; feel
   // lives on the score component's transport.
   function populateStaticPickers() {
-    fillSelect($("key"), KEY_NAMES.map((name, pc) => ({ value: String(pc), label: name })), "10"); // Bb default
+    // C default — the key-independent boot progression; a song re-seeds this via seedKeyForHarmony().
+    fillSelect($("key"), KEY_NAMES.map((name, pc) => ({ value: String(pc), label: name })), "0");
     fillSelect($("difficulty"), DIFFICULTIES.map((d) => ({ value: d, label: d })), "Beginner");
+  }
+
+  // Seed the key picker from the selected harmony so a piece plays in its authored key by default: a song →
+  // its InitialKey (carried on the catalog item, play-ui-key-init IN1/IN2), a key-independent progression → C.
+  // Fires on a harmony *switch* only (IN4), so a manual key edit for the current selection survives until the
+  // next switch. The saved-exercise load path never calls this, so a stored KeyOverride still wins (C2).
+  function seedKeyForHarmony() {
+    const sel = $("harmony");
+    const keyEl = $("key");
+    if (!sel || !keyEl) return;
+    const [entity, id] = (sel.value || "").split(/:(.*)/s);
+    let pc = 0; // C — the key-independent / progression default
+    if (entity === "song") {
+      const song = catalog.song.find((s) => s.id === id);
+      if (song && song.initialKey != null) pc = song.initialKey;
+    }
+    keyEl.value = String(pc);
   }
 
   // Rebuild the harmony picker from songs + progressions; each option's value is "<entity>:<id>" so generate
@@ -162,7 +180,12 @@ const ChordFlow = (function () {
     const gen = $("btnGenerate");
     const save = $("btnSave");
     const practice = $("btnPractice");
+    const harmony = $("harmony");
 
+    if (harmony) {
+      // Switching the harmony adopts that piece's key (song → its InitialKey, progression → C).
+      harmony.addEventListener("change", seedKeyForHarmony);
+    }
     if (gen) {
       gen.addEventListener("click", () => sendScoreRequest({ type: "generate", ...selections() }));
     }

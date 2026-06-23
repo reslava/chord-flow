@@ -34,8 +34,11 @@ public interface IContentStore
 }
 
 /// <summary>A list-row view of one definition: its id, display name, the resolved winning <see cref="Origin"/>,
-/// and whether a lower tier exists under it (so the UI labels the destructive action "Delete" vs "Revert").</summary>
-public sealed record ContentSummary(string Id, string Name, Origin Origin, bool HasLowerTier);
+/// and whether a lower tier exists under it (so the UI labels the destructive action "Delete" vs "Revert").
+/// <paramref name="InitialKey"/> is the song's starting-key tonic pitch class (0..11) — set only by
+/// <see cref="SongStore"/> so the Practice key picker can seed from it (play-ui-key-init IN1); null for the
+/// key-independent entities (progression/rhythm/voicing).</summary>
+public sealed record ContentSummary(string Id, string Name, Origin Origin, bool HasLowerTier, int? InitialKey = null);
 
 /// <summary>The editable payload of one definition: id, display name, and the header-stripped DSL body.</summary>
 public sealed record ContentDoc(string Id, string Name, string Dsl);

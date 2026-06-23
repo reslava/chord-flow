@@ -146,12 +146,12 @@ internal static class Program
                 }
 
                 // When the WebView reports it booted, push a real engine-produced score.
-                // MVP default: 12-bar blues in Bb (pitch class 10), "Beats 1 & 3", 80 BPM.
+                // MVP default: 12-bar blues in C (pitch class 0), "Beats 1 & 3", 80 BPM.
                 router.Ready += renderOptions =>
                 {
                     Exercise boot = generate.Build(
                         harmonyEntity: "progression", harmonyId: "12bar_blues", compingPatternId: "beat_1_3",
-                        leadPatternId: null, keyPitchClass: 10, tempo: 80,
+                        leadPatternId: null, keyPitchClass: 0, tempo: 80,
                         difficulty: Difficulty.Beginner, tripletFeel: TripletFeel.None);
                     if (TrySendScore(boot, renderOptions))
                     {

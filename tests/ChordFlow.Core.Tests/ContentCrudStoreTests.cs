@@ -232,4 +232,32 @@ public class ContentCrudStoreTests
         // store normalizes it to FormatException so the CRUD parse-error surface is uniform (IN3).
         Assert.Throws<FormatException>(() => new SongStore(db).Save(null, "Empty", "verse = 1 4 5 1"));
     }
+
+    // ---- Song: list surfaces InitialKey so the Practice key picker can seed from it (play-ui-key-init IN1) ----
+
+    [Fact]
+    public void SongList_SurfacesInitialKey_FromTheSongsOwnKey()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        db.Songs.Add(new SongEntity { Id = "in_f", Name = "In F", Dsl = "head = 1 4 5 1\nkey F\nhead", Origin = Origin.BuiltIn, CreatedUtc = DateTime.UtcNow });
+        db.Songs.Add(new SongEntity { Id = "no_key", Name = "No Key", Dsl = "head = 1 4 5 1\nhead", Origin = Origin.BuiltIn, CreatedUtc = DateTime.UtcNow });
+        db.SaveChanges();
+
+        var byId = new SongStore(db).List().ToDictionary(s => s.Id);
+
+        Assert.Equal(5, byId["in_f"].InitialKey);   // explicit "key F" → tonic pitch class 5
+        Assert.Equal(0, byId["no_key"].InitialKey);  // no key line → the Song DSL C default
+    }
+
+    [Fact]
+    public void ProgressionList_HasNullInitialKey_BecauseProgressionsAreKeyIndependent()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        var store = new ProgressionStore(db);
+        store.Save(id: null, name: "Tune", dsl: "1 4 5 1");
+
+        Assert.Null(Assert.Single(store.List()).InitialKey);
+    }
 }

@@ -28,10 +28,38 @@ public sealed class SongStore : IContentStore
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<ContentSummary> List() =>
-        ContentSummaries.Build(_db.Songs.AsNoTracking()
-            .Select(s => new { s.Id, s.Name, s.Origin }).ToList()
-            .Select(s => (s.Id, s.Name, s.Origin)));
+    /// <remarks>Unlike the other stores, the song summary carries <see cref="ContentSummary.InitialKey"/> — the
+    /// winning tier's parsed <see cref="Song.InitialKey"/> tonic — so the Practice key picker can seed from a
+    /// song's authored key (play-ui-key-init IN1).</remarks>
+    public IReadOnlyList<ContentSummary> List()
+    {
+        List<SongEntity> rows = _db.Songs.AsNoTracking().ToList();
+        return ContentSummaries.Build(rows.Select(s => (s.Id, s.Name, s.Origin)))
+            .Select(summary => summary with { InitialKey = InitialKeyTonic(rows, summary.Id) })
+            .ToList();
+    }
+
+    // The winning tier's Song.InitialKey tonic pitch class (0..11), derived from the song's own DSL (the same
+    // value ExerciseRendering falls back to when no KeyOverride is set — never a second stored key, C5). Null if
+    // the row can't be resolved or parsed, so a malformed song still lists (just without a key seed).
+    private int? InitialKeyTonic(IReadOnlyList<SongEntity> rows, string id)
+    {
+        SongEntity? winner = OriginResolver.ResolveOne(rows.Where(r => r.Id == id).ToList(), id);
+        if (winner is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            (_, string body) = CatalogHeader.Parse(winner.Dsl);
+            return SongParser.Parse(winner.Id, winner.Name, body, _ts).InitialKey.Tonic.Value;
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
 
     /// <inheritdoc/>
     public ContentDoc? Get(string id)

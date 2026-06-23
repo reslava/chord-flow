@@ -2,9 +2,10 @@
 type: idea
 id: id_01KVTQXQWTBNAH7GEKF74XF75Y
 title: Jazz Blues — First Real Song
-status: draft
+status: done
 created: 2026-06-23
-version: 1
+updated: 2026-06-23
+version: 2
 tags: []
 parent_id: null
 requires_load: []

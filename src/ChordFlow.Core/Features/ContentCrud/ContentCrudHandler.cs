@@ -52,7 +52,7 @@ public sealed class ContentCrudHandler
         ContentEntity kind = ContentEntities.Parse(entity);
         using var db = new ChordFlowDbContext(_dbOptions);
         var items = StoreFor(kind, db).List()
-            .Select(s => new ContentItem(s.Id, s.Name, s.Origin.ToString(), s.HasLowerTier))
+            .Select(s => new ContentItem(s.Id, s.Name, s.Origin.ToString(), s.HasLowerTier, s.InitialKey))
             .ToList();
         return new EntityListEnvelope(entity, items);
     }
