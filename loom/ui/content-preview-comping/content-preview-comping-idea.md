@@ -2,9 +2,10 @@
 type: idea
 id: id_01KVRK4WVV6QT6CGS397SRWNBN
 title: Comping picker in the Content preview
-status: draft
+status: done
 created: 2026-06-22
-version: 1
+updated: 2026-06-23
+version: 2
 tags: []
 parent_id: null
 requires_load: []

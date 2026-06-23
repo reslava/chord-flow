@@ -71,8 +71,8 @@ public sealed class WebMessageRouter
     /// <summary>Open one content definition for editing — <c>(entity, id)</c>.</summary>
     public event Action<string, string>? EntityGetRequested;
 
-    /// <summary>Live-preview an unsaved content DSL — <c>(entity, dsl, renderOptions, tripletFeel)</c>.</summary>
-    public event Action<string, string, RenderOptions, TripletFeel>? EntityPreviewRequested;
+    /// <summary>Live-preview an unsaved content DSL — <c>(entity, dsl, renderOptions, tripletFeel, compingPatternId)</c>.</summary>
+    public event Action<string, string, RenderOptions, TripletFeel, string?>? EntityPreviewRequested;
 
     /// <summary>Create/update a content definition — <c>(entity, id?, name, dsl)</c> (null id = create).</summary>
     public event Action<string, string?, string, string>? EntitySaveRequested;
@@ -181,7 +181,7 @@ public sealed class WebMessageRouter
             case "entityPreview":
                 if (envelope.Entity is { } prevEntity && envelope.Dsl is { } prevDsl)
                 {
-                    EntityPreviewRequested?.Invoke(prevEntity, prevDsl, ToRenderOptions(envelope.RenderOptions), ParseEnum(envelope.TripletFeel, TripletFeel.None));
+                    EntityPreviewRequested?.Invoke(prevEntity, prevDsl, ToRenderOptions(envelope.RenderOptions), ParseEnum(envelope.TripletFeel, TripletFeel.None), envelope.CompingPatternId);
                 }
                 break;
             case "entitySave":

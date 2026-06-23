@@ -42,7 +42,7 @@ public class WebMessageRouterContentTests
     {
         var router = new WebMessageRouter();
         (string Entity, string Dsl)? got = null;
-        router.EntityPreviewRequested += (e, dsl, _, _) => got = (e, dsl);
+        router.EntityPreviewRequested += (e, dsl, _, _, _) => got = (e, dsl);
 
         router.Dispatch("""{"type":"entityPreview","entity":"rhythm","dsl":"X...X...X...X..."}""");
 
@@ -54,11 +54,35 @@ public class WebMessageRouterContentTests
     {
         var router = new WebMessageRouter();
         TripletFeel got = TripletFeel.None;
-        router.EntityPreviewRequested += (_, _, _, feel) => got = feel;
+        router.EntityPreviewRequested += (_, _, _, feel, _) => got = feel;
 
         router.Dispatch("""{"type":"entityPreview","entity":"progression","dsl":"1 4 5","tripletFeel":"Triplet8th"}""");
 
         Assert.Equal(TripletFeel.Triplet8th, got);
+    }
+
+    [Fact]
+    public void EntityPreview_CarriesCompingPatternId()
+    {
+        var router = new WebMessageRouter();
+        string? got = "unset";
+        router.EntityPreviewRequested += (_, _, _, _, compingPatternId) => got = compingPatternId;
+
+        router.Dispatch("""{"type":"entityPreview","entity":"progression","dsl":"1 4 5","compingPatternId":"driving"}""");
+
+        Assert.Equal("driving", got);
+    }
+
+    [Fact]
+    public void EntityPreview_AbsentCompingPatternId_IsNull()
+    {
+        var router = new WebMessageRouter();
+        string? got = "unset";
+        router.EntityPreviewRequested += (_, _, _, _, compingPatternId) => got = compingPatternId;
+
+        router.Dispatch("""{"type":"entityPreview","entity":"progression","dsl":"1 4 5"}""");
+
+        Assert.Null(got); // absent → null; the handler applies the beat_1_3 default
     }
 
     [Fact]
@@ -177,7 +201,7 @@ public class WebMessageRouterContentTests
     {
         var router = new WebMessageRouter();
         RenderOptions? got = null;
-        router.EntityPreviewRequested += (_, _, opts, _) => got = opts;
+        router.EntityPreviewRequested += (_, _, opts, _, _) => got = opts;
 
         router.Dispatch("""{"type":"entityPreview","entity":"progression","dsl":"1 4 5 1","renderOptions":{"showChordNames":true}}""");
 

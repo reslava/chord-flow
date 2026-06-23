@@ -94,8 +94,12 @@ public sealed class ContentCrudHandler
         return new EntityDeletedEnvelope(entity, id, outcome.ToString());
     }
 
-    /// <summary>Render a live preview of an unsaved DSL. Any failure throws <see cref="FormatException"/> (IN3).</summary>
-    public EntityPreviewEnvelope Preview(string entity, string dsl, RenderOptions? options = null, TripletFeel tripletFeel = TripletFeel.None)
+    /// <summary>
+    /// Render a live preview of an unsaved DSL. Any failure throws <see cref="FormatException"/> (IN3). The
+    /// progression/song preview comps with <paramref name="compingPatternId"/> resolved against the rhythm
+    /// catalog (blank → the app default <c>beat_1_3</c>); rhythm/voicing previews ignore it.
+    /// </summary>
+    public EntityPreviewEnvelope Preview(string entity, string dsl, RenderOptions? options = null, TripletFeel tripletFeel = TripletFeel.None, string? compingPatternId = null)
     {
         ContentEntity kind = ContentEntities.Parse(entity);
         ArgumentNullException.ThrowIfNull(dsl);
@@ -106,9 +110,9 @@ public sealed class ContentCrudHandler
             using var db = new ChordFlowDbContext(_dbOptions);
             return kind switch
             {
-                ContentEntity.Progression => ScorePreview(entity, ProgressionPreview(dsl, tripletFeel), db, opts),
+                ContentEntity.Progression => ScorePreview(entity, ProgressionPreview(dsl, tripletFeel, ResolveComping(compingPatternId, db)), db, opts),
                 ContentEntity.Rhythm => ScorePreview(entity, RhythmPreview(dsl, tripletFeel), db, opts),
-                ContentEntity.Song => SongPreview(entity, dsl, db, opts, tripletFeel),
+                ContentEntity.Song => SongPreview(entity, dsl, db, opts, tripletFeel, ResolveComping(compingPatternId, db)),
                 ContentEntity.Voicing => VoicingPreview(entity, dsl),
                 _ => throw new FormatException($"Cannot preview entity \"{entity}\"."),
             };
@@ -129,11 +133,16 @@ public sealed class ContentCrudHandler
     private EntityPreviewEnvelope ScorePreview(string entity, Exercise exercise, ChordFlowDbContext db, RenderOptions options) =>
         new(entity, "score", ExerciseRendering.RenderToTex(exercise, new ProgressionStore(db), _renderer, options), exercise.Tempo);
 
-    private static Exercise ProgressionPreview(string dsl, TripletFeel tripletFeel)
+    // Resolve the chosen comping id → RhythmPattern via the shared seam (also used by generate/load); a blank id
+    // falls back to the app default beat_1_3, an unknown non-blank id fails loud (→ entityParseError, IN6).
+    private static RhythmPattern ResolveComping(string? compingPatternId, ChordFlowDbContext db) =>
+        ExerciseRefs.ResolvePattern(string.IsNullOrWhiteSpace(compingPatternId) ? "beat_1_3" : compingPatternId, db);
+
+    private static Exercise ProgressionPreview(string dsl, TripletFeel tripletFeel, RhythmPattern comping)
     {
         Progression progression = ProgressionParser.Parse("preview", "Preview", dsl, TimeSignature.FourFour);
         return new Exercise(
-            Song.OfProgression(progression, PreviewKey), SeedData.Quarters, Lead: null, KeyOverride: null,
+            Song.OfProgression(progression, PreviewKey), comping, Lead: null, KeyOverride: null,
             PreviewTempo, Difficulty.Beginner, tripletFeel);
     }
 
@@ -147,11 +156,11 @@ public sealed class ContentCrudHandler
             PreviewTempo, Difficulty.Beginner, tripletFeel);
     }
 
-    private EntityPreviewEnvelope SongPreview(string entity, string dsl, ChordFlowDbContext db, RenderOptions options, TripletFeel tripletFeel)
+    private EntityPreviewEnvelope SongPreview(string entity, string dsl, ChordFlowDbContext db, RenderOptions options, TripletFeel tripletFeel, RhythmPattern comping)
     {
         Song song = SongParser.Parse("preview", "Preview", dsl, TimeSignature.FourFour);
         RealizedSong realized = SongExpander.Expand(song, new ProgressionStore(db));
-        string tex = _renderer.Render(realized, SeedData.Quarters, PreviewTempo, Difficulty.Beginner, tripletFeel, options: options);
+        string tex = _renderer.Render(realized, comping, PreviewTempo, Difficulty.Beginner, tripletFeel, options: options);
         return new EntityPreviewEnvelope(entity, "score", tex, PreviewTempo);
     }
 

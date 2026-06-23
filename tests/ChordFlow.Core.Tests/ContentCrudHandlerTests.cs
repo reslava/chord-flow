@@ -153,6 +153,53 @@ public class ContentCrudHandlerTests
     }
 
     [Fact]
+    public void Preview_Progression_UsesChosenComping() // IN4: the chosen id, not the hard-wired default, drives the render
+    {
+        var (handler, conn) = NewHandler(withDefaultPack: true);
+        using (conn)
+        {
+            string withBeat13 = handler.Preview("progression", "17 47 17 57", compingPatternId: "beat_1_3").Tex!;
+            string withQuarters = handler.Preview("progression", "17 47 17 57", compingPatternId: "quarters").Tex!;
+            Assert.NotEqual(withBeat13, withQuarters); // a different comping changes which notes render
+        }
+    }
+
+    [Fact]
+    public void Preview_Song_UsesChosenComping() // same resolve seam on the song arm
+    {
+        var (handler, conn) = NewHandler(withDefaultPack: true);
+        using (conn)
+        {
+            const string songDsl = "verse = 17 47 17 57\nverse";
+            string withBeat13 = handler.Preview("song", songDsl, compingPatternId: "beat_1_3").Tex!;
+            string withQuarters = handler.Preview("song", songDsl, compingPatternId: "quarters").Tex!;
+            Assert.NotEqual(withBeat13, withQuarters);
+        }
+    }
+
+    [Fact]
+    public void Preview_BlankComping_DefaultsToBeat1And3() // IN5: blank id → the app default beat_1_3
+    {
+        var (handler, conn) = NewHandler(withDefaultPack: true);
+        using (conn)
+        {
+            string defaulted = handler.Preview("progression", "17 47 17 57").Tex!;
+            string explicit13 = handler.Preview("progression", "17 47 17 57", compingPatternId: "beat_1_3").Tex!;
+            Assert.Equal(explicit13, defaulted);
+        }
+    }
+
+    [Fact]
+    public void Preview_UnknownComping_ThrowsFormatException() // IN6: a non-blank id that does not resolve fails loud
+    {
+        var (handler, conn) = NewHandler(withDefaultPack: true);
+        using (conn)
+        {
+            Assert.Throws<FormatException>(() => handler.Preview("progression", "17 47 17 57", compingPatternId: "no_such_pattern"));
+        }
+    }
+
+    [Fact]
     public void UnknownEntity_ThrowsFormatException()
     {
         var (handler, conn) = NewHandler(withDefaultPack: false);

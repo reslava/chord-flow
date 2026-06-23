@@ -15,12 +15,12 @@ window.ChordFlowContent = (function () {
   // The per-entity config — the table that makes one component serve all four.
   const ENTITIES = [
     {
-      key: "progression", label: "Progressions", previewKind: "score",
+      key: "progression", label: "Progressions", previewKind: "score", comping: true,
       placeholder: "17 47 17 57",
       help: "Nashville numbers. Space = next bar, _ = next chord in the bar (e.g. 1_4 5).",
     },
     {
-      key: "song", label: "Songs", previewKind: "score",
+      key: "song", label: "Songs", previewKind: "score", comping: true,
       placeholder: "intro = 17 47 17 17\nintro",
       help: "Define parts (NAME = inline | NAME: stored-id), then list them in order.",
     },
@@ -36,6 +36,8 @@ window.ChordFlowContent = (function () {
     },
   ];
 
+  const DEFAULT_COMPING = "beat_1_3"; // the app's default comping; the picker's transient default each load
+
   let initialized = false;
   let current = ENTITIES[0];   // selected entity config
   let editingId = null;        // id being edited (null = a new, unsaved definition)
@@ -46,7 +48,7 @@ window.ChordFlowContent = (function () {
 
   // DOM refs (set in buildDom)
   let root, tabsEl, listEl, nameEl, dslEl, helpEl, errorEl;
-  let saveBtn, deleteBtn, newBtn, previewWrap, scoreEl, diagramEl;
+  let saveBtn, deleteBtn, newBtn, previewWrap, scoreEl, diagramEl, compingBar, compingEl;
 
   const setStatus = (text) => {
     const el = document.getElementById("status");
@@ -85,6 +87,10 @@ window.ChordFlowContent = (function () {
             <button type="button" id="ccSave" class="primary">Save</button>
             <button type="button" id="ccDelete">Delete</button>
           </div>
+          <div class="cc-preview-toolbar" id="ccCompingBar" hidden>
+            <label for="ccComping">Comping</label>
+            <select id="ccComping"></select>
+          </div>
           <div class="cc-preview empty" id="ccPreview">
             <div id="ccPreviewScore"></div>
             <div id="ccPreviewDiagram"></div>
@@ -104,6 +110,8 @@ window.ChordFlowContent = (function () {
     previewWrap = document.getElementById("ccPreview");
     scoreEl = document.getElementById("ccPreviewScore");
     diagramEl = document.getElementById("ccPreviewDiagram");
+    compingBar = document.getElementById("ccCompingBar");
+    compingEl = document.getElementById("ccComping");
 
     // Entity tabs
     for (const e of ENTITIES) {
@@ -118,6 +126,7 @@ window.ChordFlowContent = (function () {
     saveBtn.addEventListener("click", onSave);
     deleteBtn.addEventListener("click", onDelete);
     newBtn.addEventListener("click", () => newItem());
+    compingEl.addEventListener("change", requestPreview); // re-preview with the chosen comping
   }
 
   function selectEntity(key) {
@@ -125,6 +134,9 @@ window.ChordFlowContent = (function () {
     for (const b of tabsEl.children) b.classList.toggle("active", b.dataset.entity === current.key);
     dslEl.placeholder = current.placeholder;
     helpEl.textContent = current.help;
+    // The comping picker is a progression/song-only content knob; fetch the rhythm catalog to fill it.
+    compingBar.hidden = !current.comping;
+    if (current.comping) Bridge.send({ type: "entityList", entity: "rhythm" });
     newItem();
     requestList();
   }
@@ -183,7 +195,24 @@ window.ChordFlowContent = (function () {
     // before the score component exists ⇒ omitted ⇒ host defaults).
     const renderOptions = scoreView ? scoreView.getRenderOptions() : undefined;
     const tripletFeel = scoreView ? scoreView.getTripletFeel() : undefined;
-    Bridge.send({ type: "entityPreview", entity: current.key, dsl: dslEl.value, renderOptions, tripletFeel });
+    // Comping is a progression/song-only content knob; omitted elsewhere ⇒ host applies the beat_1_3 default.
+    const compingPatternId = current.comping ? (compingEl.value || DEFAULT_COMPING) : undefined;
+    Bridge.send({ type: "entityPreview", entity: current.key, dsl: dslEl.value, renderOptions, tripletFeel, compingPatternId });
+  }
+
+  // Fill the comping <select> from the rhythm catalog. Keep the current pick if it survived a catalog refresh,
+  // else default to beat_1_3 (the transient default), else the first option.
+  function populateCompingOptions(list) {
+    const prev = compingEl.value;
+    compingEl.innerHTML = "";
+    for (const it of list) {
+      const opt = document.createElement("option");
+      opt.value = it.id;
+      opt.textContent = it.name;
+      compingEl.appendChild(opt);
+    }
+    const has = (id) => list.some((it) => it.id === id);
+    compingEl.value = has(prev) ? prev : has(DEFAULT_COMPING) ? DEFAULT_COMPING : (list[0]?.id || "");
   }
 
   // --- inbound ---------------------------------------------------------------
@@ -192,6 +221,13 @@ window.ChordFlowContent = (function () {
     try {
       msg = JSON.parse(raw);
     } catch {
+      return;
+    }
+    // The comping picker needs the rhythm catalog even while the active entity is progression/song — so capture
+    // a rhythm entityList here, before the active-entity filter below would drop it. (Skip when rhythm is itself
+    // the active entity; then it flows through the normal list path.)
+    if (msg && msg.type === "entityList" && msg.entity === "rhythm" && current.key !== "rhythm") {
+      populateCompingOptions(msg.items || []);
       return;
     }
     // Every view sees every message; ignore anything not for the active entity / not ours.

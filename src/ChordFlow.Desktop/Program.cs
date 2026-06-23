@@ -257,9 +257,9 @@ internal static class Program
                     }
                     catch (FormatException ex) { bridge.Send(new StatusEnvelope(ex.Message, true)); }
                 };
-                router.EntityPreviewRequested += (entity, dsl, renderOptions, tripletFeel) =>
+                router.EntityPreviewRequested += (entity, dsl, renderOptions, tripletFeel, compingPatternId) =>
                 {
-                    try { bridge.Send(contentCrud.Preview(entity, dsl, renderOptions, tripletFeel)); }
+                    try { bridge.Send(contentCrud.Preview(entity, dsl, renderOptions, tripletFeel, compingPatternId)); }
                     catch (FormatException ex) { bridge.Send(new EntityParseErrorEnvelope(entity, ex.Message)); }
                 };
                 router.EntitySaveRequested += (entity, id, name, dsl) =>
