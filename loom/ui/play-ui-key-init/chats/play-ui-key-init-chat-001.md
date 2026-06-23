@@ -9,7 +9,7 @@ version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 13
+last_ai_block: 15
 ---
 # play-ui-key-init Chat
 
@@ -153,4 +153,24 @@ Roadmap progress:
   - ⏳ chromatic-degrees (Finding 1)
   - ⏳ voicing-difficulty-bands (Findings 2, 5, 6)
 
-spin up all pending threads / ideas to continue tomorrow in a new session  
+spin up all pending threads / ideas to continue tomorrow in a new session
+
+## AI:
+
+All set for tomorrow. 
+
+**Committed** (2 commits on `main`):
+- `d97ff9a` — feat: jazz-blues song bundle + Practice key seeds from song key
+- `cbb8cdb` — chore(loom): scaffold next jazz-blues follow-on threads
+
+**Spun up the three pending threads** (each with an idea, priority-ordered so the roadmap survives the new session):
+
+| Priority | Thread | Idea | Finding |
+|:--:|--------|------|---------|
+| 10 | `domain/tie-dotted-rendering` | alphaTex tie/dotted-note rendering | 3 |
+| 20 | `domain/chromatic-degrees` | Progression DSL `#`/`b` degrees | 1 |
+| 30 | `guitar/voicing-difficulty-bands` | Difficulty → shells + dim7 | 2, 5, 6 |
+
+Each idea carries its origin (the jazz-blues finding), root cause, shape, scope, and validation — so a fresh session can go idea → design → req → plan without re-deriving anything. I noted the one cross-thread dependency: the **dim7** half of `voicing-difficulty-bands` is gated behind `chromatic-degrees` (dim7 only reaches the voicer once `#IVdim7` parses); the difficulty→shells half is independent.
+
+Next session, the session-start `loom://state` read will surface **`tie-dotted-rendering`** as the top-priority active thread. Good place to pick up. 🌙

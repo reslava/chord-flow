@@ -4,12 +4,12 @@ id: th_01KV3X9Z0FV87YDJQHAYSFFS33
 title: Multi-bar Rhythm Patterns — per-bar timing variation
 status: active
 created: 2026-06-14
-updated: 2026-06-22
+updated: 2026-06-23
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 30
+priority: 50
 depends_on: []
 ---
 # Multi-bar Rhythm Patterns — per-bar timing variation
