@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVSQ96H93G8GNAM6DHTBPYD4
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.11.0
 steps:
   - id: backend-preview-resolves-comping
     order: 1

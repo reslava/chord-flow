@@ -6,6 +6,44 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-06-23
+
+The score comes alive. ChordFlow gains **Now/Next chord fretboards** — two fret-boxes above the
+Practice score that show the **current** and **upcoming** chord as real voicings and follow the beat
+as it plays, the first slice of a live theory overlay on the staff. The engine emits a **chord
+schedule** alongside the tab so the boards always show exactly what's being comped. Plus a **comping
+picker** in the Content preview, opt-in **score auto-scroll**, and a fix that revives playback beat
+tracking.
+
+### Added
+- **Now/Next chord fretboards (Practice).** Two fretboards pinned above the score show the chord
+  playing now and the one coming next, as real fretboard voicings, synced to playback. The C# engine
+  emits a **chord schedule** (one entry per chord change, each carrying a real-root fretboard diagram
+  of the comped voicing) as a by-product of the render pass — so the boards can never drift from the
+  tab — and a shared `ChordFlowNowNext` JS module drives them off the score's active-beat signal.
+  Built reusable for the Progressions/Songs views and as the foundation for guide-tone / scale
+  overlays to come.
+- **Comping rhythm picker in the Content preview.** Progression and song previews now pick the
+  comping pattern (from the rhythm catalog) instead of a hard-wired default, re-previewing on change.
+- **Opt-in score auto-scroll (Practice).** The staff follows the playback cursor (alphaTab `Smooth`
+  mode, scrolling its own bounded surface) so the played bar stays in view. *(Known rough edge: the
+  glide is continuous and a row can tuck under at line-end — a polish item, not a blocker.)*
+
+### Changed
+- **Content preview defaults to the beat 1 + 3 comping pattern** (was quarters) — the app default.
+- **Real-root voicing diagrams.** A new `RealizedVoicingDiagram` renders a concrete voicing at its
+  actual root; the existing canonical-C `VoicingDiagram` is now its special case (one diagram path,
+  no drift). Internal, but it's what lets the Now/Next boards show each chord at its real position.
+
+### Fixed
+- **Playback beat tracking was silently dead.** The shared score component read the wrong shape from
+  alphaTab's `activeBeatsChanged` event (`.activeBeats.beats`, but `activeBeats` is a `Beat[]`), so the
+  active-beat signal never fired. Reading it correctly revives the signal — and is what powers the new
+  Now/Next sync.
+
+### Tests
+- Full `ChordFlow.Core` xUnit suite green (645).
+
 ## [0.10.0] — 2026-06-22
 
 Swing arrives. ChordFlow gains a whole-song **triplet feel** — pick a swing in the score transport
@@ -390,6 +428,7 @@ as tablature, and plays it back with a synchronized beat cursor.
   the next phase).
 - No audio-input accuracy detection (out of scope for v1).
 
+[0.11.0]: https://github.com/reslava/chord-flow/releases/tag/v0.11.0
 [0.10.0]: https://github.com/reslava/chord-flow/releases/tag/v0.10.0
 [0.9.0]: https://github.com/reslava/chord-flow/releases/tag/v0.9.0
 [0.8.0]: https://github.com/reslava/chord-flow/releases/tag/v0.8.0

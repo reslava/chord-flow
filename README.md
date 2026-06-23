@@ -7,16 +7,20 @@ guitarists practice **rhythm patterns over chord progressions**. The core is an
 exercise-generation engine (progressions × keys × rhythms × voicings), rendered as
 guitar tablature with **synchronized playback** via [alphaTab](https://www.alphatab.net/).
 
-> **Status:** v0.10.0 — a **content-driven** trainer over a music-theory-first kernel with a growing
+> **Status:** v0.11.0 — a **content-driven** trainer over a music-theory-first kernel with a growing
 > guitar **shape engine**. Progressions, songs, rhythms, and voicings are authored in compact **text
 > DSLs**, shipped as importable **content packs**, and assembled through an on-screen **workbench**;
 > shapes render through a reusable **fretboard-diagram** layer over a provably **instrument-agnostic**
-> kernel. New this release: a whole-song **triplet feel (swing)** rendered via alphaTab's native `\tf`
-> (the score *reads* swung, not just plays swung), an editable **alphaTex debug panel** on the shared
-> score component, true **pickup (anacrusis)** rendering, and the first **progression transform**
-> (`@take`). Windows-only for now (downloadable build below).
+> kernel. New this release: **Now/Next chord fretboards** above the Practice score that show the
+> current + upcoming chord as real voicings and follow the beat as it plays, a **comping picker** in
+> the Content preview, and opt-in **score auto-scroll**. Windows-only for now (downloadable build below).
 
-## Features (v0.10.0)
+## Features (v0.11.0)
+
+- **Now/Next chord fretboards** — two fret-boxes above the Practice score show the chord playing
+  **now** and the one coming **next** as real voicings, synced to playback (the engine emits a chord
+  schedule alongside the tab, so the boards always match what's comped); the first slice of a live
+  theory overlay on the staff
 
 - **Content authored in text DSLs** — a key-independent
   **[Progression & Song DSL](loom/refs/chordflow-dsl-reference.md)** (multiple chords per
@@ -36,7 +40,7 @@ guitar tablature with **synchronized playback** via [alphaTab](https://www.alpha
 - 12-bar blues transposable to **all 12 keys**
 - Tablature rendering + audio playback with a **synchronized beat cursor**, **two-track**
   (comping + lead) staves, true **pickup (anacrusis)** bars, chord-name / chord-diagram toggles,
-  and bars-per-row layout
+  bars-per-row layout, and opt-in **auto-scroll** that follows the cursor on the Practice score
 - **Fretboard diagrams** — chord & voicing shapes drawn by a reusable SVG fretboard component
   where **color = interval** and **shape = layer** (the spatial twin of the notation view), with
   a label toggle, auto legend, open/muted/barre rendering, and an auto-fit fret window
@@ -53,8 +57,8 @@ guitar tablature with **synchronized playback** via [alphaTab](https://www.alpha
 - **User-selectable soundfont** (`.sf2` / `.sf3`) — auto-discovered from `wwwroot/soundfont`, a
   global choice that switches live and persists
 - **Content editor** — CRUD for progressions/songs/rhythms/voicings (with fret-box diagrams + a live
-  score preview), plus an editable **alphaTex debug panel** on the shared score component that shows
-  and re-renders the engine's emitted alphaTex
+  score preview that takes a **comping-rhythm picker**), plus an editable **alphaTex debug panel** on
+  the shared score component that shows and re-renders the engine's emitted alphaTex
 - **Save** exercise definitions to SQLite, reload them from a **saved-exercise list**
   (alphaTex is regenerated on load, never stored), and **mark practiced**
 - Play / stop / tempo transport
@@ -143,7 +147,7 @@ Some downloads are zipped — extract the `.sf2` / `.sf3` and place it in the fo
 dotnet test
 ```
 
-635 xUnit tests cover the `Music` kernel (incl. the `IntervalSpeller` interval-naming + parsing
+645 xUnit tests cover the `Music` kernel (incl. the `IntervalSpeller` interval-naming + parsing
 authority and `QualityFormulas`), the guitar **interval lattice**, **CAGED octave shapes**, and the
 **CAGED chord-derivation engine** (frets + anchor-finger oracles, 36/36), the content DSLs/parsers,
 packs, persistence, `AlphaTexRenderer`, and `NetArchTest` architecture-boundary tests asserting
