@@ -9,7 +9,7 @@ version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 7
+last_ai_block: 9
 ---
 # content-preview-comping Chat
 
@@ -115,3 +115,11 @@ Once you confirm it sounds right, say `go` and I'll mark step 5 done + close the
 Visual check done, all working!🎸
 Marke step done
 Commit
+
+## AI:
+
+🎸 Shipped. Step 5 marked done → **plan auto-closed to `done`** (all 5 steps complete, done-doc has the per-step notes).
+
+**Committed to `main`:** `9ea9a9c` — *feat: comping picker in the Content preview*. Staged the source + tests + all the Loom docs (idea→design→req→plan→done + the architecture-ref sync). `bin/` copies are gitignored.
+
+Held off on `git push` since you said "commit" — say `push` and it goes up. Want a `/code-review` on the diff first, or call it a release (`/do-release`)?
