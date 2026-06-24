@@ -9,7 +9,7 @@ version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 13
+last_ai_block: 15
 ---
 # dsl-monospace-font Chat
 
@@ -155,3 +155,21 @@ Done — and no req unlock needed. The IN5/IN6 "gaps" were a **plan-citation** g
 One honesty note: Step 1's *detail prose* still describes the original `ui-monospace, "Cascadia Code", …` stack — that's the plan-time intent, preserved as history; the actual shipped CSS (Consolas-first + ligatures off) is recorded here in the chat and in the req. I left the historical detail untouched rather than rewrite a done plan.
 
 Want me to (a) write a `done` doc capturing the two-bug journey (specificity loss → ligature dancing) as durable notes, and/or (b) commit the change? Otherwise this thread is complete.
+
+## AI:
+
+Done doc written + committed.
+
+- **Done doc:** `done/pl_01KVX1TEWVSZC2KSWTPEZP2CQ0-done.md` — three step sections; step 1 captures the full journey (Bug 1 specificity loss → Bug 2 ligature dancing) so the next person doesn't re-trip either.
+- **Commit `bcddf87`** on `main` — `feat(ui): monospace DSL editors via shared .dsl-input class`. 8 files: the two `wwwroot` changes + this thread's req/plan/done/chat/idea/thread.md. Staged surgically — the unrelated `thread.md` edits and the `score-render-component` items were left out.
+
+Thread complete. Say `close` when you want to close out this chat.
+
+## AI:
+
+Good question — they're two different things, and you've effectively already done the one that matters.
+
+- **"close" (the contract word)** is just a *conversational signal to me* — it tells me to stop treating this chat doc as the active reply surface (the rule is: once a chat is active, I keep appending every reply here until you say `close` or open a different chat). It's **not** a tool call and **not** a frontmatter change. It's purely "you can stop auto-replying in here now."
+- **`status: done` (the frontmatter field you set)** is the *document's lifecycle state* — a real property of the doc. That's the substantive one.
+
+So you marking it `done` already accomplishes the meaningful part; my "say close" line was redundant. I'll treat `done` as the signal and stop auto-appending here. Nothing else to do.
