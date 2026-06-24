@@ -9,7 +9,7 @@ version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 58
+last_ai_block: 66
 ---
 # Rhythm DSL — Accurate-Notation Redesign
 
@@ -743,3 +743,57 @@ Everything's green and the docs are in, so I'll commit (single feature commit, n
 It was a great thread. The most valuable move was refusing to treat it as "fix the tie bug": peeling it back exposed the real question — **notation vs. sustain** — and then **rhythm vs. harmony**. Each layer made the design *smaller*: `_`-as-tied-note + rhythm-wins deleted more special-casing than it added (no zero-width hack, no cross-boundary rejection), and the quantizer came out simpler than it started. Dogfooding in the app is what surfaced the rest-coalescing and the shadowing — neither would've shown up in unit tests. Simple, robust, comprehensive for our needs — agreed. 🎸
 
 Step 8 (your audible playback check) is the only open item; ping me to close the plan once you've heard it.
+
+## Rafa:
+
+I ran the app, load song `Jazz Blues in F`, comping `Charleston`, lead `Eights`, feel `triplet 8th` 
+and played very well
+
+### Issue
+
+Tempo control is asociated to ScoreR and when I change it score is not updated until I click on page control `Generate`, that feels little akwards, suggestions?
+I think tempo control belongs to ScoreR but...
+
+## AI:
+
+Confirmed playing well — **plan closed** (`done/` doc written, all 8 steps ✅). The rhythm-notation thread is complete.
+
+## Tempo control
+
+Yes — tempo **belongs in ScoreR**, same as the triplet-feel control. The awkwardness isn't the placement; it's that ScoreR doesn't *self-apply* the change, so you fall back to the page's `Generate`. Two ways to fix that:
+
+- **(A, recommended) Apply tempo live via alphaTab — no re-render.** Tempo changes only the playback speed and the displayed marking, **not the notes** — so re-emitting the whole score is wasteful and it resets the scroll position and the play cursor. alphaTab can set tempo on the live score through its API; ScoreR just calls that setter on change. Most responsive, no flicker, and it's the *correct* model: tempo is a playback property, not a notation change.
+- **(B) Wire tempo to the existing re-render seam** — the same `onNeedsRerender` → host-replay path the **feel** control uses (IN7 of the triplet-feel thread). Minimal and consistent, but it re-emits + re-renders the score just to change a number (flicker / scroll reset). Fine, but heavier than tempo warrants.
+
+I'd go **(A)**. One thing to verify first: alphaTab's live-tempo setter (and whether it also updates the on-staff tempo text, or if we nudge that ourselves) — that's a quick check against `alphatab-js-api-reference.md`.
+
+This is a **score-render-component concern**, not rhythm-notation. Want me to capture it as an idea in `ui/score-render-component` (and dig into the alphaTab API to confirm the live setter)? Then we can decide A vs B with the facts in hand.
+
+## Rafa:
+
+Spin up the idea in `ui/score-render-component`
+
+AlphaTab API:
+`playbackSpeed`
+
+The current playback speed as percentage Controls the current playback speed as percentual value. Normal speed is 1.0 (100%) and 0.5 would be 50%.
+
+playbackSpeed: number = 1;
+
+But modifying the score's actual tempo require regenerate score
+
+## AI:
+
+Spun up the idea: **`ui/score-render-component/score-render-component-idea.md`** — "Tempo control self-applies (no Generate click)."
+
+Your alphaTab note is the key — it splits my "(A) live" into two different things:
+
+- **`playbackSpeed`** is a **percentage multiplier** (live, no re-render) — but it's *relative*, so it doesn't change the written `\tempo` BPM marking.
+- The **actual score tempo** (the BPM directive) **does require a regenerate** — alphaTab can't mutate it live.
+
+So the cleanest design is **both controls** (the practice-tool pattern), MVP-able starting with the live one:
+
+- a live **practice-speed (%)** slider via `playbackSpeed` — instant, no re-render, preserves scroll + play cursor (the everyday "slow it down to learn" control);
+- the absolute **tempo (BPM)** stays, and if we want BPM edits to self-apply without `Generate` too, we wire it to the **same re-render seam the feel control uses** (triplet-feel IN7).
+
+The idea lays out A / B / C with that recommendation. Further design + a plan should continue in the **score-render-component** thread — open its chat when you want to take it forward, and the rhythm-notation thread can rest here. Nice work today. 🎸

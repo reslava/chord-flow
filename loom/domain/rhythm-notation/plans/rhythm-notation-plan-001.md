@@ -2,7 +2,7 @@
 type: plan
 id: pl_01KVWA3WWN0R5FBW6N8G5SZATF
 title: Rhythm DSL — Accurate-Notation Redesign — Plan
-status: implementing
+status: done
 created: 2026-06-24
 updated: 2026-06-24
 version: 1
@@ -64,7 +64,7 @@ steps:
     satisfies: [IN3, IN4, IN12]
   - id: visual-end-to-end-verify-in
     order: 8
-    status: pending
+    status: done
     description: Visual end-to-end verify in the running app (Charleston + a dotted comp render and play)
     files_touched: []
     blocked_by: [5]
@@ -89,7 +89,7 @@ Implement the accurate-notation redesign of the Rhythm DSL: make the grammar des
 | ✅ | 5 | Migrate seed rhythm patterns to the new grammar; re-add charleston.dsl to the default pack | src/ChordFlow.Core/Content/default-pack/rhythms/beat_1.dsl, src/ChordFlow.Core/Content/default-pack/rhythms/beat_1_3.dsl, src/ChordFlow.Core/Content/default-pack/rhythms/quarters.dsl, src/ChordFlow.Core/Content/default-pack/rhythms/charleston.dsl | 4 | IN8, C4 |
 | ✅ | 6 | Reference-doc sync: alphaTex syntax (tie/dot/let-ring verified), DSL ref (Rhythm DSL grammar), domain-model ref | loom/refs/alphatex-syntax-reference.md, loom/refs/chordflow-dsl-reference.md, loom/refs/chordflow-domain-model-reference.md | 5 | IN9 |
 | ✅ | 7 | Redesign `_` as a tied note (within + cross-bar), rhythm-wins-over-harmony tie holding, and aligned rest coalescing | src/ChordFlow.Core/Music/Rhythm/RhythmPattern.cs, src/ChordFlow.Core/Music/Rhythm/RhythmPatternParser.cs, src/ChordFlow.Core/Rendering/RhythmQuantizer.cs, src/ChordFlow.Core/Rendering/AlphaTexRenderer.cs, src/ChordFlow.Desktop/wwwroot/content-crud.js, tests/ChordFlow.Core.Tests/RhythmPatternParserTests.cs, tests/ChordFlow.Core.Tests/RhythmQuantizerTests.cs, tests/ChordFlow.Core.Tests/AlphaTexRendererTests.cs | — | IN3, IN4, IN12 |
-| 🔳 | 8 | Visual end-to-end verify in the running app (Charleston + a dotted comp render and play) | — | 5 | IN11, C5 |
+| ✅ | 8 | Visual end-to-end verify in the running app (Charleston + a dotted comp render and play) | — | 5 | IN11, C5 |
 ---
 
 ### Legend
