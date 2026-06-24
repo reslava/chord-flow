@@ -9,7 +9,7 @@ version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 8
+last_ai_block: 10
 ---
 # staff-display-mode Chat
 
@@ -151,3 +151,9 @@ Whole plan implemented and the plan auto-completed to **done**. Summary:
 
 app working
 commit
+
+## AI:
+
+Committed to `main` — `b9f153b` *feat(ui): tab/standard/both staff-display mode*. Bundles the code (envelope, router, `Program.cs`, ScoreR, tests) + the loom docs (idea → req v2 → design → plan-001 done) + the architecture-ref sync.
+
+Want me to **push** and/or **close the plan** (`loom_close_plan` → done doc)?
