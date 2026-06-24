@@ -79,7 +79,7 @@ window.ChordFlowContent = (function () {
           <div class="cc-row">
             <input type="text" id="ccName" placeholder="Name" />
           </div>
-          <textarea id="ccDsl" spellcheck="false"></textarea>
+          <textarea id="ccDsl" class="dsl-input" spellcheck="false"></textarea>
           <div class="cc-help" id="ccHelp"></div>
           <div class="cc-error" id="ccError"></div>
           <div class="cc-actions">

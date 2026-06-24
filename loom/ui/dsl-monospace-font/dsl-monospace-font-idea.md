@@ -2,9 +2,10 @@
 type: idea
 id: id_01KVW7YV4V2XFDSSKNPT653N4F
 title: Monospace font for DSL editors
-status: draft
+status: done
 created: 2026-06-24
-version: 1
+updated: 2026-06-24
+version: 2
 tags: []
 parent_id: null
 requires_load: []
