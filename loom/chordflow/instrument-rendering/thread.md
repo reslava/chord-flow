@@ -4,12 +4,12 @@ id: th_01KVCTCN9STSHNPK02KKP1GASA
 title: Instrument-aware rendering fork + IInstrument seam
 status: active
 created: 2026-06-18
-updated: 2026-06-23
+updated: 2026-06-24
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 70
+priority: 80
 depends_on: [th_01KVCTCBFPMRJHQPDQBVEXDV8P]
 ---
 # Instrument-aware rendering fork + IInstrument seam

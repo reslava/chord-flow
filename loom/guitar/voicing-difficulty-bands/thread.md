@@ -4,12 +4,12 @@ id: th_01KVVCHARK0STQ074HNV1Z5VWC
 title: Voicing selection by difficulty (Beginner = shells) + dim7
 status: active
 created: 2026-06-23
-updated: 2026-06-23
+updated: 2026-06-24
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 30
+priority: 40
 depends_on: []
 ---
 # Voicing selection by difficulty (Beginner = shells) + dim7

@@ -4,11 +4,12 @@ id: th_01KVW7Z0VXNS4R62XZKFRNF29M
 title: Tab-only staff display mode
 status: active
 created: 2026-06-24
+updated: 2026-06-24
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 1000
+priority: 20
 depends_on: []
 ---
 # Tab-only staff display mode
