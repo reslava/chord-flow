@@ -100,11 +100,15 @@ internal static class Program
                 var caged = new CagedShapesHandler();
                 var cagedChord = new CagedChordHandler();
 
+                // App-lifetime global-preference store (key/value over SQLite). Shared by the soundfont choice
+                // and the staff-display profile below.
+                var appSettings = new AppSettingsStore(dbOptions);
+
                 // Playback soundfont library: the catalog scans the served wwwroot/soundfont folder (host asset),
                 // and the global choice persists via the Core AppSettings store (C3). App-lifetime singletons.
                 var soundFonts = new SoundFontLibrary(
                     new WwwrootSoundFontCatalog(Path.Combine(wwwroot, "soundfont")),
-                    new AppSettingsStore(dbOptions));
+                    appSettings);
 
                 // Live-refresh: after a voicing save/delete, reload the authored library and swap in a fresh
                 // renderer so the next generated/previewed score reflects it (IN11). Progression/song/rhythm
@@ -306,6 +310,12 @@ internal static class Program
                 // Playback soundfont: list (fonts + persisted selection) on request; persist a new global choice.
                 router.ListSoundFontsRequested += () => bridge.Send(soundFonts.ListWithSelection());
                 router.SetSoundFontRequested += id => soundFonts.SetSelected(id);
+
+                // Staff-display profile (tab/standard/both): a display-only score-view preference, persisted
+                // globally via the same AppSettings store as the soundfont choice (C2/C6). Default "tab" (IN2).
+                const string StaffProfileKey = "display.staffProfile";
+                router.GetStaffProfileRequested += () => bridge.Send(new StaffProfileEnvelope(appSettings.Get(StaffProfileKey) ?? "tab"));
+                router.SetStaffProfileRequested += profile => appSettings.Set(StaffProfileKey, profile);
 
                 core.Navigate($"https://{VirtualHost}/index.html");
             }

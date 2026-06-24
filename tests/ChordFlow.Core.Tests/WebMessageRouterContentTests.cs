@@ -235,4 +235,40 @@ public class WebMessageRouterContentTests
 
         Assert.False(raised);
     }
+
+    [Fact]
+    public void GetStaffProfile_Dispatches()
+    {
+        var router = new WebMessageRouter();
+        bool raised = false;
+        router.GetStaffProfileRequested += () => raised = true;
+
+        router.Dispatch("""{"type":"getStaffProfile"}""");
+
+        Assert.True(raised);
+    }
+
+    [Fact]
+    public void SetStaffProfile_Dispatches_WithProfile()
+    {
+        var router = new WebMessageRouter();
+        string? got = null;
+        router.SetStaffProfileRequested += p => got = p;
+
+        router.Dispatch("""{"type":"setStaffProfile","profile":"standard"}""");
+
+        Assert.Equal("standard", got);
+    }
+
+    [Fact]
+    public void SetStaffProfile_MissingProfile_IsDropped()
+    {
+        var router = new WebMessageRouter();
+        bool raised = false;
+        router.SetStaffProfileRequested += _ => raised = true;
+
+        router.Dispatch("""{"type":"setStaffProfile"}"""); // no profile field
+
+        Assert.False(raised);
+    }
 }

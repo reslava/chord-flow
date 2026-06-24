@@ -23,8 +23,9 @@ public sealed record GenerateRequest(
 /// <c>stop</c> / <c>setTempo</c> / <c>save</c> / <c>listExercises</c> /
 /// <c>loadExercise</c> / <c>markPracticed</c> / the generic content-CRUD family
 /// <c>entityList</c> / <c>entityGet</c> / <c>entityPreview</c> / <c>entitySave</c> /
-/// <c>entityDelete</c> (each carrying an <c>entity</c> discriminator) / <c>scalePreview</c> /
-/// <c>cagedPreview</c> / <c>cagedChordPreview</c>.
+/// <c>entityDelete</c> (each carrying an <c>entity</c> discriminator) / the playback-soundfont pair
+/// <c>listSoundFonts</c> / <c>setSoundFont</c> / the staff-display-profile pair <c>getStaffProfile</c> /
+/// <c>setStaffProfile</c> / <c>scalePreview</c> / <c>cagedPreview</c> / <c>cagedChordPreview</c>.
 /// </summary>
 public sealed class WebMessageRouter
 {
@@ -85,6 +86,12 @@ public sealed class WebMessageRouter
 
     /// <summary>Persist a new global playback soundfont choice — <c>(id)</c>.</summary>
     public event Action<string>? SetSoundFontRequested;
+
+    /// <summary>Send the persisted staff-display profile (tab/standard/both) back to the WebView.</summary>
+    public event Action? GetStaffProfileRequested;
+
+    /// <summary>Persist a new global staff-display profile choice — <c>(profile)</c>.</summary>
+    public event Action<string>? SetStaffProfileRequested;
 
     /// <summary>Preview an interval set on the fretboard (the Scales page) — <c>(intervals, rootPitchClass)</c>.</summary>
     public event Action<string, int>? ScalePreviewRequested;
@@ -206,6 +213,15 @@ public sealed class WebMessageRouter
                     SetSoundFontRequested?.Invoke(soundFontId);
                 }
                 break;
+            case "getStaffProfile":
+                GetStaffProfileRequested?.Invoke();
+                break;
+            case "setStaffProfile":
+                if (envelope.Profile is { } staffProfile)
+                {
+                    SetStaffProfileRequested?.Invoke(staffProfile);
+                }
+                break;
             case "scalePreview":
                 if (envelope.Intervals is { } scaleIntervals)
                 {
@@ -266,6 +282,8 @@ public sealed class WebMessageRouter
         string? Entity, string? EntityId, string? Name, string? Dsl,
         // setSoundFont: the chosen soundfont id (file name). A string, distinct from the int Id / string EntityId.
         string? SoundFontId,
+        // setStaffProfile: the chosen staff-display profile ("tab"/"standard"/"both"). getStaffProfile carries none.
+        string? Profile,
         // scalePreview: the interval set text ("1 b3 4 5 b7") + the chosen root pitch class (0..11).
         string? Intervals, int? RootPitchClass,
         // cagedPreview: the CAGED shape name ("C"/"A"/"G"/"E"/"D"); reuses RootPitchClass for the root.

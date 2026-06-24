@@ -48,7 +48,22 @@ window.ChordFlowScore = (function () {
     diagramsOnTop: true,     // default selected
     voicing: "byDifficulty",
     autoLayout: false,       // false = honor the score's defaultSystemsLayout (fixed bars/row); true = fit to width
+    staffProfile: "tab",     // tab (default) | standard | both — display-only, persisted globally host-side
   };
+
+  // Staff-display profile → the two per-staff alphaTab model flags it sets. A display-only choice (which staves
+  // alphaTab shows) over unchanged content: no alphaTex/C# round-trip, the barsPerRow sibling. `both` is
+  // alphaTab's no-`\staff` default, so it reproduces today's combined render byte-for-byte.
+  const STAFF_FLAGS = {
+    tab:      { std: false, tab: true },
+    standard: { std: true,  tab: false },
+    both:     { std: true,  tab: true },
+  };
+  const STAFF_PROFILES = [
+    { value: "tab", label: "Tab" },
+    { value: "standard", label: "Standard" },
+    { value: "both", label: "Both" },
+  ];
 
   // Triplet feel (swing) — a render/playback knob like tempo, delegated to alphaTab's \tf. Values are the C#
   // TripletFeel enum names (the bridge parses them by name); only these three are wired today. Changing it is
@@ -192,6 +207,39 @@ window.ChordFlowScore = (function () {
       }
     }
 
+    // Staff-display profile (tab/standard/both): set the per-staff showStandardNotation/showTablature model
+    // flags on every staff of every track from the current option. Display-only — no alphaTex/C# round-trip
+    // (C6). Called in scoreLoaded BEFORE the render so the pending render honors it (the flags are read at
+    // render time, like the diagrams-on-top stylesheet flag) — a freshly loaded score never flashes the default.
+    function setStaffFlags(score) {
+      const f = STAFF_FLAGS[options.staffProfile] || STAFF_FLAGS.tab;
+      if (!score || !score.tracks) return;
+      for (const track of score.tracks) {
+        for (const staff of (track.staves || [])) {
+          staff.showStandardNotation = f.std;
+          staff.showTablature = f.tab;
+        }
+      }
+    }
+
+    // Runtime profile change (user picked from the select, or the host's saved value arrived): record the
+    // choice, set the flags, and re-render through the same path scoreLoaded uses (renderTracks for a
+    // multi-track score, else render). A no-op render-wise until a score exists; the eventual scoreLoaded applies it.
+    function applyStaffProfile(profile) {
+      options.staffProfile = STAFF_FLAGS[profile] ? profile : "tab";
+      if (ui.staffProfile) ui.staffProfile.value = options.staffProfile;
+      if (!api.score || !api.score.tracks) return;
+      setStaffFlags(api.score);
+      if (api.score.tracks.length > 1) api.renderTracks(api.score.tracks);
+      else api.render();
+    }
+
+    // Host reply to getStaffProfile: adopt the persisted profile (coalescing an unknown/blank value to "tab").
+    function onStaffProfile(profile) {
+      if (disposed) return;
+      applyStaffProfile(STAFF_FLAGS[profile] ? profile : "tab");
+    }
+
     // "Diagrams on top" has no alphaTex directive — it's the score stylesheet's globalDisplayChordDiagramsOnTop
     // flag (defaults to shown when chords are defined). Set it from the current option each time a score
     // loads, so the top list shows/hides independently of the over-staff boxes (driven from the alphaTex).
@@ -199,6 +247,9 @@ window.ChordFlowScore = (function () {
       if (score && score.stylesheet) {
         score.stylesheet.globalDisplayChordDiagramsOnTop = !!options.diagramsOnTop;
       }
+      // Re-assert the staff-display profile (the score model is rebuilt on every load, so the flags reset to
+      // alphaTab's default both-staves otherwise) — set before the render below so it takes effect in one pass.
+      setStaffFlags(score);
       // alphaTab renders only the FIRST track by default, so a two-track exercise (comping + lead) would
       // hide the lead staff. Render every track the score defines so both staves show. Only intervene when
       // there's more than one track — a single-track score keeps the default render untouched.
@@ -211,7 +262,7 @@ window.ChordFlowScore = (function () {
     });
 
     // Control refs, populated by buildControls when a strip is rendered.
-    const ui = { play: null, stop: null, tempo: null, soundFont: null, tripletFeel: null, toggles: {} };
+    const ui = { play: null, stop: null, tempo: null, soundFont: null, tripletFeel: null, staffProfile: null, toggles: {} };
     // Debug-panel refs, populated by buildDebugPanel when debugPanel is on.
     const debugUi = { textarea: null, hint: null };
 
@@ -294,6 +345,12 @@ window.ChordFlowScore = (function () {
       setSoundFont(id) {
         applySoundFont(id);
         if (bridge) bridge.send({ type: "setSoundFont", id });
+      },
+      // User picked a staff-display profile (tab/standard/both): apply it live (display-only, no re-render
+      // request) and persist the new global choice host-side, mirroring the soundfont path.
+      setStaffProfile(profile) {
+        applyStaffProfile(profile);
+        if (bridge) bridge.send({ type: "setStaffProfile", profile });
       },
       // Player-kind → applied locally; content-kind → ask the consumer to re-render with the new options.
       setOption(name, value) {
@@ -453,6 +510,20 @@ window.ChordFlowScore = (function () {
       }
     }
 
+    // Staff-display profile (tab/standard/both): a global, display-only score-view preference. Request the saved
+    // value on init and apply it; a new choice is persisted host-side via setStaffProfile. Runs in BOTH player
+    // and lite modes — every score view honors the profile. Feature-detected: in a plain browser (no host) the
+    // "tab" default stays in effect.
+    if (bridge && bridge.available) {
+      bridge.onReceive((data) => {
+        let msg;
+        try { msg = typeof data === "string" ? JSON.parse(data) : data; }
+        catch (_) { return; }
+        if (msg && msg.type === "staffProfile") onStaffProfile(msg.profile);
+      });
+      bridge.send({ type: "getStaffProfile" });
+    }
+
     return handle;
   }
 
@@ -503,6 +574,12 @@ window.ChordFlowScore = (function () {
 
     if (extra.nowNextToggle) {
       strip.append(nowNextToggle(handle, ui));
+    }
+
+    // Staff-display profile — a display-only knob over any shown score, so it appears in both the full
+    // (Practice) and mini (Content preview) profiles. The persisted global value applies everywhere.
+    if (controls === "full" || controls === "mini") {
+      strip.append(staffProfileSelect(handle, ui, options));
     }
 
     if (controls === "full") {
@@ -614,6 +691,28 @@ window.ChordFlowScore = (function () {
     select.addEventListener("change", () => handle.setSoundFont(select.value));
     wrap.append(document.createTextNode("Sound "), select);
     ui.soundFont = select;
+    return wrap;
+  }
+
+  // The staff-display profile picker (Tab / Standard / Both). Display-only: a change flips the per-staff
+  // showStandardNotation/showTablature flags locally via handle.setStaffProfile (no re-render request) and
+  // persists the global choice host-side. Starts from the current option (default "tab", overwritten when the
+  // host's saved value arrives).
+  function staffProfileSelect(handle, ui, options) {
+    const wrap = document.createElement("label");
+    wrap.className = "cf-toggle";
+    const select = document.createElement("select");
+    select.className = "cf-staff-profile";
+    for (const p of STAFF_PROFILES) {
+      const o = document.createElement("option");
+      o.value = p.value;
+      o.textContent = p.label;
+      select.appendChild(o);
+    }
+    select.value = options.staffProfile || "tab";
+    select.addEventListener("change", () => handle.setStaffProfile(select.value));
+    wrap.append(document.createTextNode("Staff "), select);
+    ui.staffProfile = select;
     return wrap;
   }
 

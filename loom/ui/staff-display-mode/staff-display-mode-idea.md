@@ -2,9 +2,10 @@
 type: idea
 id: id_01KVW7Z0VRK9K8T06CED28T8S6
 title: Tab-only staff display mode
-status: draft
+status: done
 created: 2026-06-24
-version: 1
+updated: 2026-06-24
+version: 2
 tags: []
 parent_id: null
 requires_load: []
