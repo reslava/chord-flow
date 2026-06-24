@@ -27,7 +27,7 @@ window.ChordFlowContent = (function () {
     {
       key: "rhythm", label: "Rhythms", previewKind: "score",
       placeholder: "X...X...X...X...",
-      help: "X = attack, . = sustain, - = rest. Leading :n sets the subdivision.",
+      help: "X = attack, . = sustain the sounding note, - = rest, _ = tie. A note lasts its dots; X..... = dotted quarter. Leading :n sets the subdivision.",
     },
     {
       key: "voicing", label: "Voicings", previewKind: "diagram",

@@ -3,9 +3,10 @@ namespace ChordFlow.Music.Rhythm;
 /// <summary>
 /// One bar of rhythm as positional events on the tick grid — the building block of a
 /// <see cref="RhythmPattern"/>. Holds <b>only timing</b>; chords, voicings, accents and strokes are
-/// separate layers applied onto it.
+/// separate layers applied onto it. <see cref="StartsTied"/> marks a bar that opens with a leading
+/// <c>_</c> tie — its first note continues the previous bar's last note (a cross-bar anticipation).
 /// </summary>
-public sealed record PatternBar(IReadOnlyList<RhythmEvent> Events);
+public sealed record PatternBar(IReadOnlyList<RhythmEvent> Events, bool StartsTied = false);
 
 /// <summary>
 /// A rhythm pattern as one or more <see cref="PatternBar"/>s on the tick grid. Holds <b>only timing</b> —

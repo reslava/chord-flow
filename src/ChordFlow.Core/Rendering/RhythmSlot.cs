@@ -18,6 +18,11 @@ public readonly record struct Tuplet(int Numerator, int Denominator);
 /// <see cref="Tuplet"/> is set when the slot sits on a triplet grid (null for straight beats). The
 /// renderer turns a slot into a <c>:N</c> token plus a chord group or <c>r</c>, suffixed with
 /// <c>{tu N}</c> when tupled.
+/// <para>
+/// <see cref="Dotted"/> marks a single augmentation dot: the slot's value is <see cref="NoteValue"/>
+/// (the base, e.g. 4) lengthened by half (a dotted quarter), which the renderer emits as the alphaTex
+/// <c>{d}</c> beat property. <see cref="NoteValue"/> always stays the base value.
+/// </para>
 /// </summary>
 public readonly record struct RhythmSlot(
-    int NoteValue, bool IsRest, bool TiedToPrevious, int StartTick, Tuplet? Tuplet = null);
+    int NoteValue, bool IsRest, bool TiedToPrevious, int StartTick, Tuplet? Tuplet = null, bool Dotted = false);

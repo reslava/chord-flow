@@ -44,10 +44,11 @@ public class RhythmPatternParserTests
     }
 
     [Fact]
-    public void Parse_DashEndsTheRingAndStartsSilence()
+    public void Parse_DashRunsAreSilence()
     {
-        // '-' cuts the note; the following silence emits no event (the quantizer fills the gap).
-        Assert.Equal(new[] { (0, 48), (96, 48) }, Parse("X...-...X...-...").Select(PL));
+        // Silence is '-' cells (accurate-notation grammar: '.' only extends a sounding note). A quarter
+        // then a quarter rest, twice; the rests emit no event (the quantizer fills the gap).
+        Assert.Equal(new[] { (0, 48), (96, 48) }, Parse("X...----X...----").Select(PL));
     }
 
     [Fact]
@@ -109,6 +110,48 @@ public class RhythmPatternParserTests
         });
     }
 
+    // ---- Accurate-notation grammar: '.' = sound only, '_' = tie ------------
+
+    [Theory]
+    [InlineData("...X............")]                   // '.' at bar start has no sounding note (silence is '-')
+    [InlineData("X...-...X...X...")]                   // '.' after a '-' rest has no sounding note
+    [InlineData("_X..............")]                   // leading '_' on the first bar — nothing before to tie
+    [InlineData("X...------------|_...X...X...X...")]  // cross-bar tie, but the previous bar ends in silence
+    public void Parse_NewGrammarViolations_ThrowFormatException(string dsl)
+    {
+        Assert.Throws<FormatException>(
+            () => RhythmPatternParser.Parse("p", "P", dsl, TimeSignature.FourFour));
+    }
+
+    [Fact]
+    public void Parse_WithinBarTie_SetsTiedToNextOnTheTiedNote()
+    {
+        // X..._... = a quarter tied to the next quarter ('_' opens the tied continuation); only the first
+        // note carries TiedToNext.
+        var events = Parse("X..._...X...X...");
+
+        Assert.Equal(new[] { (0, 48), (48, 48), (96, 48), (144, 48) }, events.Select(PL));
+        Assert.Equal(new[] { true, false, false, false }, events.Select(e => e.TiedToNext));
+    }
+
+    [Fact]
+    public void Parse_CrossBarTie_FlagsTheSecondBarStartsTied()
+    {
+        // A whole note ringing to the bar end, then a leading '_' that ties bar 2's first note into it.
+        var pattern = RhythmPatternParser.Parse(
+            "p", "P", "X...............|_...X...X...X...", TimeSignature.FourFour);
+
+        Assert.False(pattern.Bars[0].StartsTied);
+        Assert.True(pattern.Bars[1].StartsTied);
+    }
+
+    [Fact]
+    public void Parse_PlainReAttack_HasNoTie()
+    {
+        // A bare 'X' boundary is a re-attack, never a tie.
+        Assert.All(Parse("X...X...X...X..."), e => Assert.False(e.TiedToNext));
+    }
+
     // ---- Multi-bar ( | ) ----------------------------------------------------
 
     [Fact]
@@ -129,7 +172,7 @@ public class RhythmPatternParserTests
     {
         var pattern = RhythmPatternParser.Parse(
             "p", "P",
-            "X............... | X.......X....... | X...X...X...X... | X...-...X...-...",
+            "X............... | X.......X....... | X...X...X...X... | X...----X...----",
             TimeSignature.FourFour);
 
         Assert.Equal(4, pattern.Bars.Count);
@@ -153,9 +196,9 @@ public class RhythmPatternParserTests
     [Fact]
     public void Parse_Pickup_ShorterThanABar_HasItsOwnLength()
     {
-        // 11 sustains + a final attack = 12 cells = 144 ticks; the note opens on the last cell.
+        // 11 silence cells + a final attack = 12 cells = 144 ticks; the note opens on the last cell.
         var pattern = RhythmPatternParser.Parse(
-            "p", "P", "PICKUP: ...........X | X...X...X...X...", TimeSignature.FourFour);
+            "p", "P", "PICKUP: -----------X | X...X...X...X...", TimeSignature.FourFour);
 
         Assert.NotNull(pattern.Pickup);
         Assert.Equal(144, pattern.Pickup!.LengthTicks);
@@ -179,7 +222,7 @@ public class RhythmPatternParserTests
     {
         // 7 straight 16ths = 84 ticks (1¾ beats) — legal for a pickup, illegal for a bar.
         var pattern = RhythmPatternParser.Parse(
-            "p", "P", "PICKUP: ...X..X | X...X...X...X...", TimeSignature.FourFour);
+            "p", "P", "PICKUP: ---X..X | X...X...X...X...", TimeSignature.FourFour);
 
         Assert.Equal(84, pattern.Pickup!.LengthTicks); // 7 cells × 12
         // attack on cell 3 rings to the attack on cell 6 (dotted eighth), which rings to the end.

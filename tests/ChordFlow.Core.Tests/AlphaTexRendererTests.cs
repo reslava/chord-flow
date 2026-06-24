@@ -357,6 +357,43 @@ public class AlphaTexRendererTests
             result.Schedule.Select(c => (c.Bar, c.Beat, c.Name)).ToArray());
     }
 
+    [Fact]
+    public void Render_DottedNote_EmitsDotBeatEffect()
+    {
+        // ":2 X..X----" = the Charleston: a dotted quarter + an eighth (then rests), all on Bb7.
+        string tex = Renderer.RenderProgression(
+            Bb, I7Progression(), Pattern(":2 X..X----"), 80, Difficulty.Beginner);
+
+        Assert.EndsWith(":4 (1.5 0.4 1.3){d} :8 (1.5 0.4 1.3) :2 r |", tex);
+    }
+
+    [Fact]
+    public void Render_AuthoredTie_EmitsTieFretGroup()
+    {
+        // "X..._...X...X..." = a quarter tied to the next quarter, then two more quarters — the '_' tied
+        // continuation re-states the held Bb7 strings with the tie fret "-".
+        string tex = Renderer.RenderProgression(
+            Bb, I7Progression(), Pattern("X..._...X...X..."), 80, Difficulty.Beginner);
+
+        Assert.EndsWith(":4 (1.5 0.4 1.3) (-.5 -.4 -.3) (1.5 0.4 1.3) (1.5 0.4 1.3) |", tex);
+    }
+
+    [Fact]
+    public void Render_CrossBarTie_HoldsPreviousChord_RhythmWinsOverHarmony()
+    {
+        // Bb7 (bar 1) → Eb7 (bar 2). A whole note in bar 1, then a leading '_' in bar 2 ties into it.
+        // Rhythm wins over harmony: bar 2 HOLDS Bb7's strings (-.s) and never attacks the Eb7.
+        Progression prog = ProgressionParser.Parse("t", "Test", "17 47", TimeSignature.FourFour);
+        string tex = Renderer.RenderProgression(
+            Bb, prog, Pattern("X...............|_...------------"), 80, Difficulty.Beginner);
+
+        Assert.Contains("(-.5 -.4 -.3)", tex);       // bar 2 holds the tied Bb7
+        Assert.DoesNotContain("(6.5 5.4 6.3)", tex); // Eb7 is never attacked — the tie overrides the change
+    }
+
+    private static RhythmPattern Pattern(string dsl) =>
+        RhythmPatternParser.Parse("p", "P", dsl, TimeSignature.FourFour);
+
     private static Progression I7Progression() =>
         new("test", "Test", new RomanDegree[] { new(1, Quality.Dominant7) });
 

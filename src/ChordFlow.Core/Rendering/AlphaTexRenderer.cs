@@ -103,7 +103,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         RealizedSong song, RhythmPattern rhythm, TimeSignature ts, Difficulty difficulty,
         RenderOptions opts, RenderState state)
     {
-        IReadOnlyList<IReadOnlyList<RhythmEvent>> patternBars = PatternEventBars(rhythm);
+        IReadOnlyList<PatternBar> patternBars = PatternEventBars(rhythm);
         RealizedSection first = song.Sections[0];
         var barLines = new List<string>();
 
@@ -145,7 +145,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     private List<string> BuildLeadBars(
         RealizedSong song, RhythmPattern comping, RhythmPattern lead, TimeSignature ts)
     {
-        IReadOnlyList<IReadOnlyList<RhythmEvent>> leadPatternBars = PatternEventBars(lead);
+        IReadOnlyList<PatternBar> leadPatternBars = PatternEventBars(lead);
         RealizedSection first = song.Sections[0];
         var state = new RenderState();
         var barLines = new List<string>();
@@ -167,8 +167,9 @@ public sealed class AlphaTexRenderer : IScoreRenderer
 
             for (int i = 0; i < section.Bars.Count; i++)
             {
-                IReadOnlyList<RhythmEvent> barEvents = leadPatternBars[i % leadPatternBars.Count];
-                IReadOnlyList<RhythmSlot> slots = RhythmQuantizer.Quantize(barEvents, ts, Array.Empty<int>());
+                PatternBar patternBar = leadPatternBars[i % leadPatternBars.Count];
+                IReadOnlyList<RhythmSlot> slots =
+                    RhythmQuantizer.Quantize(patternBar.Events, ts, Array.Empty<int>(), patternBar.StartsTied);
                 barLines.Add(RenderLeadBar(slots, state, allRests: false));
             }
 
@@ -251,11 +252,10 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         }
     }
 
-    // One event list per PatternBar — straight, never mutated (C4). Swing is delegated to alphaTab's native
-    // \tf directive (see PrependTripletFeel), so the engine no longer warps ticks here. RenderBars/
-    // RenderLeadBars tile these onto the progression.
-    private static IReadOnlyList<IReadOnlyList<RhythmEvent>> PatternEventBars(RhythmPattern rhythm) =>
-        rhythm.Bars.Select(b => b.Events).ToList();
+    // The pattern's bars (timing only — swing is delegated to alphaTab's \tf, never warped here, C4). Each
+    // PatternBar carries its events + its StartsTied flag (a leading '_' cross-bar tie). RenderBars /
+    // BuildLeadBars tile these cyclically onto the progression.
+    private static IReadOnlyList<PatternBar> PatternEventBars(RhythmPattern rhythm) => rhythm.Bars;
 
     // Prepend a single whole-song \tf to a track's first bar — bar metadata, ahead of the bar's :N/beats
     // and any \ac pickup prefix. None emits nothing, so a straight song is byte-identical to pre-\tf output.
@@ -289,7 +289,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     // the original "same bar everywhere" output.
     private void RenderBars(
         IReadOnlyList<RealizedBar> bars,
-        IReadOnlyList<IReadOnlyList<RhythmEvent>> feltBars,
+        IReadOnlyList<PatternBar> feltBars,
         TimeSignature ts,
         Difficulty difficulty,
         Key key,
@@ -300,12 +300,14 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         for (int i = 0; i < bars.Count; i++)
         {
             RealizedBar bar = bars[i];
-            IReadOnlyList<RhythmEvent> feltEvents = feltBars[i % feltBars.Count];
+            PatternBar patternBar = feltBars[i % feltBars.Count];
 
             // Re-attack the strum at each interior chord change; quantize this bar against its own
-            // boundaries so a slot landing on a new chord starts a fresh attack.
+            // boundaries so a slot landing on a new chord starts a fresh attack. A leading '_' (StartsTied)
+            // ties the bar's first note to the previous bar's last (held via RenderState.LastVoicing).
             IReadOnlyList<int> boundaries = InteriorBoundaries(bar);
-            IReadOnlyList<RhythmSlot> slots = RhythmQuantizer.Quantize(feltEvents, ts, boundaries);
+            IReadOnlyList<RhythmSlot> slots =
+                RhythmQuantizer.Quantize(patternBar.Events, ts, boundaries, patternBar.StartsTied);
             barLines.Add(RenderBar(slots, bar.ChordCovering, difficulty, key, options, state));
         }
     }
@@ -343,14 +345,6 @@ public sealed class AlphaTexRenderer : IScoreRenderer
 
         foreach (RhythmSlot slot in slots)
         {
-            if (slot.TiedToPrevious)
-            {
-                // The MVP patterns never tie; alphaTex's tie token is unverified (see the syntax
-                // reference), so we refuse rather than emit something that may not parse.
-                throw new NotSupportedException(
-                    "alphaTex tie rendering is not supported in v1 (tie token unverified).");
-            }
-
             string durationToken = slot.NoteValue.ToString(CultureInfo.InvariantCulture);
             string prefix = string.Empty;
             if (durationToken != state.CurrentDuration)
@@ -359,44 +353,62 @@ public sealed class AlphaTexRenderer : IScoreRenderer
                 state.CurrentDuration = durationToken;
             }
 
-            // The chord covering this slot's onset tick (harmonic-rhythm lookup) — needed both to voice a
-            // sounding beat and to detect a chord change for the schedule (independent of the display options).
-            Chord chord = chordForTick(slot.StartTick);
-            Voicing? voicing = null;
-
-            // Beat effects collect into one brace group ({ch "…" tu N}); the chord label is added only at a
+            // Beat effects collect into one brace group ({ch "…" d tu N}); the chord label is added only at a
             // chord change, the tuplet on every triplet-grid slot ({tu} does not persist like :N duration).
             var effects = new List<string>(2);
             string body;
 
-            if (slot.IsRest)
+            if (slot.TiedToPrevious)
             {
-                body = "r";
+                // (b) rhythm wins over harmony: a tied note HOLDS the previously-sounding voicing's strings
+                // (re-stated with the tie fret -.s), whatever chord the harmony moved to underneath — so the
+                // chord change is silently overridden. No {ch} label and no schedule entry: it's not an attack.
+                Voicing held = state.LastVoicing
+                    ?? throw new InvalidOperationException("A tied note has no preceding voicing to hold.");
+                body = TieNoteGroup(held);
             }
             else
             {
-                voicing = Voice(chord, difficulty, options);
-                body = NoteGroup(voicing);
+                // The chord covering this slot's onset tick (harmonic-rhythm lookup) — to voice a sounding
+                // beat and to detect a chord change for the schedule (independent of the display options).
+                Chord chord = chordForTick(slot.StartTick);
+                Voicing? voicing = null;
 
-                bool wantsDiagram = options.ShowChordDiagramsOverStaff || options.ShowChordDiagramsOnTop;
-                if (options.ShowChordNames || wantsDiagram)
+                if (slot.IsRest)
                 {
-                    string name = ChordSymbol.Format(chord, key);
-                    if (!string.Equals(name, state.CurrentChordName, StringComparison.Ordinal))
-                    {
-                        state.CurrentChordName = name;
-                        // Collect each diagram definition once; it's emitted in the header, not inline.
-                        if (wantsDiagram && state.DefinedChords.Add(name))
-                        {
-                            state.ChordDefinitions.Add(ChordDefinition(name, voicing));
-                        }
+                    body = "r";
+                }
+                else
+                {
+                    voicing = Voice(chord, difficulty, options);
+                    state.LastVoicing = voicing;
+                    body = NoteGroup(voicing);
 
-                        effects.Add($"ch \"{name}\"");
+                    bool wantsDiagram = options.ShowChordDiagramsOverStaff || options.ShowChordDiagramsOnTop;
+                    if (options.ShowChordNames || wantsDiagram)
+                    {
+                        string name = ChordSymbol.Format(chord, key);
+                        if (!string.Equals(name, state.CurrentChordName, StringComparison.Ordinal))
+                        {
+                            state.CurrentChordName = name;
+                            // Collect each diagram definition once; it's emitted in the header, not inline.
+                            if (wantsDiagram && state.DefinedChords.Add(name))
+                            {
+                                state.ChordDefinitions.Add(ChordDefinition(name, voicing));
+                            }
+
+                            effects.Add($"ch \"{name}\"");
+                        }
                     }
                 }
+
+                RecordChordChange(state, chord, key, beatOrdinal, difficulty, options, voicing);
             }
 
-            RecordChordChange(state, chord, key, beatOrdinal, difficulty, options, voicing);
+            if (slot.Dotted)
+            {
+                effects.Add("d");
+            }
 
             if (slot.Tuplet is { } tuplet)
             {
@@ -441,12 +453,6 @@ public sealed class AlphaTexRenderer : IScoreRenderer
 
         foreach (RhythmSlot slot in slots)
         {
-            if (slot.TiedToPrevious)
-            {
-                throw new NotSupportedException(
-                    "alphaTex tie rendering is not supported in v1 (tie token unverified).");
-            }
-
             string durationToken = slot.NoteValue.ToString(CultureInfo.InvariantCulture);
             string prefix = string.Empty;
             if (durationToken != state.CurrentDuration)
@@ -455,10 +461,21 @@ public sealed class AlphaTexRenderer : IScoreRenderer
                 state.CurrentDuration = durationToken;
             }
 
-            string body = allRests || slot.IsRest ? "r" : "x.3";
-            string effectGroup = slot.Tuplet is { } tuplet
-                ? "{tu " + tuplet.Numerator.ToString(CultureInfo.InvariantCulture) + "}"
-                : string.Empty;
+            // Dead-note lead: a tied continuation re-states string 3 with the tie fret (-.3).
+            string body = allRests || slot.IsRest ? "r" : slot.TiedToPrevious ? "-.3" : "x.3";
+
+            var effects = new List<string>(2);
+            if (slot.Dotted)
+            {
+                effects.Add("d");
+            }
+
+            if (slot.Tuplet is { } tuplet)
+            {
+                effects.Add("tu " + tuplet.Numerator.ToString(CultureInfo.InvariantCulture));
+            }
+
+            string effectGroup = effects.Count > 0 ? "{" + string.Join(" ", effects) + "}" : string.Empty;
             tokens.Add(prefix + body + effectGroup);
         }
 
@@ -479,6 +496,12 @@ public sealed class AlphaTexRenderer : IScoreRenderer
 
     private static string NoteGroup(Voicing voicing) =>
         "(" + string.Join(" ", voicing.Positions.Select(p => $"{p.Fret}.{p.String}")) + ")";
+
+    // A tied continuation holding a voicing: each string re-stated with the alphaTex tie fret "-", so
+    // alphaTab ties it to the prior note on that string (verified token, rhythm-notation chat). The held
+    // voicing is the last attacked one, so a tie across a chord change keeps the previous chord (rhythm wins).
+    private static string TieNoteGroup(Voicing voicing) =>
+        "(" + string.Join(" ", voicing.Positions.Select(p => $"-.{p.String}")) + ")";
 
     // An alphaTex chord-diagram definition: \chord ("Name" f1 … f6), frets ordered string 1 (high E) →
     // string 6 (low E), an unplayed string written as x. The realized voicing carries the diagram hints.
@@ -504,6 +527,10 @@ public sealed class AlphaTexRenderer : IScoreRenderer
 
         // The last emitted chord label, so {ch "…"} is written only at a chord change.
         public string? CurrentChordName;
+
+        // The voicing of the last sounding (attacked) note — a tied note re-states these strings, so a tie
+        // holds the previous chord across a chord change (rhythm wins over harmony). Persists across bars.
+        public Voicing? LastVoicing;
 
         // Chord labels whose \chord diagram has already been collected (define-once).
         public readonly HashSet<string> DefinedChords = new(StringComparer.Ordinal);

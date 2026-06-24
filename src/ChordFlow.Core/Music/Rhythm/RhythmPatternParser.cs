@@ -9,9 +9,13 @@ namespace ChordFlow.Music.Rhythm;
 /// <item>Space separates <b>subdivision runs</b>; a run's cells split into consecutive beats by count, so
 ///   a same-<c>n</c> run may omit inner spaces (<c>X...X...X...X...</c> = four beats). Spaces are only
 ///   needed to switch subdivision or attach a per-beat <c>:n</c> (model B).</item>
-/// <item>Glyphs: <c>X</c> = attack (start a note), <c>.</c> = sustain (extend the current note or rest),
-///   <c>-</c> = rest/mute (end the current note, start silence). A note's length runs to the next
-///   <c>X</c>/<c>-</c> or the bar end (the locked sustain rule — never staccato).</item>
+/// <item>Glyphs: <c>X</c> = attack (a note lasting itself + each following <c>.</c>); <c>.</c> = sustain
+///   the currently <b>sounding</b> note (a FormatException when nothing sounds — at a bar/run start or after
+///   <c>-</c>: <c>.</c> means sound, never silence); <c>-</c> = one cell of silence (repeat for longer
+///   rests); <c>_</c> = a <b>tied note</b> — like <c>X</c> it occupies cells and extends with <c>.</c>, but
+///   ties to the previous note instead of re-attacking (sets <see cref="RhythmEvent.TiedToNext"/> on the
+///   note it closes). A <b>leading</b> <c>_</c> ties the bar's first note into the previous bar
+///   (<see cref="PatternBar.StartsTied"/>).</item>
 /// <item>Subdivision <c>:n</c> = cells per beat (default 4 = 16ths); <c>n</c> must divide
 ///   <see cref="TimeSignature.BeatTicks"/> and each run must hold a whole multiple of <c>n</c> cells. A
 ///   leading <c>:n</c> token sets the whole row's default; a <c>:n</c> suffix on a run overrides it
@@ -62,14 +66,45 @@ public static class RhythmPatternParser
         var bars = new List<PatternBar>(segments.Length - firstBar);
         for (int i = firstBar; i < segments.Length; i++)
         {
-            bars.Add(new PatternBar(ParseBar(segments[i], ts)));
+            (IReadOnlyList<RhythmEvent> events, bool startsTied) = ParseBar(segments[i], ts);
+            bars.Add(new PatternBar(events, startsTied));
         }
 
+        ValidateCrossBarTies(bars, pickup, ts.BarTicks);
         return new RhythmPattern(id, name, bars, ts, pickup);
     }
 
-    /// <summary>Parse one <c>|</c>-delimited bar segment into its ordered <see cref="RhythmEvent"/>s.</summary>
-    internal static IReadOnlyList<RhythmEvent> ParseBar(string barDsl, TimeSignature ts)
+    // A leading '_' ties a bar's first note to the previous bar's last note — only valid when there IS a
+    // previous bar that ends on a sounding note (one ringing to the bar end). The first bar can't tie back.
+    private static void ValidateCrossBarTies(IReadOnlyList<PatternBar> bars, PickupMeasure? pickup, int barTicks)
+    {
+        for (int i = 0; i < bars.Count; i++)
+        {
+            if (!bars[i].StartsTied)
+            {
+                continue;
+            }
+
+            if (i == 0)
+            {
+                throw new FormatException(
+                    pickup is null
+                        ? "The first bar cannot start with a tie '_' — there is no previous note to tie to."
+                        : "A cross-bar tie from a PICKUP into bar 1 is not supported.");
+            }
+
+            IReadOnlyList<RhythmEvent> prev = bars[i - 1].Events;
+            bool prevEndsSounding = prev.Count > 0 && prev[^1].Position + prev[^1].Length == barTicks;
+            if (!prevEndsSounding)
+            {
+                throw new FormatException(
+                    $"Bar {i + 1} starts with a tie '_', but the previous bar does not end on a sounding note.");
+            }
+        }
+    }
+
+    /// <summary>Parse one <c>|</c>-delimited bar segment into its ordered events + whether it starts tied.</summary>
+    internal static (IReadOnlyList<RhythmEvent> Events, bool StartsTied) ParseBar(string barDsl, TimeSignature ts)
     {
         string[] tokens = barDsl.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (tokens.Length == 0)
@@ -78,7 +113,7 @@ public static class RhythmPatternParser
         }
 
         (int rowDefault, int firstRun) = ReadRowDefault(tokens, ts);
-        (List<RhythmEvent> events, int ticks) = Walk(tokens, firstRun, rowDefault, ts, requireWholeBeats: true);
+        (List<RhythmEvent> events, int ticks, bool startsTied) = Walk(tokens, firstRun, rowDefault, ts, requireWholeBeats: true);
 
         if (ticks != ts.BarTicks)
         {
@@ -86,7 +121,7 @@ public static class RhythmPatternParser
                 $"Bar \"{barDsl}\" spans {ticks / ts.BeatTicks} beat(s), expected {ts.BarTicks / ts.BeatTicks}.");
         }
 
-        return events;
+        return (events, startsTied);
     }
 
     // A pickup is a shorter leading measure: same glyph/subdivision/walk rules, but any cell count
@@ -100,7 +135,12 @@ public static class RhythmPatternParser
         }
 
         (int rowDefault, int firstRun) = ReadRowDefault(tokens, ts);
-        (List<RhythmEvent> events, int ticks) = Walk(tokens, firstRun, rowDefault, ts, requireWholeBeats: false);
+        (List<RhythmEvent> events, int ticks, bool startsTied) = Walk(tokens, firstRun, rowDefault, ts, requireWholeBeats: false);
+
+        if (startsTied)
+        {
+            throw new FormatException("A PICKUP: block cannot start with a tie '_' — there is nothing before it.");
+        }
 
         if (ticks <= 0 || ticks > ts.BarTicks)
         {
@@ -117,15 +157,20 @@ public static class RhythmPatternParser
             ? (ParseSubdivision(tokens[0][1..], tokens[0], ts), 1)
             : (DefaultSubdivision, 0);
 
-    // Walk the runs left→right, carrying the current note/rest state. Returns the emitted hits and the
-    // total ticks spanned; a still-open note is closed at the end (a trailing rest needs no event — the
-    // quantizer fills it). Shared by bars (requireWholeBeats) and the partial-length pickup.
-    private static (List<RhythmEvent> Events, int Ticks) Walk(
+    // Walk the runs left→right, carrying the current note/rest state. Returns the emitted hits, the total
+    // ticks spanned, and whether the segment opens with a leading '_' (a cross-bar tie). A '_' is a TIED
+    // note: like 'X' it starts a note that occupies cells and extends with '.', but it ties to the previous
+    // note (no re-attack) — so it closes the open note with TiedToNext set and opens the continuation here.
+    // A leading '_' (pos 0) has no note in this segment to tie, so it flags the segment as starting tied
+    // (the previous bar's last note). Shared by bars (requireWholeBeats) and the partial-length pickup. The
+    // note-group "one representable value" rule is enforced downstream by the quantizer.
+    private static (List<RhythmEvent> Events, int Ticks, bool StartsTied) Walk(
         string[] tokens, int firstRun, int rowDefault, TimeSignature ts, bool requireWholeBeats)
     {
         var events = new List<RhythmEvent>();
         int pos = 0;
         int? openNoteStart = null;
+        bool startsTied = false;
 
         for (int t = firstRun; t < tokens.Length; t++)
         {
@@ -146,6 +191,25 @@ public static class RhythmPatternParser
                         openNoteStart = pos;
                         break;
 
+                    case '_':
+                        if (openNoteStart is int tieEnd)
+                        {
+                            // Close the previous note, tied forward into the continuation this '_' opens.
+                            events.Add(RhythmEvent.Hit(tieEnd, pos - tieEnd) with { TiedToNext = true });
+                        }
+                        else if (pos == 0)
+                        {
+                            startsTied = true; // a leading '_' ties into the previous bar
+                        }
+                        else
+                        {
+                            throw new FormatException(
+                                $"Beat group \"{run}\": tie '_' has no sounding note to tie (silence does not ring).");
+                        }
+
+                        openNoteStart = pos; // '_' opens a tied note that occupies cells
+                        break;
+
                     case '-':
                         if (openNoteStart is int restEnd)
                         {
@@ -156,12 +220,17 @@ public static class RhythmPatternParser
                         break;
 
                     case '.':
-                        // Sustain — extend whatever is currently ringing (a note) or silent (a rest).
+                        if (openNoteStart is null)
+                        {
+                            throw new FormatException(
+                                $"Beat group \"{run}\": sustain '.' has no sounding note to extend (use '-' for silence).");
+                        }
+
                         break;
 
                     default:
                         throw new FormatException(
-                            $"Beat group \"{run}\" contains invalid glyph '{glyph}' (allowed: X . -).");
+                            $"Beat group \"{run}\" contains invalid glyph '{glyph}' (allowed: X . - _).");
                 }
 
                 pos += cellTicks;
@@ -173,7 +242,7 @@ public static class RhythmPatternParser
             events.Add(RhythmEvent.Hit(finalStart, pos - finalStart));
         }
 
-        return (events, pos);
+        return (events, pos, startsTied);
     }
 
     // True when a whole token is just ":n" — the row-level subdivision marker, never a run of cells.

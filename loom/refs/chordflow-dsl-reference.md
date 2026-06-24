@@ -4,8 +4,8 @@ id: rf_01KTSAQ6990GY3J4CZ7HPVPW6K
 title: ChordFlow DSL
 status: active
 created: 2026-06-10
-updated: 2026-06-22
-version: 15
+updated: 2026-06-24
+version: 20
 tags: []
 parent_id: null
 requires_load: []
@@ -246,17 +246,29 @@ A **rhythm pattern** is a bar (or several) of pure **timing** — when you strik
 
 | Glyph | Meaning |
 |-------|---------|
-| `X` | **attack** — strike here (start a new note) |
-| `.` | **sustain** — let the current note (or rest) keep ringing through this cell |
-| `-` | **rest / mute** — stop the note; silence from here |
+| `X` | **attack** — start a note; it lasts itself plus each following `.` |
+| `.` | **sustain** — extend the currently **sounding** note by one cell (illegal where nothing sounds — at a bar start, after `-`, or after `_`: `.` means *sound*) |
+| `-` | **rest** — one cell of silence (repeat for longer rests) |
+| `_` | **tie** — a tied note: like `X` it occupies cells and extends with `.`, but ties to the previous note (no re-attack). A **leading** `_` ties the bar's first note into the previous bar |
 
-**The sustain rule:** a struck note rings until the **next `X` or `-`, or the bar end** — guitar strums ring; they are never automatically staccato. So `X...............` (one strike, then sustains) is a **whole-bar** note, and `X...X...X...X...` is **four quarter notes** (each rings to the next strike).
+A note lasts **exactly its drawn cells** — its `X` plus the `.`s after it — and silence is written with `-` (never `.`). So `X...............` is a **whole-bar** note, `X...X...X...X...` is **four quarter notes**, and silence is spelled out:
 
 ```text
 X...X...X...X...   # four quarters
 X.......X.......   # two half notes (beats 1 and 3)
-X...-...X...-...   # quarter, cut to silence, quarter, silence
+X...----X...----   # quarter, quarter rest, quarter, quarter rest
 ```
+
+**Durations are notated, not sustained.** Each note-group must be **one notatable value** — a base value (whole/half/quarter/8th/16th) or a single-**dotted** value (1.5×). A duration that isn't a single value (a syncopation, a double dot) is written by **tying** with `_`:
+
+```text
+:2 X..X----        # Charleston: dotted quarter + eighth + rest
+:2 X.....X.        # dotted half + quarter
+X..._...X...X...   # a quarter tied to the next quarter, then two quarters (_ opens the tied note)
+X...............|_...------------   # a chord rung across the barline (leading _ ties into bar 1)
+```
+
+(Guitar *sustain* — letting strings ring past their written value — is a play-time "let ring" setting, not part of the written rhythm.)
 
 ### Subdivision — `:n`
 
@@ -308,7 +320,8 @@ Triplet beats (`:3`, `:6`) render as proper tuplets — the notation shows the `
 - **No accent or stroke** inside the grid — those are overlays applied at play time (a pattern is timing only).
 - **No feel / swing** in the grid — triplet feel is a **play-time** setting (it becomes alphaTab's `\tf`), never written into a pattern; a straight pattern *plays* swung when you choose a swing feel. (For an explicit triplet *figure* — three attacks, or an attack on the middle slot — use a `:3` triplet beat; the swing pair `:3 X.X` is what a feel produces for you.)
 - **`*`** (a "hold/extend" sugar glyph) is reserved but not implemented — use `.` sustains.
-- **Ties and dotted-note tokens** beyond what the sustain rule yields are not emitted; a pattern that would require an explicit tie is rejected.
+- **Double-dots** aren't auto-emitted (single dot only) — write a double-dotted value by tying with `_`.
+- A tie **over a chord change** (within a bar or across the barline) **holds the previous chord** — rhythm wins over harmony; you keep ringing what you struck, whatever the progression does underneath.
 
 ---
 

@@ -4,13 +4,16 @@ namespace ChordFlow.Rendering;
 
 /// <summary>
 /// Compiles a tick-grid bar into a sequence of sequential note/rest <see cref="RhythmSlot"/>s that
-/// alphaTex can consume (ctx IN12) — the new renderer responsibility that the rhythm migration buys.
-/// Walks events in tick order, fills gaps with rests, splits spans at beat lines (and, for the
-/// harmonic-rhythm layer, at <c>ChordSpan</c> boundaries), and decomposes each piece into representable
-/// note values. A note split across a beat line yields tied continuation slots; a note split across a
-/// <em>chord boundary</em> re-attacks (you cannot tie one chord into a different chord); rests are
-/// emitted as separate cells and never tied. Lives in the <c>Rendering/</c> seam so the domain stays
-/// timing-only and <see cref="AlphaTexRenderer"/> remains the only code that formats the final tokens.
+/// alphaTex can consume — the renderer responsibility the rhythm migration buys. Walks events in tick
+/// order and fills gaps with rests. Under the accurate-notation grammar a <b>note event maps to exactly
+/// one slot</b>: its duration must be a single notatable value — a base value (whole/half/quarter/8th/16th)
+/// or a single-dotted value (1.5×), straight or on a triplet grid — otherwise it throws (the author must
+/// tie it with <c>_</c>). Ties are <b>authored</b>, not inferred: an event's <see cref="RhythmEvent.TiedToNext"/>
+/// becomes <see cref="RhythmSlot.TiedToPrevious"/> on the following note. A note split across a
+/// <em>chord boundary</em> re-attacks (you cannot tie one chord into a different chord), and an authored
+/// tie that lands on a chord boundary is rejected. Rests decompose into representable values and are
+/// never tied. Lives in the <c>Rendering/</c> seam so the domain stays timing-only and
+/// <see cref="AlphaTexRenderer"/> remains the only code that formats the final tokens.
 /// </summary>
 public static class RhythmQuantizer
 {
@@ -46,8 +49,9 @@ public static class RhythmQuantizer
     /// ticks, exclusive of 0 and the bar end).
     /// </summary>
     public static IReadOnlyList<RhythmSlot> Quantize(
-        IReadOnlyList<RhythmEvent> events, TimeSignature timeSignature, IReadOnlyList<int> chordBoundaries) =>
-        Quantize(events, timeSignature.BarTicks, timeSignature.BeatTicks, chordBoundaries);
+        IReadOnlyList<RhythmEvent> events, TimeSignature timeSignature, IReadOnlyList<int> chordBoundaries,
+        bool startTied = false) =>
+        Quantize(events, timeSignature.BarTicks, timeSignature.BeatTicks, chordBoundaries, startTied);
 
     /// <summary>Quantize a pickup / leading measure (its own length, beat-line splitting at the quarter).</summary>
     public static IReadOnlyList<RhythmSlot> Quantize(PickupMeasure pickup)
@@ -58,11 +62,13 @@ public static class RhythmQuantizer
 
     /// <summary>
     /// Quantize <paramref name="events"/> spanning a measure of <paramref name="barTicks"/> ticks,
-    /// splitting notes/rests at every <paramref name="beatTicks"/> grid line and re-attacking notes at
-    /// each interior chord boundary in <paramref name="chordBoundaries"/>.
+    /// re-attacking notes at each interior chord boundary in <paramref name="chordBoundaries"/>.
+    /// <paramref name="startTied"/> marks the bar's first note as tied into the previous bar (a leading
+    /// <c>_</c> cross-bar tie).
     /// </summary>
     public static IReadOnlyList<RhythmSlot> Quantize(
-        IReadOnlyList<RhythmEvent> events, int barTicks, int beatTicks, IReadOnlyList<int> chordBoundaries)
+        IReadOnlyList<RhythmEvent> events, int barTicks, int beatTicks, IReadOnlyList<int> chordBoundaries,
+        bool startTied = false)
     {
         ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(chordBoundaries);
@@ -74,6 +80,7 @@ public static class RhythmQuantizer
 
         var slots = new List<RhythmSlot>();
         int cursor = 0;
+        bool prevTiedToNext = startTied; // the previous note (this bar's, or the previous bar's) ties into this one
 
         foreach (RhythmEvent e in events.OrderBy(e => e.Position))
         {
@@ -95,16 +102,17 @@ public static class RhythmQuantizer
 
             if (e.Position > cursor)
             {
-                EmitSpan(slots, cursor, e.Position, isRest: true, beatTicks, boundaries, tripletBeats);
+                EmitRestSpan(slots, cursor, e.Position, beatTicks, tripletBeats);
             }
 
-            EmitSpan(slots, e.Position, end, isRest: false, beatTicks, boundaries, tripletBeats);
+            EmitNoteSpan(slots, e.Position, end, prevTiedToNext, beatTicks, boundaries, tripletBeats);
+            prevTiedToNext = e.TiedToNext;
             cursor = end;
         }
 
         if (cursor < barTicks)
         {
-            EmitSpan(slots, cursor, barTicks, isRest: true, beatTicks, boundaries, tripletBeats);
+            EmitRestSpan(slots, cursor, barTicks, beatTicks, tripletBeats);
         }
 
         return slots;
@@ -155,103 +163,126 @@ public static class RhythmQuantizer
         return triplet;
     }
 
-    // Emit one note/rest span [start,end), breaking at beat lines and decomposing each chunk into
-    // representable note values. A NOTE additionally breaks at interior chord boundaries and re-attacks
-    // there (not tied); other note continuation slots are tied. Rests are never tied and ignore chord
-    // boundaries (a rest has no attack to re-trigger — the chord changes silently).
-    private static void EmitSpan(
-        List<RhythmSlot> slots, int start, int end, bool isRest, int beatTicks,
+    // Emit a NOTE span [start,end). A TIED note (the '_' continuation) wins over harmony: it is one HELD
+    // slot that ignores chord boundaries (the renderer re-states the previously-sounding strings, so the
+    // chord change underneath is silently overridden). A non-tied note splits at interior chord boundaries,
+    // RE-ATTACKING each piece under its chord. Every piece must be exactly one base or dotted value (straight
+    // or triplet); otherwise SingleValue throws and the author must tie with '_'.
+    private static void EmitNoteSpan(
+        List<RhythmSlot> slots, int start, int end, bool tiedToPrevious, int beatTicks,
         HashSet<int>? boundaries, bool[] tripletBeats)
     {
-        int p = start;
-        bool firstSlotOfSpan = true;
+        if (tiedToPrevious)
+        {
+            bool tripletHeld = tripletBeats[start / beatTicks];
+            (int heldValue, bool heldDotted) = SingleValue(end - start, tripletHeld);
+            slots.Add(new RhythmSlot(
+                heldValue, IsRest: false, TiedToPrevious: true, start, tripletHeld ? TripletMarker : null, heldDotted));
+            return;
+        }
 
+        int p = start;
+        while (p < end)
+        {
+            // Stop at the nearest interior chord boundary so the next piece re-attacks under its chord.
+            int pieceEnd = end;
+            if (boundaries is not null)
+            {
+                foreach (int b in boundaries)
+                {
+                    if (b > p && b < pieceEnd)
+                    {
+                        pieceEnd = b;
+                    }
+                }
+            }
+
+            bool triplet = tripletBeats[p / beatTicks];
+            (int noteValue, bool dotted) = SingleValue(pieceEnd - p, triplet);
+            slots.Add(new RhythmSlot(
+                noteValue, IsRest: false, TiedToPrevious: false, p, triplet ? TripletMarker : null, dotted));
+
+            p = pieceEnd;
+        }
+    }
+
+    // Emit a REST span [start,end). Straight rests coalesce into the largest metrically-ALIGNED value (so
+    // a rest over beats 3-4 is one ":2 r", not two ":4 r"), the alignment rule keeping the bar's beat
+    // structure visible. Triplet beats stay chunked per beat with the tuplet marker. Rests are never tied
+    // and ignore chord boundaries (silence has no attack to re-trigger).
+    private static void EmitRestSpan(
+        List<RhythmSlot> slots, int start, int end, int beatTicks, bool[] tripletBeats)
+    {
+        int p = start;
         while (p < end)
         {
             int beat = p / beatTicks;
-            bool triplet = tripletBeats[beat];
 
-            // A rest, or any content on a triplet beat, is chunked one beat at a time: triplet content is
-            // sub-beat, and rests split per beat and never tie. A straight NOTE instead extends across
-            // beat lines so a beat-aligned ring coalesces into a single note value (a whole note across
-            // the bar, a half note on beat 1/3) rather than tied quarters — stopping only at the span
-            // end, the next triplet beat, or a chord boundary (which re-attacks).
-            int chunkEnd;
-            if (isRest || triplet)
+            if (tripletBeats[beat])
             {
-                chunkEnd = Math.Min((beat + 1) * beatTicks, end);
+                int chunkEnd = Math.Min((beat + 1) * beatTicks, end);
+                int q = p;
+                while (q < chunkEnd)
+                {
+                    (int dTicks, int noteValue) = LargestFitTuplet(chunkEnd - q);
+                    slots.Add(new RhythmSlot(noteValue, IsRest: true, TiedToPrevious: false, q, TripletMarker));
+                    q += dTicks;
+                }
+
+                p = chunkEnd;
             }
             else
             {
-                chunkEnd = end;
+                // The largest value that fits AND is aligned to the onset tick — bounded so it never crosses
+                // into a triplet beat. Straight content sits on the 12-tick grid, so the 16th always aligns.
+                int limit = end;
                 for (int bt = beat + 1; bt * beatTicks < end; bt++)
                 {
                     if (tripletBeats[bt])
                     {
-                        chunkEnd = bt * beatTicks;
+                        limit = bt * beatTicks;
                         break;
                     }
                 }
+
+                (int dTicks, int noteValue) = LargestAlignedFit(p, limit - p);
+                slots.Add(new RhythmSlot(noteValue, IsRest: true, TiedToPrevious: false, p));
+                p += dTicks;
             }
-
-            // For a note, stop at the nearest interior chord boundary so the next slot re-attacks.
-            if (!isRest && boundaries is not null)
-            {
-                foreach (int b in boundaries)
-                {
-                    if (b > p && b < chunkEnd)
-                    {
-                        chunkEnd = b;
-                    }
-                }
-            }
-
-            int q = p;
-            while (q < chunkEnd)
-            {
-                int remaining = chunkEnd - q;
-                (int dTicks, int noteValue) = triplet
-                    ? LargestFitTuplet(remaining)
-                    : isRest ? LargestFit(remaining) : LargestAlignedFit(q, remaining);
-
-                // Tied only when a note continuation can't stand alone — never on the span's first slot
-                // and never at a chord boundary (those re-attack). Coalescing now makes beat-aligned rings
-                // a single slot, so a tie survives only for genuinely syncopated/dotted spans (still
-                // unsupported downstream — C4).
-                bool tied = !isRest
-                    && !firstSlotOfSpan
-                    && (boundaries is null || !boundaries.Contains(q));
-
-                slots.Add(new RhythmSlot(noteValue, isRest, tied, q, triplet ? TripletMarker : null));
-                firstSlotOfSpan = false;
-                q += dTicks;
-            }
-
-            p = chunkEnd;
         }
     }
 
-    private static (int Ticks, int NoteValue) LargestFit(int remaining)
+    // The single notatable value of a note span of <paramref name="length"/> ticks: a base value, or a
+    // single-dotted value (1.5×). On a triplet beat the length is scaled 3/2 into straight space first
+    // (and the slot carries the tuplet marker). Anything else is not one value — the author must tie it.
+    private static (int NoteValue, bool Dotted) SingleValue(int length, bool triplet)
     {
+        int straight = triplet ? length * TripletMarker.Numerator / TripletMarker.Denominator : length;
+
         foreach ((int ticks, int noteValue) in DurationTable)
         {
-            if (ticks <= remaining)
+            if (straight == ticks)
             {
-                return (ticks, noteValue);
+                return (noteValue, false);
+            }
+        }
+
+        foreach ((int ticks, int noteValue) in DurationTable)
+        {
+            if (straight == ticks * 3 / 2) // a single augmentation dot = base + half
+            {
+                return (noteValue, true);
             }
         }
 
         throw new NotSupportedException(
-            $"Cannot quantize a {remaining}-tick remainder to a representable note value at PPQ {TickGrid.Ppq} " +
-            "(tuplets/32nds are out of v1 scope).");
+            $"A {length}-tick note is not a single notatable value at PPQ {TickGrid.Ppq} — tie it with '_' " +
+            "(or change the cells); dotted values up to a single dot are supported.");
     }
 
-    // Largest representable note value for a straight NOTE at bar-relative tick <paramref name="startTick"/>:
-    // the value must both fit the remaining ticks AND be metrically aligned (startTick % its ticks == 0), so
-    // a whole note only forms at the bar start, a half note only on beat 1/3, etc. This coalesces a
-    // beat-aligned ring into one note instead of tied quarters; a non-aligned (syncopated) remainder falls to
-    // a smaller value and the continuation ties (still unsupported downstream — C4). Straight content always
-    // sits on the 12-tick grid, so the 16th always satisfies alignment and the loop terminates.
+    // The largest representable value that fits the remaining ticks AND is aligned to the onset tick
+    // (startTick % its ticks == 0), so a half rest only forms at an aligned position — this both coalesces
+    // adjacent rests and keeps the bar's beat structure readable. The 16th always aligns on the 12-grid.
     private static (int Ticks, int NoteValue) LargestAlignedFit(int startTick, int remaining)
     {
         foreach ((int ticks, int noteValue) in DurationTable)
@@ -263,7 +294,7 @@ public static class RhythmQuantizer
         }
 
         throw new NotSupportedException(
-            $"Cannot quantize a {remaining}-tick note at tick {startTick} to an aligned note value at PPQ {TickGrid.Ppq}.");
+            $"Cannot align a {remaining}-tick rest at tick {startTick} at PPQ {TickGrid.Ppq}.");
     }
 
     // Largest representable note value for a triplet-grid span: scale the remaining ticks by 3/2 into

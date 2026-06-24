@@ -52,7 +52,7 @@ public class RhythmPatternPersistenceTests
             {
                 Id = "u-1",
                 Name = "My Groove",
-                Dsl = "PICKUP: ...........X | X...X...X...X... | X.......X.......",
+                Dsl = "PICKUP: -----------X | X...X...X...X... | X.......X.......",
                 Origin = Origin.UserDefined,
                 CreatedUtc = DateTime.UtcNow,
             });

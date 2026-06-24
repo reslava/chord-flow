@@ -4,8 +4,8 @@ id: rf_01KTHJN829FMW964FTNCFSS2GM
 title: alphaTex Syntax Reference
 status: active
 created: 2026-06-07
-updated: 2026-06-22
-version: 10
+updated: 2026-06-24
+version: 11
 tags: []
 parent_id: null
 requires_load: []
@@ -71,7 +71,11 @@ Bar-level metadata can also appear at the start of any bar, before notes: `\ts 3
 - **Rest:** `r`.
 - **Bar separator:** `|`.
 
-⚠️ **Dotted notes and ties** — exact token NOT yet verified. The early-exploration notation `(...)h.2` / `h.2` is **wrong — do not use**. MVP rhythms (beat-1, beat-1+3, quarters) need only `:4` + `r`, so this is not required for v1.
+- **Dotted notes** — `{d}` is a **beat property** in braces after the beat: `:4 (3.4 3.3){d}` = a dotted quarter chord. Double dot is `{dd}`. The note value stays the base (`:4`); `{d}` adds the augmentation dot. Verified against alphaTab (2026-06-24).
+- **Ties** — re-state the note with the **`-` fret**: `3.3 -.3` ties the second note to the first on string 3. For a chord, re-state each voiced string: `(3.4 3.3 3.2) (-.4 -.3 -.2)`. (`{t}` is an equivalent note-effect spelling.) ChordFlow emits the `-.string` form. Verified against alphaTab (2026-06-24).
+- **Let ring** (deferred) — `{lr}` note effect (`3.4{lr}`) sustains a note past its written value at **playback** without changing the notation. Not emitted yet; reserved for the let-ring follow-on. Verified token (2026-06-24).
+
+> The early-exploration notation `(...)h.2` / `h.2` was **wrong — do not use**.
 
 ## Anacrusis (pickup bars)
 

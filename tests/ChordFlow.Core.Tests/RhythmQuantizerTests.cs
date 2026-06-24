@@ -59,7 +59,8 @@ public class RhythmQuantizerTests
 
         Assert.Equal((2, false, false), S(slots[0]));        // a single half note, untied
         Assert.Equal(1, slots.Count(s => !s.IsRest));
-        Assert.Equal(2, slots.Count(s => s.IsRest));         // beats 3 & 4 fill with quarter rests
+        Assert.Equal((2, true, false), S(slots[1]));         // beats 3 & 4 coalesce to one half rest
+        Assert.Equal(1, slots.Count(s => s.IsRest));
     }
 
     [Fact]
@@ -72,16 +73,19 @@ public class RhythmQuantizerTests
     }
 
     [Fact]
-    public void Quantize_SyncopatedHalfNoteOnBeat2_StillTieSplits()
+    public void Quantize_SyncopatedHalfNoteOnBeat2_IsOneHalfNote_NoTie()
     {
-        // A half note starting on beat 2 is not metrically alignable as one value, so it stays two
-        // quarters with a tied continuation (ties remain unsupported downstream — C4).
+        // A half note starting on beat 2 is a single representable value (96t = :2), so it emits ONE
+        // half note — the author chooses to split it into tied quarters with '_' if they want that.
         var events = new[] { RhythmEvent.Hit(48, 96) };
 
         var slots = RhythmQuantizer.Quantize(events, TimeSignature.FourFour);
 
-        Assert.Equal((4, false, false), S(slots[1])); // beat-2 quarter (slot 0 is the beat-1 rest)
-        Assert.Equal((4, false, true), S(slots[2]));  // tied continuation into beat 3
+        Assert.Equal((4, true, false), S(slots[0]));   // beat-1 quarter rest
+        Assert.Equal((2, false, false), S(slots[1]));  // a single half note at beat 2, untied
+        Assert.Equal(48, slots[1].StartTick);
+        Assert.Equal(1, slots.Count(s => !s.IsRest));
+        Assert.DoesNotContain(slots, s => s.TiedToPrevious);
     }
 
     [Fact]
@@ -92,10 +96,12 @@ public class RhythmQuantizerTests
         var slots = RhythmQuantizer.Quantize(events, TimeSignature.FourFour);
 
         Assert.Equal((16, false, false), S(slots[0]));
-        // Remainder of beat 1 is an eighth + sixteenth of rest, then three quarter rests.
-        Assert.Equal((8, true, false), S(slots[1]));
-        Assert.Equal((16, true, false), S(slots[2]));
+        // Aligned rest fill: a 16th rest (to the eighth grid), an eighth rest (rest of beat 1), a quarter
+        // rest (beat 2), then a half rest (beats 3-4 coalesced).
+        Assert.Equal((16, true, false), S(slots[1]));
+        Assert.Equal((8, true, false), S(slots[2]));
         Assert.Equal((4, true, false), S(slots[3]));
+        Assert.Equal((2, true, false), S(slots[4]));
     }
 
     [Fact]
@@ -201,6 +207,66 @@ public class RhythmQuantizerTests
         Assert.False(slots[0].IsRest);                 // the beat-1 hit
         Assert.Equal(1, slots.Count(s => !s.IsRest));  // exactly one attack in the bar
         Assert.All(slots.Skip(1), s => Assert.True(s.IsRest));
+    }
+
+    // ---- Dotted notes + authored ties (accurate-notation grammar) -----------
+
+    [Fact]
+    public void Quantize_DottedQuarter_IsOneDottedSlot()
+    {
+        // 72 ticks = a dotted quarter: ONE slot (NoteValue 4 + Dotted), not quarter + tied eighth.
+        var slots = RhythmQuantizer.Quantize(new[] { RhythmEvent.Hit(0, 72) }, TimeSignature.FourFour);
+
+        Assert.Equal(4, slots[0].NoteValue);
+        Assert.True(slots[0].Dotted);
+        Assert.False(slots[0].TiedToPrevious);
+        Assert.False(slots[0].IsRest);
+    }
+
+    [Fact]
+    public void Quantize_AuthoredTie_SetsTiedToPreviousOnTheContinuation()
+    {
+        // A '_' tie: event A carries TiedToNext, so the next note's slot is TiedToPrevious (and not dotted).
+        var events = new[] { RhythmEvent.Hit(0, 48) with { TiedToNext = true }, RhythmEvent.Hit(48, 48) };
+
+        var slots = RhythmQuantizer.Quantize(events, TimeSignature.FourFour);
+
+        Assert.False(slots[0].TiedToPrevious);
+        Assert.True(slots[1].TiedToPrevious);
+        Assert.False(slots[0].Dotted);
+    }
+
+    [Fact]
+    public void Quantize_NonRepresentableNote_Throws()
+    {
+        // 120 ticks (2.5 beats) is not a single value — it must be tied; the quantizer refuses to guess.
+        Assert.Throws<NotSupportedException>(
+            () => RhythmQuantizer.Quantize(new[] { RhythmEvent.Hit(0, 120) }, TimeSignature.FourFour));
+    }
+
+    [Fact]
+    public void Quantize_TieAcrossChordBoundary_HoldsTheTie_RhythmWins()
+    {
+        // Rhythm wins over harmony: a tie landing on a chord change is HELD (one tied slot, not re-attacked).
+        // The renderer holds the previous voicing's strings; the chord change underneath is overridden.
+        var events = new[] { RhythmEvent.Hit(0, 48) with { TiedToNext = true }, RhythmEvent.Hit(48, 48) };
+
+        var slots = RhythmQuantizer.Quantize(events, TimeSignature.FourFour, new[] { 48 });
+
+        Assert.Equal((4, false, false), S(slots[0]));
+        Assert.Equal((4, false, true), S(slots[1]));   // held tie, not a re-attack
+        Assert.Equal(2, slots.Count(s => !s.IsRest));
+    }
+
+    [Fact]
+    public void Quantize_CrossBarTie_StartTied_MarksFirstNoteTied()
+    {
+        // The renderer passes startTied for a bar that opens with a leading '_' (a cross-bar anticipation).
+        var events = new[] { RhythmEvent.Hit(0, 96) };
+
+        var slots = RhythmQuantizer.Quantize(events, TimeSignature.FourFour, Array.Empty<int>(), startTied: true);
+
+        Assert.True(slots[0].TiedToPrevious); // the bar's first note is tied into the previous bar
     }
 
     // ---- Triplet grid (IN7) -------------------------------------------------
