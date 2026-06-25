@@ -230,6 +230,12 @@
       <select id="key"></select>
       <label for="difficulty">Difficulty</label>
       <select id="difficulty"></select>
+      <!-- Automatic comping-voicing region (engine-derived-as-app-source IN14): the fret window the engine
+           derives grips in. Min/max for debugging; ranking is Closest (mode selector is voicing-ranking-strategies). -->
+      <label for="voicingMinFret">Voicing frets</label>
+      <input type="number" id="voicingMinFret" min="0" max="15" value="0" title="Lowest fret for automatic comping voicings" />
+      <span class="builder-dash">–</span>
+      <input type="number" id="voicingMaxFret" min="0" max="15" value="15" title="Highest fret for automatic comping voicings" />
       <button id="btnGenerate" type="button">Generate</button>
       <button id="btnSave" type="button">Save</button>
       <button id="btnPractice" type="button">Mark practiced</button>

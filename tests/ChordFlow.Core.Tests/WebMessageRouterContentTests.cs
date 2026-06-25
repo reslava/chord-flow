@@ -174,14 +174,16 @@ public class WebMessageRouterContentTests
 
         router.Dispatch("""
             {"type":"generate","harmonyEntity":"progression","harmonyId":"12bar_blues","compingPatternId":"quarters","keyPitchClass":10,"tempo":90,
-             "renderOptions":{"showChordNames":true,"showChordDiagramsOverStaff":true,"showChordDiagramsOnTop":true,"voicing":"byDifficulty"}}
+             "renderOptions":{"showChordNames":true,"showChordDiagramsOverStaff":true,"showChordDiagramsOnTop":true,"voicing":{"kind":"automatic","minFret":5,"maxFret":12}}}
             """);
 
         Assert.NotNull(got);
         Assert.True(got!.ShowChordNames);
         Assert.True(got.ShowChordDiagramsOverStaff);
         Assert.True(got.ShowChordDiagramsOnTop);
-        Assert.Equal(VoicingStrategy.ByDifficulty, got.Voicing);
+        Assert.Equal("automatic", got.Voicing!.Kind);
+        Assert.Equal(5, got.Voicing.MinFret);
+        Assert.Equal(12, got.Voicing.MaxFret);
     }
 
     [Fact]

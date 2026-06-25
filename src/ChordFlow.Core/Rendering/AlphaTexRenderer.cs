@@ -26,26 +26,15 @@ namespace ChordFlow.Rendering;
 /// </summary>
 public sealed class AlphaTexRenderer : IScoreRenderer
 {
-    // The voicing source for rendered chords. Stored authored voicings shadow the generated strategy
-    // shapes; an empty-library book resolves every chord through the strategy fallback.
-    private readonly VoicingBook _book;
+    // A pure formatter (D4=(B)): voicing selection happens in the Features comping resolver and arrives as a
+    // CompingPlan; the renderer holds no voicing state, so authored-voicing changes take effect on the next
+    // render without any hot-swap.
 
-    /// <summary>Render using <paramref name="book"/> as the voicing source (stored voicings shadow generated shapes).</summary>
-    public AlphaTexRenderer(VoicingBook book)
-    {
-        ArgumentNullException.ThrowIfNull(book);
-        _book = book;
-    }
-
-    /// <summary>Render with no authored library — every chord resolves through the generated strategy shapes.</summary>
-    public AlphaTexRenderer() : this(new VoicingBook(Array.Empty<VoicingShape>()))
-    {
-    }
-
-    public RenderResult Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, RenderOptions? options = null)
+    public RenderResult Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, CompingPlan compingPlan, TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, RenderOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentNullException.ThrowIfNull(rhythm);
+        ArgumentNullException.ThrowIfNull(compingPlan);
         RenderOptions opts = options ?? RenderOptions.Default;
         if (song.Sections.Count == 0)
         {
@@ -61,8 +50,8 @@ public sealed class AlphaTexRenderer : IScoreRenderer
 
         // Comping (rhythm-guitar) track body: pickup + section bars, with inline \ks on key change. The state
         // collects each \chord diagram definition once for the score metadata block.
-        var state = new RenderState();
-        List<string> compingBars = BuildCompingBars(song, rhythm, ts, difficulty, opts, state);
+        var state = new RenderState { Plan = compingPlan };
+        List<string> compingBars = BuildCompingBars(song, rhythm, ts, opts, state);
         // Whole-song swing is delegated to alphaTab: emit one \tf on the first bar (None ⇒ nothing).
         PrependTripletFeel(compingBars, tripletFeel);
 
@@ -84,7 +73,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         // Two tracks (IN5): score metadata + the lone "." first, then a \track per staff carrying its own
         // bar metadata (\ts/\ks). The lead pattern renders as dead notes (\x.3); both tracks span the same
         // master bars so the staves stay aligned. Bars-per-row is a JS display setting (display.barsPerRow).
-        List<string> leadBars = BuildLeadBars(song, rhythm, lead, ts);
+        List<string> leadBars = BuildLeadBars(song, rhythm, lead, ts, compingPlan);
         PrependTripletFeel(leadBars, tripletFeel);
 
         AppendScoreMetadata(sb, title, subtitle, tempo, opts, state.ChordDefinitions);
@@ -100,7 +89,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     // an inline \ks only when the section key changes. The threaded state carries the ":N" duration and the
     // active chord label across section seams, and collects \chord diagram definitions for the header.
     private List<string> BuildCompingBars(
-        RealizedSong song, RhythmPattern rhythm, TimeSignature ts, Difficulty difficulty,
+        RealizedSong song, RhythmPattern rhythm, TimeSignature ts,
         RenderOptions opts, RenderState state)
     {
         IReadOnlyList<PatternBar> patternBars = PatternEventBars(rhythm);
@@ -116,7 +105,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
             // \ac marks the bar as an anacrusis: alphaTab sizes it by its actual beats (not the time
             // signature) instead of counting it as a full bar 1. It is bar metadata at the bar's start,
             // ahead of the ":N"/beats — so we prefix the already-correct short bar string (C2: still one bar).
-            barLines.Add("\\ac " + RenderBar(pickupSlots, _ => firstChord, difficulty, first.Key, opts, state));
+            barLines.Add("\\ac " + RenderBar(pickupSlots, _ => firstChord, first.Key, opts, state));
         }
 
         Key? previousKey = null;
@@ -130,7 +119,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
                 barLines.Add("\\ks " + NoteSpeller.KeySignatureToken(section.Key));
             }
 
-            RenderBars(section.Bars, patternBars, ts, difficulty, section.Key, opts, state, barLines);
+            RenderBars(section.Bars, patternBars, ts, section.Key, opts, state, barLines);
             previousKey = section.Key;
         }
 
@@ -143,11 +132,11 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     // the ":N" duration for this track (alphaTex duration state does not carry across tracks). Inline \ks on
     // a key change mirrors the comping walk so the master bars line up.
     private List<string> BuildLeadBars(
-        RealizedSong song, RhythmPattern comping, RhythmPattern lead, TimeSignature ts)
+        RealizedSong song, RhythmPattern comping, RhythmPattern lead, TimeSignature ts, CompingPlan compingPlan)
     {
         IReadOnlyList<PatternBar> leadPatternBars = PatternEventBars(lead);
         RealizedSection first = song.Sections[0];
-        var state = new RenderState();
+        var state = new RenderState { Plan = compingPlan };
         var barLines = new List<string>();
 
         if (comping.Pickup is { } pickup && first.Bars.Count > 0)
@@ -291,7 +280,6 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         IReadOnlyList<RealizedBar> bars,
         IReadOnlyList<PatternBar> feltBars,
         TimeSignature ts,
-        Difficulty difficulty,
         Key key,
         RenderOptions options,
         RenderState state,
@@ -308,7 +296,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
             IReadOnlyList<int> boundaries = InteriorBoundaries(bar);
             IReadOnlyList<RhythmSlot> slots =
                 RhythmQuantizer.Quantize(patternBar.Events, ts, boundaries, patternBar.StartsTied);
-            barLines.Add(RenderBar(slots, bar.ChordCovering, difficulty, key, options, state));
+            barLines.Add(RenderBar(slots, bar.ChordCovering, key, options, state));
         }
     }
 
@@ -335,7 +323,6 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     private string RenderBar(
         IReadOnlyList<RhythmSlot> slots,
         Func<int, Chord> chordForTick,
-        Difficulty difficulty,
         Key key,
         RenderOptions options,
         RenderState state)
@@ -380,7 +367,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
                 }
                 else
                 {
-                    voicing = Voice(chord, difficulty, options);
+                    voicing = state.Plan.For(chord);
                     state.LastVoicing = voicing;
                     body = NoteGroup(voicing);
 
@@ -402,7 +389,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
                     }
                 }
 
-                RecordChordChange(state, chord, key, beatOrdinal, difficulty, options, voicing);
+                RecordChordChange(state, chord, key, beatOrdinal, voicing);
             }
 
             if (slot.Dotted)
@@ -427,9 +414,8 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     // Push a schedule entry the first time a chord appears in playback order (the now/next-fretboards feed).
     // The diagram is built from the same voicing the tab comps for the chord (req C2): for a sounding beat
     // that voicing is already realized and reused; only a change landing on a rest realizes one here.
-    private void RecordChordChange(
-        RenderState state, Chord chord, Key key, int beatOrdinal,
-        Difficulty difficulty, RenderOptions options, Voicing? voicing)
+    private static void RecordChordChange(
+        RenderState state, Chord chord, Key key, int beatOrdinal, Voicing? voicing)
     {
         string name = ChordSymbol.Format(chord, key);
         if (string.Equals(name, state.ScheduleChordName, StringComparison.Ordinal))
@@ -440,7 +426,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         state.ScheduleChordName = name;
         state.Schedule.Add(new ChordChange(
             state.BarIndex, beatOrdinal, name,
-            RealizedVoicingDiagram.Build(chord, voicing ?? Voice(chord, difficulty, options), key)));
+            RealizedVoicingDiagram.Build(chord, voicing ?? state.Plan.For(chord), key)));
     }
 
     // Render one lead-track bar (v1 = dead/muted notes): each hit is a dead note on string 3 (\x.3 —
@@ -482,18 +468,6 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         return string.Join(" ", tokens) + " |";
     }
 
-    // Resolve the chord's voicing. v1 ships only ByDifficulty; an unimplemented strategy fails loud rather
-    // than silently falling back (CAGED-shape preference is deferred to the caged-system/voicings threads).
-    private Voicing Voice(Chord chord, Difficulty difficulty, RenderOptions options)
-    {
-        if (options.Voicing != VoicingStrategy.ByDifficulty)
-        {
-            throw new NotSupportedException($"Voicing strategy {options.Voicing} is not implemented in v1.");
-        }
-
-        return _book.Lookup(chord, difficulty);
-    }
-
     private static string NoteGroup(Voicing voicing) =>
         "(" + string.Join(" ", voicing.Positions.Select(p => $"{p.Fret}.{p.String}")) + ")";
 
@@ -516,12 +490,21 @@ public sealed class AlphaTexRenderer : IScoreRenderer
                 : "x");
         }
 
-        return $"\\chord (\"{name}\" {string.Join(" ", frets)})";
+        // A grip up the neck needs {firstfret N} or alphaTab draws the box from the nut with the dots floating
+        // in the air. FirstFret is 0/1 for open/nut grips (omit → default nut), ≥2 for a shifted grip.
+        string firstFret = voicing.FirstFret is int ff && ff >= 2
+            ? $" {{firstfret {ff.ToString(CultureInfo.InvariantCulture)}}}"
+            : string.Empty;
+
+        return $"\\chord (\"{name}\" {string.Join(" ", frets)}){firstFret}";
     }
 
     // Per-render mutable context (single-threaded over one Render call).
     private sealed class RenderState
     {
+        // The resolved comping grips for this render (chord → voicing) — the renderer formats these (D4=(B)).
+        public required CompingPlan Plan { get; init; }
+
         // The active alphaTex ":N" duration; persists across beats, bars, and section seams until changed.
         public string? CurrentDuration;
 

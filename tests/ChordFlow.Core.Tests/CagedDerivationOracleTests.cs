@@ -18,7 +18,7 @@ public class CagedDerivationOracleTests
 
     public CagedDerivationOracleTests(ITestOutputHelper output) => _out = output;
 
-    // The 34 authored voicings (Content/default-pack/voicings/*.dsl), frets low-E→high-E (string 6 → 1).
+    // The 36 authored voicings (the test-only oracle fixture, fixtures/caged-oracle/*.dsl), frets low-E→high-E (string 6 → 1).
     private static readonly (Quality Quality, CagedShape Shape, string Frets)[] Authored =
     {
         (Quality.Major, CagedShape.C, "x 3 2 0 1 0"),

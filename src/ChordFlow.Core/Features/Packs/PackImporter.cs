@@ -59,8 +59,36 @@ public sealed class PackImporter
             }
         }
 
+        // Reconcile (IN12): a pack is authoritative for its own content, so drop the rows this pack previously
+        // imported that it no longer ships (e.g. voicings relocated out of the pack) — keyed by (Origin.Pack,
+        // PackId). User copies are forked with fresh ids (never Origin.Pack), so they are untouched.
+        Dictionary<ContentKind, HashSet<string>> shipped = pack.Definitions
+            .GroupBy(d => d.Kind)
+            .ToDictionary(g => g.Key, g => g.Select(d => d.Id).ToHashSet(StringComparer.Ordinal));
+        ReconcileOrphans(_db.Progressions, packId, Shipped(shipped, ContentKind.Progression), e => e.PackId);
+        ReconcileOrphans(_db.Songs, packId, Shipped(shipped, ContentKind.Song), e => e.PackId);
+        ReconcileOrphans(_db.RhythmPatterns, packId, Shipped(shipped, ContentKind.Rhythm), e => e.PackId);
+        ReconcileOrphans(_db.Voicings, packId, Shipped(shipped, ContentKind.Voicing), e => e.PackId);
+
         _db.SaveChanges();
         return pack.Definitions.Count;
+    }
+
+    private static HashSet<string> Shipped(Dictionary<ContentKind, HashSet<string>> map, ContentKind kind) =>
+        map.TryGetValue(kind, out HashSet<string>? ids) ? ids : new HashSet<string>(StringComparer.Ordinal);
+
+    // Remove this pack's previously-imported rows (Origin.Pack, same PackId) whose id is no longer shipped.
+    private void ReconcileOrphans<TEntity>(
+        DbSet<TEntity> set, string packId, HashSet<string> shippedIds, Func<TEntity, string?> packIdOf)
+        where TEntity : class, IOriginated
+    {
+        List<TEntity> orphans = set.Where(e => e.Origin == Origin.Pack).ToList()
+            .Where(e => packIdOf(e) == packId && !shippedIds.Contains(e.Id))
+            .ToList();
+        if (orphans.Count > 0)
+        {
+            set.RemoveRange(orphans);
+        }
     }
 
     // Upsert a catalog entity (progression / song / voicing): denormalize the DSL header into the columns,

@@ -1,7 +1,6 @@
 using ChordFlow.Music.Harmony;
 using System.Text;
 
-using ChordFlow.Features.Packs;
 using ChordFlow.Instruments.Guitar;
 using Xunit;
 using Xunit.Abstractions;
@@ -25,9 +24,7 @@ public class CagedAnchorFingerOracleTests
     [Fact]
     public void DerivedAnchor_MatchesAuthoredAnchor_ForEveryAnnotatedVoicing()
     {
-        var voicings = DefaultPack.Load().Definitions
-            .Where(d => d.Kind == ContentKind.Voicing)
-            .Select(d => (d.Id, Dsl: d.Dsl, Shape: VoicingDslParser.Parse(d.Dsl)))
+        var voicings = OracleVoicings.Load()
             .Where(x => x.Shape.Anchor is not null)
             .ToList();
 

@@ -27,4 +27,11 @@
     <ProjectReference Include="..\..\src\ChordFlow.Core\ChordFlow.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The 36 authored CAGED grips are a TEST-ONLY golden-oracle fixture (engine-derived-as-app-source IN8):
+         the app no longer ships them (the engine derives `automatic` voicings); the oracle/coverage tests read
+         them here. Copied next to the test assembly so OracleVoicings.Load() can read them at runtime. -->
+    <Content Include="fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

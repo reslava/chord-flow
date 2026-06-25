@@ -20,10 +20,14 @@ public static class AnchorFinger
     public static Finger Derive(int anchorFret, int boxMinFret, int boxMaxFret)
     {
         if (boxMaxFret < boxMinFret) throw new ArgumentException("Box max fret is below its min fret.");
-        if (anchorFret < boxMinFret || anchorFret > boxMaxFret)
-            throw new ArgumentOutOfRangeException(nameof(anchorFret), "Anchor fret is outside the realized box.");
+        if (anchorFret > boxMaxFret)
+            throw new ArgumentOutOfRangeException(nameof(anchorFret), "Anchor fret is above the realized box.");
 
-        if (anchorFret == boxMinFret) return Finger.Index;
+        // Root at or below the box's low edge — including an OPEN root (fret 0) that the fretted box excludes
+        // (e.g. open D7 "x x 0 2 1 2") — anchors the hand at the low end: index / open position. The fretted
+        // box is built from fretted notes only, so an open root sits below boxMin; that is the open-position
+        // case, not an error (caged-derive-anchor-edge).
+        if (anchorFret <= boxMinFret) return Finger.Index;
         if (anchorFret == boxMaxFret)
         {
             int width = boxMaxFret - boxMinFret + 1; // fretted width (inclusive); width 4 = the full 4-finger hand

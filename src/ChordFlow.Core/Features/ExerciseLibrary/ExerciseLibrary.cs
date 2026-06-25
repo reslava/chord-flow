@@ -4,6 +4,7 @@ using ChordFlow.Exercises;
 using ChordFlow.Music.Harmony;
 using System.Globalization;
 using ChordFlow.Features.GenerateExercise;
+using ChordFlow.Features.Voicings;
 using ChordFlow.Persistence;
 using ChordFlow.Persistence.Entities;
 using ChordFlow.Rendering;
@@ -109,7 +110,8 @@ public sealed class ExerciseLibraryHandler
         }
 
         Exercise exercise = ToExercise(entity, db);
-        return new LoadedExercise(exercise, LoadScoreEnvelope.From(exercise, new ProgressionStore(db), _renderer, options));
+        return new LoadedExercise(exercise, LoadScoreEnvelope.From(
+            exercise, new ProgressionStore(db), _renderer, StoredVoicingSource.From(new VoicingStore(db)), options));
     }
 
     // Rebuild the Domain Exercise from a stored definition, resolving its references against the live stores

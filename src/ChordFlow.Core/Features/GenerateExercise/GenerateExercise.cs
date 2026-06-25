@@ -1,4 +1,5 @@
 using ChordFlow.Exercises;
+using ChordFlow.Features.Voicings;
 using ChordFlow.Music.Harmony;
 using ChordFlow.Music.Rhythm;
 using ChordFlow.Music.Songs;
@@ -23,9 +24,10 @@ public sealed record LoadScoreEnvelope(string Type, string Tex, int Tempo, IRead
     /// <see cref="ExerciseRendering"/> against <paramref name="store"/>; the renderer stays pure (merge decision (a)).
     /// </summary>
     public static LoadScoreEnvelope From(
-        Exercise exercise, IProgressionStore store, IScoreRenderer renderer, RenderOptions? options = null)
+        Exercise exercise, IProgressionStore store, IScoreRenderer renderer, IStoredVoicingSource voicings,
+        RenderOptions? options = null)
     {
-        RenderResult result = ExerciseRendering.Render(exercise, store, renderer, options);
+        RenderResult result = ExerciseRendering.Render(exercise, store, renderer, voicings, options);
         return new("loadScore", result.Tex, exercise.Tempo, result.Schedule);
     }
 }
@@ -62,7 +64,7 @@ public sealed class GenerateExerciseHandler
         using var db = new ChordFlowDbContext(_dbOptions);
         Exercise exercise = Build(
             db, harmonyEntity, harmonyId, compingPatternId, leadPatternId, keyPitchClass, tempo, difficulty, tripletFeel);
-        return LoadScoreEnvelope.From(exercise, new ProgressionStore(db), _renderer);
+        return LoadScoreEnvelope.From(exercise, new ProgressionStore(db), _renderer, StoredVoicingSource.From(new VoicingStore(db)));
     }
 
     /// <summary>

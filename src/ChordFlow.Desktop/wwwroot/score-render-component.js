@@ -46,7 +46,7 @@ window.ChordFlowScore = (function () {
     chordNames: true,        // default selected
     diagramsOverStaff: false,
     diagramsOnTop: true,     // default selected
-    voicing: "byDifficulty",
+    voicing: { kind: "automatic" }, // comping voicing source (engine-derived-as-app-source IN6); no UI picker yet → engine default (full neck, Closest)
     autoLayout: false,       // false = honor the score's defaultSystemsLayout (fixed bars/row); true = fit to width
     staffProfile: "tab",     // tab (default) | standard | both — display-only, persisted globally host-side
   };

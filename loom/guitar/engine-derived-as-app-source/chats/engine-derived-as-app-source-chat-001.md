@@ -2,9 +2,10 @@
 type: chat
 id: ch_01KVYWBG3WA9VPA7E8XTN0S55S
 title: engine-derived-as-app-source Chat
-status: active
+status: done
 created: 2026-06-25
-version: 1
+updated: 2026-06-25
+version: 2
 tags: []
 parent_id: null
 requires_load: [chordflow-architecture]

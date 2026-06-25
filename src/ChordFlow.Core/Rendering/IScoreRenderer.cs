@@ -19,8 +19,10 @@ public interface IScoreRenderer
     /// comping track; <paramref name="lead"/>, when non-null, is rendered as a second <c>\track</c> of dead
     /// notes (single-track when null).
     /// </summary>
+    /// <param name="compingPlan">The resolved comping grips (chord → voicing), built in the Features layer by
+    /// the comping resolver — the renderer formats these, it does not select voicings (D4=(B)).</param>
     /// <param name="lead">Optional lead-guitar pattern; <c>null</c> ⇒ single-track output (no lead staff).</param>
     /// <param name="options">Render-time presentation options; <c>null</c> ⇒ <see cref="RenderOptions.Default"/> (today's render).</param>
     /// <returns>The alphaTex string plus the chord schedule (one entry per chord change), produced in one pass so they cannot drift.</returns>
-    RenderResult Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, RenderOptions? options = null);
+    RenderResult Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, CompingPlan compingPlan, TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, RenderOptions? options = null);
 }

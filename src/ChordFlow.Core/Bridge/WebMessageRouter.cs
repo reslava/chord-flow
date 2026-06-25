@@ -256,14 +256,21 @@ public sealed class WebMessageRouter
             ShowChordNames: options.ShowChordNames ?? false,
             ShowChordDiagramsOverStaff: options.ShowChordDiagramsOverStaff ?? false,
             ShowChordDiagramsOnTop: options.ShowChordDiagramsOnTop ?? false,
-            Voicing: ParseVoicing(options.Voicing));
+            Voicing: ParseVoicingSource(options.Voicing));
     }
 
-    // Only ByDifficulty ships in v1; an absent or unrecognized value falls back to it (forward-compatible).
-    private static VoicingStrategy ParseVoicing(string? value) =>
-        Enum.TryParse(value, ignoreCase: true, out VoicingStrategy strategy) && Enum.IsDefined(strategy)
-            ? strategy
-            : VoicingStrategy.ByDifficulty;
+    // The comping voicing source (engine-derived-as-app-source IN6): a structured practice knob. Absent ⇒ null
+    // ⇒ the resolver's default (automatic / full neck / Closest). The kind is normalized; unknown kinds/rankings
+    // fail loud in the resolver, not here.
+    private static VoicingSource? ParseVoicingSource(InboundVoicingSource? voicing) =>
+        voicing is null
+            ? null
+            : new VoicingSource(
+                Kind: string.IsNullOrWhiteSpace(voicing.Kind) ? VoicingSource.Automatic : voicing.Kind.Trim().ToLowerInvariant(),
+                MinFret: voicing.MinFret,
+                MaxFret: voicing.MaxFret,
+                PackageId: voicing.PackageId,
+                Ranking: voicing.Ranking);
 
     // Parse a string enum param (Difficulty/TripletFeel) case-insensitively; an absent or unrecognized value falls
     // back to the supplied default (forward-compatible — a new value the host doesn't know is ignored).
@@ -293,5 +300,9 @@ public sealed class WebMessageRouter
         InboundRenderOptions? RenderOptions);
 
     private sealed record InboundRenderOptions(
-        bool? ShowChordNames, bool? ShowChordDiagramsOverStaff, bool? ShowChordDiagramsOnTop, string? Voicing);
+        bool? ShowChordNames, bool? ShowChordDiagramsOverStaff, bool? ShowChordDiagramsOnTop, InboundVoicingSource? Voicing);
+
+    // The structured comping voicing knob on renderOptions.voicing (IN6): { kind, minFret, maxFret, packageId, ranking }.
+    private sealed record InboundVoicingSource(
+        string? Kind, int? MinFret, int? MaxFret, string? PackageId, string? Ranking);
 }

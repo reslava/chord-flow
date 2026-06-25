@@ -100,6 +100,20 @@ public sealed class VoicingStore : IContentStore
             .ToList();
     }
 
+    /// <summary>
+    /// Every stored voicing parsed into a <see cref="VoicingShape"/> tagged with its content source (package
+    /// or user) and pack id — no tier collapse (content-source-model). The source-aware library the comping
+    /// resolver draws its package and user candidates from (engine-derived-as-app-source IN4); the engine
+    /// <c>automatic</c> source is computed elsewhere and never appears here.
+    /// </summary>
+    public IReadOnlyList<(VoicingShape Shape, ContentSource Source, string? PackId)> LoadShapesBySource() =>
+        _db.Voicings.AsNoTracking().OrderBy(v => v.Id).ToList()
+            .Select(v => (
+                Shape: VoicingDslParser.Parse(StripHeader(v.Dsl)),
+                Source: ContentSummaries.SourceOf(v.Origin),
+                v.PackId))
+            .ToList();
+
     /// <summary>Find a stored voicing by id (resolving the highest tier) and parse it into a <see cref="VoicingShape"/>, or null if absent.</summary>
     public VoicingShape? Find(string id)
     {

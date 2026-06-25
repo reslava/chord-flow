@@ -1,5 +1,6 @@
 using ChordFlow.Music.Harmony;
 using ChordFlow.Exercises;
+using ChordFlow.Features.Voicings;
 using ChordFlow.Music.Songs;
 using ChordFlow.Rendering;
 
@@ -21,21 +22,26 @@ public static class ExerciseRendering
     /// and its chord schedule (the now/next-fretboards feed).
     /// </summary>
     public static RenderResult Render(
-        Exercise exercise, IProgressionStore store, IScoreRenderer renderer, RenderOptions? options = null)
+        Exercise exercise, IProgressionStore store, IScoreRenderer renderer, IStoredVoicingSource voicings,
+        RenderOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(exercise);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(renderer);
+        ArgumentNullException.ThrowIfNull(voicings);
 
         Key baseKey = exercise.KeyOverride ?? exercise.Song.InitialKey;
         RealizedSong realized = SongExpander.Expand(exercise.Song, store, startKey: baseKey);
+        // Resolve the comping grips here (the I/O seam), so the renderer stays a pure formatter (D4=(B)).
+        CompingPlan plan = CompingResolver.Resolve(realized, (options ?? RenderOptions.Default).VoicingOrDefault, voicings);
         return renderer.Render(
-            realized, exercise.Comping, exercise.Tempo, exercise.Difficulty, exercise.TripletFeel,
+            realized, exercise.Comping, exercise.Tempo, exercise.Difficulty, plan, exercise.TripletFeel,
             lead: exercise.Lead, options: options);
     }
 
     /// <summary>The alphaTex string only — for callers that don't need the chord schedule (e.g. Content preview).</summary>
     public static string RenderToTex(
-        Exercise exercise, IProgressionStore store, IScoreRenderer renderer, RenderOptions? options = null) =>
-        Render(exercise, store, renderer, options).Tex;
+        Exercise exercise, IProgressionStore store, IScoreRenderer renderer, IStoredVoicingSource voicings,
+        RenderOptions? options = null) =>
+        Render(exercise, store, renderer, voicings, options).Tex;
 }

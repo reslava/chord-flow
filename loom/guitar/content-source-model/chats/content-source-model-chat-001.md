@@ -2,13 +2,14 @@
 type: chat
 id: ch_01KVZHDAH6AJH7G3NJV1WTCGZP
 title: content-source-model Chat
-status: active
+status: done
 created: 2026-06-25
-version: 1
+updated: 2026-06-25
+version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 8
+last_ai_block: 10
 ---
 # content-source-model Chat
 
@@ -138,3 +139,23 @@ Pure front-end (static `wwwroot`) — just relaunch the app to see it; no rebuil
 
 Thanks, looks & works perfect!
 commit
+
+## AI:
+
+Committed to `main` as **`aee346c`** — `feat(content): multi-source model — additive listing, source tags, filter`.
+
+Included: the Core/Desktop code, the `content-crud.js` + `index.html` UI (incl. the chip colour-match), all updated tests, the architecture-ref sync, and the loom docs (content-source-model idea/design/req/plan/done + chats, the voicing-ranking-strategies idea, and the engine-derived-as-app-source idea/chat). The `thread.md` manifests rode in your `chore: roadmap` commit, as expected.
+
+Left untracked (not mine to bundle): the pre-existing idea stubs `caged-sixth-voicings`, `shell-voicing-derivation`, `voicing-difficulty-bands`. Didn't push (you didn't ask).
+
+Next when you're ready: **`engine-derived-as-app-source`** — it's unblocked, and the `IComputedContentSource` seam is waiting for its voicing source.
+
+## Rafa:
+
+I pushed it
+Tech question: your context is 380 k, so before continue with `engine-derived-as-app-source` I wonder if:
+- just continue
+- compact
+- start a new fresh session and use loom for you to load global context and updated `loom/refs/chordflow-architecture-reference.md`
+
+Suggestions?

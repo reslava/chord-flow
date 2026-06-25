@@ -9,6 +9,7 @@ using ChordFlow.Features.PracticeSession;
 using ChordFlow.Features.Progress;
 using ChordFlow.Features.Scales;
 using ChordFlow.Features.Caged;
+using ChordFlow.Features.Voicings;
 using ChordFlow.Features;
 using ChordFlow.Bridge;
 using ChordFlow.Persistence;
@@ -74,7 +75,6 @@ internal static class Program
                     new DbContextOptionsBuilder<ChordFlowDbContext>()
                         .UseSqlite($"Data Source={ChordFlowDbContext.DefaultDbPath()}")
                         .Options;
-                IReadOnlyList<VoicingShape> voicingLibrary;
                 using (var db = new ChordFlowDbContext(dbOptions))
                 {
                     db.Database.Migrate();
@@ -85,17 +85,16 @@ internal static class Program
                     // Retire the legacy BuiltIn tier + fork legacy user shadows into unique-id copies
                     // (content-source-model). Idempotent — a no-op once migrated.
                     ContentSourceMigration.Run(db);
-                    // Authored-voicing library, loaded once at startup; stored voicings shadow the generated
-                    // shapes when rendering. (Voicings authored later take effect on the next launch — slice 1.)
-                    voicingLibrary = new VoicingStore(db).LoadShapes();
                 }
 
                 // Bridge wiring — same envelope contract, WebView2 transport. Build it
                 // before navigating so the JS "ready" ping is never missed.
                 var router = new WebMessageRouter();
                 var bridge = new WebView2Bridge(core, router);
-                // Swappable so an authored-voicing change can hot-rebuild the voicing book without a restart (IN11).
-                var renderer = new SwappableRenderer(new AlphaTexRenderer(new VoicingBook(voicingLibrary)));
+                // The renderer is a pure formatter (engine-derived-as-app-source D4=(B)): voicing selection
+                // happens per-render in the Features comping resolver from a freshly read voicing source, so an
+                // authored-voicing change takes effect on the next render with no hot-swap.
+                var renderer = new AlphaTexRenderer();
                 var generate = new GenerateExerciseHandler(dbOptions, renderer);
                 var library = new ExerciseLibraryHandler(dbOptions, renderer);
                 var progress = new ProgressHandler(dbOptions);
@@ -105,7 +104,9 @@ internal static class Program
                 {
                     [DefaultPack.PackId] = DefaultPack.Load().Manifest.Name,
                 };
-                var contentCrud = new ContentCrudHandler(dbOptions, renderer, packNames);
+                // The engine-derived `automatic` voicing source fills the content-source-model union seam, so
+                // the 36 CAGED families list on the Content page alongside package + user voicings (IN2).
+                var contentCrud = new ContentCrudHandler(dbOptions, renderer, packNames, new EngineVoicingSource());
                 var scales = new ScalesHandler();
                 var caged = new CagedShapesHandler();
                 var cagedChord = new CagedChordHandler();
@@ -119,15 +120,6 @@ internal static class Program
                 var soundFonts = new SoundFontLibrary(
                     new WwwrootSoundFontCatalog(Path.Combine(wwwroot, "soundfont")),
                     appSettings);
-
-                // Live-refresh: after a voicing save/delete, reload the authored library and swap in a fresh
-                // renderer so the next generated/previewed score reflects it (IN11). Progression/song/rhythm
-                // are read per-use and aren't snapshotted, so they need no rebuild.
-                contentCrud.VoicingsChanged += () =>
-                {
-                    using var rebuildDb = new ChordFlowDbContext(dbOptions);
-                    renderer.Swap(new AlphaTexRenderer(new VoicingBook(new VoicingStore(rebuildDb).LoadShapes())));
-                };
 
                 // PracticeSession is the C# transport seam (drives play/stop/tempo,
                 // tracks position from playbackFinished/beatChanged echoes).
@@ -149,7 +141,9 @@ internal static class Program
                         // Expansion (the one I/O seam) needs the progression store; a short-lived context
                         // per render keeps it consistent with the other handlers (merge decision (a)).
                         using var renderDb = new ChordFlowDbContext(dbOptions);
-                        bridge.Send(LoadScoreEnvelope.From(exercise, new ProgressionStore(renderDb), renderer, options));
+                        bridge.Send(LoadScoreEnvelope.From(
+                            exercise, new ProgressionStore(renderDb), renderer,
+                            StoredVoicingSource.From(new VoicingStore(renderDb)), options));
                         return true;
                     }
                     catch (Exception renderEx)

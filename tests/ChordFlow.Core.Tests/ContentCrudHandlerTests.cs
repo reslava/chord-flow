@@ -24,7 +24,6 @@ public class ContentCrudHandlerTests
         DbContextOptions<ChordFlowDbContext> options =
             new DbContextOptionsBuilder<ChordFlowDbContext>().UseSqlite(conn).Options;
 
-        IReadOnlyList<VoicingShape> shapes;
         using (var db = new ChordFlowDbContext(options))
         {
             db.Database.Migrate();
@@ -32,12 +31,27 @@ public class ContentCrudHandlerTests
             {
                 DefaultPack.ImportInto(db);
             }
-
-            shapes = new VoicingStore(db).LoadShapes();
         }
 
-        var renderer = new AlphaTexRenderer(new VoicingBook(shapes));
+        // The renderer is a pure formatter now (D4=(B)); the handler resolves comping voicings per render.
+        var renderer = new AlphaTexRenderer();
         return (new ContentCrudHandler(options, renderer), conn);
+    }
+
+    [Fact]
+    public void Get_AutomaticVoicing_ReturnsADerivedReadOnlyDoc()
+    {
+        // A computed `auto:` voicing has no DB row — Get derives it instead of returning "not found" (IN13).
+        var (handler, conn) = NewHandler(withDefaultPack: false);
+        using (conn)
+        {
+            EntityLoadedEnvelope? loaded = handler.Get("voicing", "auto:dom7:E");
+
+            Assert.NotNull(loaded);
+            Assert.Equal("auto:dom7:E", loaded!.Id);
+            Assert.Contains("Dominant 7", loaded.Name);
+            Assert.Contains("voicing", loaded.Dsl); // a real voicing DSL the read-only preview can render
+        }
     }
 
     [Fact]

@@ -14,7 +14,7 @@ namespace ChordFlow.Instruments.Guitar;
 ///   containment, full chord spelling, tightest grip);</item>
 /// <item>derive the <see cref="Finger">anchor finger</see> from the root's rank in the realized box.</item>
 /// </list>
-/// Pure — no I/O, no UI. The 34 authored voicings are the golden oracle for <see cref="Derive"/>.
+/// Pure — no I/O, no UI. The 36 authored voicings (the test-only oracle fixture) are the golden oracle for <see cref="Derive"/>.
 /// </summary>
 public static class CagedDerivation
 {

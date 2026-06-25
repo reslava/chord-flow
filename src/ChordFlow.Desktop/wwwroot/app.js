@@ -164,12 +164,22 @@ const ChordFlow = (function () {
     };
   }
 
-  // Send a render-producing request with the component's current renderOptions attached, remembering it
-  // so a content-toggle change can replay it. In browser-dev (no bridge) renders the sample directly.
+  // The automatic comping-voicing region from the builder inputs (engine-derived-as-app-source IN14), sent on
+  // renderOptions.voicing — the engine derives Closest grips within [minFret, maxFret]. Defaults 0–15 = full neck.
+  function voicingSource() {
+    const clamp = (v, d) => Math.min(15, Math.max(0, Number.isFinite(v) ? v : d));
+    let min = clamp(parseInt($("voicingMinFret").value, 10), 0);
+    let max = clamp(parseInt($("voicingMaxFret").value, 10), 15);
+    if (min > max) [min, max] = [max, min];
+    return { kind: "automatic", minFret: min, maxFret: max };
+  }
+
+  // Send a render-producing request with the component's current renderOptions + the voicing region attached,
+  // remembering it so a content-toggle change can replay it. In browser-dev (no bridge) renders the sample.
   function sendScoreRequest(envelope) {
     lastScoreRequest = envelope;
     if (Bridge.available) {
-      Bridge.send({ ...envelope, renderOptions: view.getRenderOptions() });
+      Bridge.send({ ...envelope, renderOptions: { ...view.getRenderOptions(), voicing: voicingSource() } });
     } else if (view) {
       view.load(SAMPLE_TEX);
     }
@@ -194,6 +204,11 @@ const ChordFlow = (function () {
     }
     if (practice) {
       practice.addEventListener("click", () => Bridge.send({ type: "markPracticed" }));
+    }
+    // Changing the voicing region re-renders the current exercise with the new comping grips (IN14).
+    for (const id of ["voicingMinFret", "voicingMaxFret"]) {
+      const el = $(id);
+      if (el) el.addEventListener("change", () => { if (lastScoreRequest) sendScoreRequest(lastScoreRequest); });
     }
   }
 

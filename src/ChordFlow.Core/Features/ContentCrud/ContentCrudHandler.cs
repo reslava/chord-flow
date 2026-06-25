@@ -4,6 +4,7 @@ using ChordFlow.Music.Songs;
 using ChordFlow.Exercises;
 using ChordFlow.Music.Harmony;
 using ChordFlow.Features;
+using ChordFlow.Features.Voicings;
 using ChordFlow.Persistence;
 using ChordFlow.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -94,10 +95,16 @@ public sealed class ContentCrudHandler
     private string? PackName(string? packId) =>
         packId is null ? null : (_packNames.TryGetValue(packId, out string? name) ? name : packId);
 
-    /// <summary>Open one definition for editing, or null if its id is unknown.</summary>
+    /// <summary>Open one definition, or null if its id is unknown. An <c>automatic</c> voicing has no DB row —
+    /// it resolves to a derived, read-only DSL (IN13) so the editor can show its grip + "Duplicate to user".</summary>
     public EntityLoadedEnvelope? Get(string entity, string id)
     {
         ContentEntity kind = ContentEntities.Parse(entity);
+        if (kind == ContentEntity.Voicing && AutomaticVoicingDoc.DslFor(id) is { } autoDsl)
+        {
+            return new EntityLoadedEnvelope(entity, id, EngineVoicingSource.DisplayNameFor(id) ?? id, autoDsl);
+        }
+
         using var db = new ChordFlowDbContext(_dbOptions);
         ContentDoc? doc = StoreFor(kind, db).Get(id);
         return doc is null ? null : new EntityLoadedEnvelope(entity, doc.Id, doc.Name, doc.Dsl);
@@ -168,7 +175,9 @@ public sealed class ContentCrudHandler
     // Expansion (the one I/O seam) runs through ExerciseRendering against the live db's progression store,
     // so a progression/rhythm preview goes down the exact same path a saved exercise renders through.
     private EntityPreviewEnvelope ScorePreview(string entity, Exercise exercise, ChordFlowDbContext db, RenderOptions options) =>
-        new(entity, "score", ExerciseRendering.RenderToTex(exercise, new ProgressionStore(db), _renderer, options), exercise.Tempo);
+        new(entity, "score",
+            ExerciseRendering.RenderToTex(exercise, new ProgressionStore(db), _renderer, StoredVoicingSource.From(new VoicingStore(db)), options),
+            exercise.Tempo);
 
     // Resolve the chosen comping id → RhythmPattern via the shared seam (also used by generate/load); a blank id
     // falls back to the app default beat_1_3, an unknown non-blank id fails loud (→ entityParseError, IN6).
@@ -197,7 +206,8 @@ public sealed class ContentCrudHandler
     {
         Song song = SongParser.Parse("preview", "Preview", dsl, TimeSignature.FourFour);
         RealizedSong realized = SongExpander.Expand(song, new ProgressionStore(db));
-        string tex = _renderer.Render(realized, comping, PreviewTempo, Difficulty.Beginner, tripletFeel, options: options).Tex;
+        CompingPlan plan = CompingResolver.Resolve(realized, options.VoicingOrDefault, StoredVoicingSource.From(new VoicingStore(db)));
+        string tex = _renderer.Render(realized, comping, PreviewTempo, Difficulty.Beginner, plan, tripletFeel, options: options).Tex;
         return new EntityPreviewEnvelope(entity, "score", tex, PreviewTempo);
     }
 

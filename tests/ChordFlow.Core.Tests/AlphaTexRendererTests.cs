@@ -256,10 +256,22 @@ public class AlphaTexRendererTests
     }
 
     [Fact]
-    public void Render_UnimplementedVoicingStrategy_Throws()
+    public void ChordDefinition_GripUpTheNeck_EmitsFirstFret()
     {
-        Assert.Throws<NotSupportedException>(
-            () => BbI7QuartersTex(new RenderOptions(Voicing: (VoicingStrategy)99)));
+        // A high grip (firstfret 6) must carry {firstfret 6} so alphaTab doesn't draw the box from the nut
+        // with the dots floating in the air (engine grips up the neck made this visible).
+        var prog = new Progression("t", "T", new RomanDegree[] { new(1, Quality.Dominant7) });
+        var realized = new RealizedSong(new[] { new RealizedSection("t", Bb, Transposer.RealizeBars(prog, Bb)) });
+        Chord chord = realized.Sections[0].Bars[0].Spans[0].Chord;
+        var highGrip = new Voicing(
+            new[] { new FretPosition(5, 6), new FretPosition(4, 8), new FretPosition(3, 7) }, FirstFret: 6);
+        var plan = new CompingPlan(new Dictionary<Chord, Voicing> { [chord] = highGrip });
+
+        string tex = Renderer.Render(
+            realized, SeedData.Beat1, 80, Difficulty.Beginner, plan,
+            options: new RenderOptions(ShowChordDiagramsOnTop: true)).Tex;
+
+        Assert.Contains("{firstfret 6}", tex);
     }
 
     [Fact]
