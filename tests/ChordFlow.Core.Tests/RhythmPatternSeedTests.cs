@@ -8,8 +8,8 @@ using Xunit;
 namespace ChordFlow.Core.Tests;
 
 /// <summary>
-/// The built-in rhythm patterns now ship in the on-disk default pack and are imported as
-/// <see cref="Origin.BuiltIn"/> on first run. Each parses into a one-bar pattern, and the import is idempotent.
+/// The default rhythm patterns ship in the on-disk default pack and are imported as <see cref="Origin.Pack"/>
+/// (PackId "default") on first run. Each parses into a one-bar pattern, and the import is idempotent.
 /// </summary>
 public class RhythmPatternSeedTests
 {
@@ -30,7 +30,7 @@ public class RhythmPatternSeedTests
     }
 
     [Fact]
-    public void DefaultPackImport_SeedsRhythmsAsBuiltIn4_4_AndIsIdempotent()
+    public void DefaultPackImport_SeedsRhythmsAsPack4_4_AndIsIdempotent()
     {
         using var conn = new SqliteConnection("DataSource=:memory:");
         conn.Open();
@@ -45,7 +45,8 @@ public class RhythmPatternSeedTests
         Assert.Equal(rhythmCount, db.RhythmPatterns.Count());
         Assert.All(db.RhythmPatterns.AsNoTracking(), p =>
         {
-            Assert.Equal(Origin.BuiltIn, p.Origin);
+            Assert.Equal(Origin.Pack, p.Origin);
+            Assert.Equal("default", p.PackId);
             Assert.Equal(4, p.TsNumerator);
             Assert.Equal(4, p.TsDenominator);
         });

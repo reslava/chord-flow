@@ -25,8 +25,8 @@ public sealed class RhythmPatternStore : IContentStore
     /// <inheritdoc/>
     public IReadOnlyList<ContentSummary> List() =>
         ContentSummaries.Build(_db.RhythmPatterns.AsNoTracking()
-            .Select(p => new { p.Id, p.Name, p.Origin }).ToList()
-            .Select(p => (p.Id, p.Name, p.Origin)));
+            .Select(p => new { p.Id, p.Name, p.Origin, p.PackId }).ToList()
+            .Select(p => (p.Id, p.Name, p.Origin, p.PackId)));
 
     /// <inheritdoc/>
     public ContentDoc? Get(string id)
@@ -43,11 +43,14 @@ public sealed class RhythmPatternStore : IContentStore
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(dsl);
 
-        string targetId = string.IsNullOrWhiteSpace(id) ? Guid.NewGuid().ToString() : id;
         var ts = TimeSignature.FourFour; // 4/4 only today (EX-meter); a future `ts:` line is additive
+
+        // User-only, fork-on-edit (content-source-model): update an existing user row in place; a blank id or
+        // a non-user id (e.g. editing a package item) forks a new user row with a fresh id — never a shadow.
+        Entities.RhythmPatternEntity? row = string.IsNullOrWhiteSpace(id) ? null : _db.RhythmPatterns.Find(id, Origin.UserDefined);
+        string targetId = row?.Id ?? Guid.NewGuid().ToString();
         RhythmPatternParser.Parse(targetId, name, dsl, ts); // throws FormatException on bad input — writes nothing
 
-        Entities.RhythmPatternEntity? row = _db.RhythmPatterns.Find(targetId, Origin.UserDefined);
         if (row is null)
         {
             _db.RhythmPatterns.Add(new Entities.RhythmPatternEntity
@@ -83,7 +86,7 @@ public sealed class RhythmPatternStore : IContentStore
 
         _db.RhythmPatterns.Remove(row);
         _db.SaveChanges();
-        return _db.RhythmPatterns.Any(p => p.Id == id) ? DeleteOutcome.Reverted : DeleteOutcome.Deleted;
+        return DeleteOutcome.Deleted;
     }
 
     /// <summary>Find a stored pattern by id and parse it into a <see cref="RhythmPattern"/>, or null if absent.</summary>

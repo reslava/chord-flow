@@ -47,7 +47,8 @@ public class SongPersistenceTests
             Assert.Equal("Blues", row.Genre);
             Assert.Equal("Shuffle", row.Subgenre);
             Assert.Equal(new[] { "12-bar", "demo" }, CatalogHeader.DeserializeTags(row.Tags));
-            Assert.Equal(Origin.BuiltIn, row.Origin);
+            Assert.Equal(Origin.Pack, row.Origin);
+            Assert.Equal("default", row.PackId);
 
             // Load path: strip header → parse → expand over the store → render — end to end, no throw.
             (_, string body) = CatalogHeader.Parse(row.Dsl);
@@ -95,7 +96,7 @@ public class SongPersistenceTests
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT Origin FROM Songs WHERE Id = 'blues_song_demo'";
-        Assert.Equal("BuiltIn", (string?)cmd.ExecuteScalar());
+        Assert.Equal("Pack", (string?)cmd.ExecuteScalar());
     }
 
     [Fact]

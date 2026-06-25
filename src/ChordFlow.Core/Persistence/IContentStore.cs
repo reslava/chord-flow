@@ -7,38 +7,56 @@ namespace ChordFlow.Persistence;
 /// internal validation step. All four entities share this one shape (design §3: one generic surface, not
 /// four divergent ones); the feature layer maps an entity discriminator to the right store.
 ///
-/// <para><b>Tier law (C2).</b> CRUD only ever writes the <see cref="Origin.UserDefined"/> tier. Editing a
-/// BuiltIn/Pack definition writes a <c>(id, UserDefined)</c> <i>shadow</i> — the lower row is never touched
-/// (<see cref="OriginResolver"/> makes the shadow win on the next read). Deleting removes only the
-/// UserDefined row: it is gone if it was user-only (<see cref="DeleteOutcome.Deleted"/>) or it reverts to the
-/// shadowed lower tier if one exists (<see cref="DeleteOutcome.Reverted"/>).</para>
+/// <para><b>Multi-source model (content-source-model).</b> Sources never hide each other: <see cref="List"/>
+/// returns one <see cref="ContentSummary"/> per <i>(id, source)</i> — no tier collapse — each tagged with its
+/// <see cref="ContentSource"/> (a pack, by id, or the user). Writes are <b>user-only and fork-on-edit</b>:
+/// <see cref="Save"/> updates an existing <see cref="Origin.UserDefined"/> row in place, but editing a
+/// package item (or any non-user id) forks a <b>new</b> user row with a fresh id — never a same-id shadow, so
+/// the package original stays listed. <see cref="Delete"/> removes only the user row (<see cref="DeleteOutcome.Deleted"/>);
+/// there is no "revert" because nothing was ever overridden.</para>
 /// </summary>
 public interface IContentStore
 {
-    /// <summary>One <see cref="ContentSummary"/> per id (the resolved winning tier), for the list pane.</summary>
+    /// <summary>One <see cref="ContentSummary"/> per (id, source), for the list pane — every source shown, none collapsed.</summary>
     IReadOnlyList<ContentSummary> List();
 
-    /// <summary>The editable form of one definition (resolved winning tier), or null if no such id exists.</summary>
+    /// <summary>The editable form of one definition (resolved to a single row by id), or null if no such id exists.</summary>
     ContentDoc? Get(string id);
 
     /// <summary>
-    /// Create or update a definition in the <see cref="Origin.UserDefined"/> tier and return its id. A
-    /// null/blank <paramref name="id"/> creates a new definition (fresh GUID); a non-blank id upserts the
-    /// <c>(id, UserDefined)</c> row (a new shadow when none existed). Validates by parsing <paramref name="dsl"/>
-    /// first — a malformed definition throws <see cref="System.FormatException"/> and writes nothing.
+    /// Create or update a definition in the <see cref="Origin.UserDefined"/> tier and return its id. Update
+    /// happens in place only when a <c>(id, UserDefined)</c> row already exists; otherwise — a null/blank id,
+    /// or an id that belongs to a package — a <b>new</b> user row with a fresh GUID is created (fork-on-edit,
+    /// never a same-id shadow). Validates by parsing <paramref name="dsl"/> first — a malformed definition
+    /// throws <see cref="System.FormatException"/> and writes nothing.
     /// </summary>
     string Save(string? id, string name, string dsl);
 
-    /// <summary>Remove the UserDefined row for <paramref name="id"/>; the outcome says whether it vanished or reverted.</summary>
+    /// <summary>Remove the UserDefined row for <paramref name="id"/>; <see cref="DeleteOutcome.Deleted"/> if it existed, else <see cref="DeleteOutcome.NotFound"/>.</summary>
     DeleteOutcome Delete(string id);
 }
 
-/// <summary>A list-row view of one definition: its id, display name, the resolved winning <see cref="Origin"/>,
-/// and whether a lower tier exists under it (so the UI labels the destructive action "Delete" vs "Revert").
-/// <paramref name="InitialKey"/> is the song's starting-key tonic pitch class (0..11) — set only by
+/// <summary>
+/// The source (provenance) of a listed content item — what the UI tags and filters on (content-source-model).
+/// </summary>
+public enum ContentSource
+{
+    /// <summary>Engine-derived (computed, never stored). The DB stores never produce this; a computed source unions it in.</summary>
+    Automatic,
+
+    /// <summary>Imported from a content pack — <see cref="ContentSummary.PackId"/> names which pack.</summary>
+    Package,
+
+    /// <summary>User-authored.</summary>
+    User,
+}
+
+/// <summary>A list-row view of one definition: its id, display name, its <see cref="Source"/>, and (when
+/// <see cref="Source"/> is <see cref="ContentSource.Package"/>) the source pack's <see cref="PackId"/> (else
+/// null). <paramref name="InitialKey"/> is the song's starting-key tonic pitch class (0..11) — set only by
 /// <see cref="SongStore"/> so the Practice key picker can seed from it (play-ui-key-init IN1); null for the
 /// key-independent entities (progression/rhythm/voicing).</summary>
-public sealed record ContentSummary(string Id, string Name, Origin Origin, bool HasLowerTier, int? InitialKey = null);
+public sealed record ContentSummary(string Id, string Name, ContentSource Source, string? PackId, int? InitialKey = null);
 
 /// <summary>The editable payload of one definition: id, display name, and the header-stripped DSL body.</summary>
 public sealed record ContentDoc(string Id, string Name, string Dsl);
@@ -49,35 +67,34 @@ public enum DeleteOutcome
     /// <summary>No UserDefined row for that id existed — nothing was removed.</summary>
     NotFound,
 
-    /// <summary>The UserDefined row was the only tier; the definition is gone.</summary>
+    /// <summary>The UserDefined row was removed; the definition is gone.</summary>
     Deleted,
-
-    /// <summary>The UserDefined row was a shadow; removing it reverts to the lower (Pack/BuiltIn) tier.</summary>
-    Reverted,
 }
 
 /// <summary>
-/// Pure helper shared by every <see cref="IContentStore.List"/>: collapse the tiered rows to one
-/// <see cref="ContentSummary"/> per id (the winning tier via <see cref="OriginResolver"/>), flagging whether
-/// a lower tier exists under the winner. Kept here so the four stores don't each re-derive the resolution
-/// math; the EF row access stays in each (concrete) store.
+/// Pure helper shared by every <see cref="IContentStore.List"/>: project the rows to one
+/// <see cref="ContentSummary"/> per row — <b>no collapse</b> (content-source-model: every source is shown) —
+/// tagging each with its <see cref="ContentSource"/> and carrying the <c>PackId</c> for package rows. Kept
+/// here so the four stores share the projection; the EF row access stays in each (concrete) store.
 /// </summary>
 internal static class ContentSummaries
 {
-    public static IReadOnlyList<ContentSummary> Build(IEnumerable<(string Id, string Name, Origin Origin)> rows)
+    /// <summary>Map a stored provenance tier to its list-facing source kind.</summary>
+    public static ContentSource SourceOf(Origin origin) => origin switch
+    {
+        Origin.UserDefined => ContentSource.User,
+        Origin.Pack => ContentSource.Package,
+        _ => throw new ArgumentOutOfRangeException(nameof(origin), origin, "Unhandled origin."),
+    };
+
+    public static IReadOnlyList<ContentSummary> Build(IEnumerable<(string Id, string Name, Origin Origin, string? PackId)> rows)
     {
         ArgumentNullException.ThrowIfNull(rows);
 
-        var summaries = new List<ContentSummary>();
-        foreach (var group in rows.GroupBy(r => r.Id, StringComparer.Ordinal))
-        {
-            (string Id, string Name, Origin Origin) winner = group
-                .Aggregate((best, next) =>
-                    OriginResolver.Rank(next.Origin) > OriginResolver.Rank(best.Origin) ? next : best);
-            bool hasLowerTier = group.Any(r => OriginResolver.Rank(r.Origin) < OriginResolver.Rank(winner.Origin));
-            summaries.Add(new ContentSummary(winner.Id, winner.Name, winner.Origin, hasLowerTier));
-        }
-
-        return summaries.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        return rows
+            .Select(r => new ContentSummary(
+                r.Id, r.Name, SourceOf(r.Origin), r.Origin == Origin.Pack ? r.PackId : null))
+            .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 }

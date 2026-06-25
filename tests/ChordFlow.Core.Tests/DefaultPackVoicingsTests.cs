@@ -13,8 +13,8 @@ namespace ChordFlow.Core.Tests;
 /// <summary>
 /// Verification for the authored default-pack voicings content (packages/default-pack thread, req IN4/IN5/C1):
 /// every shipped <c>Content/default-pack/voicings/*.dsl</c> parses and realizes across all 12 roots inside the
-/// 0–15 window; the import path stores them as <see cref="Origin.BuiltIn"/> and a <see cref="VoicingBook"/> over
-/// the stored set shadows the generated shell for the shipped qualities; a couple of golden cells anchor frets.
+/// 0–15 window; the import path stores them as <see cref="Origin.Pack"/> (PackId "default") and a
+/// <see cref="VoicingBook"/> over the stored set covers the shipped qualities; a couple of golden cells anchor frets.
 /// </summary>
 public class DefaultPackVoicingsTests
 {
@@ -89,7 +89,7 @@ public class DefaultPackVoicingsTests
     }
 
     [Fact]
-    public void ImportedVoicings_AreStampedBuiltIn_WithNullPackId()
+    public void ImportedVoicings_AreStampedPack_WithTheDefaultPackId()
     {
         using var conn = new SqliteConnection("DataSource=:memory:");
         conn.Open();
@@ -101,8 +101,8 @@ public class DefaultPackVoicingsTests
         Assert.Equal(ExpectedVoicingCount, db.Voicings.AsNoTracking().Count());
         Assert.All(db.Voicings.AsNoTracking().ToList(), v =>
         {
-            Assert.Equal(Origin.BuiltIn, v.Origin);
-            Assert.Null(v.PackId);
+            Assert.Equal(Origin.Pack, v.Origin);
+            Assert.Equal("default", v.PackId);
         });
     }
 

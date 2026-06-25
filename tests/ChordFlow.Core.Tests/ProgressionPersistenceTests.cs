@@ -32,7 +32,8 @@ public class ProgressionPersistenceTests
                 Id = "12bar_blues",
                 Name = "12-Bar Blues",
                 Dsl = "17 17 17 17 47 47 17 17 57 47 17 57",
-                Origin = Origin.BuiltIn,
+                Origin = Origin.Pack,
+                PackId = "default",
                 CreatedUtc = new DateTime(2026, 6, 9, 0, 0, 0, DateTimeKind.Utc),
             });
             db.Progressions.Add(new ProgressionEntity
@@ -51,7 +52,7 @@ public class ProgressionPersistenceTests
             ProgressionEntity blues = db.Progressions.AsNoTracking().Single(p => p.Id == "12bar_blues");
             Assert.Equal("12-Bar Blues", blues.Name);
             Assert.Equal("17 17 17 17 47 47 17 17 57 47 17 57", blues.Dsl);
-            Assert.Equal(Origin.BuiltIn, blues.Origin);
+            Assert.Equal(Origin.Pack, blues.Origin);
 
             ProgressionEntity user = db.Progressions.AsNoTracking().Single(p => p.Id == "u-1");
             Assert.Equal(Origin.UserDefined, user.Origin);
@@ -61,7 +62,7 @@ public class ProgressionPersistenceTests
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = "SELECT Origin FROM Progressions WHERE Id = '12bar_blues'";
-            Assert.Equal("BuiltIn", (string?)cmd.ExecuteScalar());
+            Assert.Equal("Pack", (string?)cmd.ExecuteScalar());
         }
     }
 
@@ -115,7 +116,8 @@ public class ProgressionPersistenceTests
                 Id = "12bar_blues",
                 Name = "12-Bar Blues",
                 Dsl = "17 17 17 17 47 47 17 17 57 47 17 57",
-                Origin = Origin.BuiltIn,
+                Origin = Origin.Pack,
+                PackId = "default",
                 Genre = "Blues",
                 Subgenre = "Shuffle",
                 Tags = CatalogHeader.SerializeTags(new[] { "12-bar", "beginner" }),

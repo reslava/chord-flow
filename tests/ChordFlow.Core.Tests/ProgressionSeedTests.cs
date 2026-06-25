@@ -12,9 +12,9 @@ using Xunit;
 namespace ChordFlow.Core.Tests;
 
 /// <summary>
-/// The built-in progressions now ship in the on-disk default pack (<c>Content/default-pack/</c>) and are
-/// imported as <see cref="Origin.BuiltIn"/> on first run (IN6). Each parses → realizes → renders, and the
-/// import is idempotent.
+/// The default progressions ship in the on-disk default pack (<c>Content/default-pack/</c>) and are imported
+/// as <see cref="Origin.Pack"/> (PackId "default") on first run (IN6) — the default pack is an ordinary package
+/// (content-source-model). Each parses → realizes → renders, and the import is idempotent.
 /// </summary>
 public class ProgressionSeedTests
 {
@@ -41,7 +41,7 @@ public class ProgressionSeedTests
     }
 
     [Fact]
-    public void DefaultPackImport_SeedsProgressionsAsBuiltIn_AndIsIdempotent()
+    public void DefaultPackImport_SeedsProgressionsAsPack_AndIsIdempotent()
     {
         using var conn = new SqliteConnection("DataSource=:memory:");
         conn.Open();
@@ -54,8 +54,8 @@ public class ProgressionSeedTests
 
         DefaultPack.ImportInto(db);
         Assert.Equal(progCount, db.Progressions.Count());
-        Assert.All(db.Progressions.AsNoTracking(), p => Assert.Equal(Origin.BuiltIn, p.Origin));
-        Assert.All(db.Progressions.AsNoTracking(), p => Assert.Null(p.PackId));   // BuiltIn rows carry no PackId
+        Assert.All(db.Progressions.AsNoTracking(), p => Assert.Equal(Origin.Pack, p.Origin));
+        Assert.All(db.Progressions.AsNoTracking(), p => Assert.Equal("default", p.PackId)); // stamped with the default pack id
 
         // Re-import changes nothing — idempotent upsert by (Id, Origin).
         DefaultPack.ImportInto(db);

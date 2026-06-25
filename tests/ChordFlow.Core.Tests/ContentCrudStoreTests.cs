@@ -9,10 +9,11 @@ using Xunit;
 namespace ChordFlow.Core.Tests;
 
 /// <summary>
-/// The content-CRUD write path (step 1): <see cref="IContentStore"/> List/Get/Save/Delete on all four stores,
-/// the <c>(Id, Origin)</c> tier-shadowing law (edit a BuiltIn → UserDefined shadow; delete → delete vs revert),
-/// voicing canonicalization-to-C on save, and validate-by-parse (invalid DSL throws and writes nothing).
-/// In-memory SQLite kept open across the test; the EF migration builds the schema.
+/// The content-CRUD write path under the multi-source model (content-source-model): <see cref="IContentStore"/>
+/// List/Get/Save/Delete on all four stores, additive listing tagged by <see cref="ContentSource"/>, fork-on-edit
+/// (editing a package item mints a new user copy — never a same-id shadow), delete-only-user (no revert),
+/// voicing canonicalization-to-C, and validate-by-parse (invalid DSL throws and writes nothing). In-memory
+/// SQLite kept open across the test; the EF migration builds the schema.
 /// </summary>
 public class ContentCrudStoreTests
 {
@@ -28,10 +29,10 @@ public class ContentCrudStoreTests
         return conn;
     }
 
-    // ---- Progression: full CRUD + tier-shadowing -----------------------------------------------
+    // ---- Progression: full CRUD + multi-source listing ------------------------------------------
 
     [Fact]
-    public void Save_NewProgression_GetsGuidId_AndIsListedAndGettable()
+    public void Save_NewProgression_GetsGuidId_AndIsListedAsUser()
     {
         using var conn = MigratedConnection();
         using var db = new ChordFlowDbContext(Options(conn));
@@ -42,8 +43,8 @@ public class ContentCrudStoreTests
         Assert.True(Guid.TryParse(id, out _)); // a new definition gets a GUID id
         ContentSummary summary = Assert.Single(store.List());
         Assert.Equal("My Tune", summary.Name);
-        Assert.Equal(Origin.UserDefined, summary.Origin);
-        Assert.False(summary.HasLowerTier);
+        Assert.Equal(ContentSource.User, summary.Source);
+        Assert.Null(summary.PackId);
 
         ContentDoc? doc = store.Get(id);
         Assert.NotNull(doc);
@@ -51,7 +52,7 @@ public class ContentCrudStoreTests
     }
 
     [Fact]
-    public void Save_EditingBuiltIn_WritesUserDefinedShadow_LeavingBuiltInRowIntact()
+    public void Save_EditingPackItem_ForksANewUserCopy_LeavingPackRowIntact()
     {
         using var conn = MigratedConnection();
         using var db = new ChordFlowDbContext(Options(conn));
@@ -60,7 +61,8 @@ public class ContentCrudStoreTests
             Id = "12bar_blues",
             Name = "12-Bar Blues",
             Dsl = "17 17 17 17 47 47 17 17 57 47 17 57",
-            Origin = Origin.BuiltIn,
+            Origin = Origin.Pack,
+            PackId = "default",
             CreatedUtc = DateTime.UtcNow,
         });
         db.SaveChanges();
@@ -68,18 +70,37 @@ public class ContentCrudStoreTests
 
         string id = store.Save(id: "12bar_blues", name: "My Blues", dsl: "17 47 17 57");
 
-        Assert.Equal("12bar_blues", id); // same id, new tier
-        // The BuiltIn row is untouched; a UserDefined shadow now also exists (C2).
-        ProgressionEntity builtIn = db.Progressions.AsNoTracking().Single(p => p.Id == "12bar_blues" && p.Origin == Origin.BuiltIn);
-        Assert.Equal("17 17 17 17 47 47 17 17 57 47 17 57", builtIn.Dsl);
-        ProgressionEntity shadow = db.Progressions.AsNoTracking().Single(p => p.Id == "12bar_blues" && p.Origin == Origin.UserDefined);
-        Assert.Equal("17 47 17 57", shadow.Dsl);
+        // Fork-on-edit: a fresh GUID id, NOT a same-id shadow.
+        Assert.NotEqual("12bar_blues", id);
+        Assert.True(Guid.TryParse(id, out _));
 
-        // The list collapses to one row — the winning UserDefined tier, with a lower tier under it.
+        // The pack row is untouched; the user copy is a separate row.
+        ProgressionEntity pack = db.Progressions.AsNoTracking().Single(p => p.Id == "12bar_blues" && p.Origin == Origin.Pack);
+        Assert.Equal("17 17 17 17 47 47 17 17 57 47 17 57", pack.Dsl);
+        ProgressionEntity copy = db.Progressions.AsNoTracking().Single(p => p.Id == id && p.Origin == Origin.UserDefined);
+        Assert.Equal("17 47 17 57", copy.Dsl);
+
+        // No hiding: the list shows BOTH the package original and the user copy.
+        IReadOnlyList<ContentSummary> list = store.List();
+        Assert.Equal(2, list.Count);
+        Assert.Contains(list, s => s.Source == ContentSource.Package && s.PackId == "default");
+        Assert.Contains(list, s => s.Source == ContentSource.User && s.Name == "My Blues");
+    }
+
+    [Fact]
+    public void Save_EditingExistingUserRow_UpdatesInPlace()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        var store = new ProgressionStore(db);
+        string id = store.Save(null, "Mine", "1 4 5 1");
+
+        string again = store.Save(id, "Mine v2", "1 5 4 1");
+
+        Assert.Equal(id, again); // same user id, updated in place
         ContentSummary summary = Assert.Single(store.List());
-        Assert.Equal(Origin.UserDefined, summary.Origin);
-        Assert.True(summary.HasLowerTier);
-        Assert.Equal("My Blues", store.Get("12bar_blues")!.Name);
+        Assert.Equal("Mine v2", summary.Name);
+        Assert.Equal("1 5 4 1", store.Get(id)!.Dsl);
     }
 
     [Fact]
@@ -97,28 +118,24 @@ public class ContentCrudStoreTests
     }
 
     [Fact]
-    public void Delete_ShadowOverBuiltIn_RevertsToBuiltIn()
+    public void Delete_UserCopy_LeavesThePackRowListed()
     {
         using var conn = MigratedConnection();
         using var db = new ChordFlowDbContext(Options(conn));
         db.Progressions.Add(new ProgressionEntity
         {
-            Id = "12bar_blues",
-            Name = "12-Bar Blues",
-            Dsl = "17 17 17 17 47 47 17 17 57 47 17 57",
-            Origin = Origin.BuiltIn,
-            CreatedUtc = DateTime.UtcNow,
+            Id = "12bar_blues", Name = "12-Bar Blues", Dsl = "17 47 17 57",
+            Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow,
         });
         db.SaveChanges();
         var store = new ProgressionStore(db);
-        store.Save("12bar_blues", "My Blues", "17 47 17 57"); // shadow
+        string copyId = store.Save(null, "My Blues", "17 17 47 57"); // an independent user item
 
-        DeleteOutcome outcome = store.Delete("12bar_blues");
+        Assert.Equal(DeleteOutcome.Deleted, store.Delete(copyId));
 
-        Assert.Equal(DeleteOutcome.Reverted, outcome);
+        // The package original was never hidden, so it simply remains.
         ContentSummary summary = Assert.Single(store.List());
-        Assert.Equal(Origin.BuiltIn, summary.Origin); // the built-in resurfaces
-        Assert.False(summary.HasLowerTier);
+        Assert.Equal(ContentSource.Package, summary.Source);
         Assert.Equal("12-Bar Blues", summary.Name);
     }
 
@@ -240,8 +257,8 @@ public class ContentCrudStoreTests
     {
         using var conn = MigratedConnection();
         using var db = new ChordFlowDbContext(Options(conn));
-        db.Songs.Add(new SongEntity { Id = "in_f", Name = "In F", Dsl = "head = 1 4 5 1\nkey F\nhead", Origin = Origin.BuiltIn, CreatedUtc = DateTime.UtcNow });
-        db.Songs.Add(new SongEntity { Id = "no_key", Name = "No Key", Dsl = "head = 1 4 5 1\nhead", Origin = Origin.BuiltIn, CreatedUtc = DateTime.UtcNow });
+        db.Songs.Add(new SongEntity { Id = "in_f", Name = "In F", Dsl = "head = 1 4 5 1\nkey F\nhead", Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow });
+        db.Songs.Add(new SongEntity { Id = "no_key", Name = "No Key", Dsl = "head = 1 4 5 1\nhead", Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow });
         db.SaveChanges();
 
         var byId = new SongStore(db).List().ToDictionary(s => s.Id);

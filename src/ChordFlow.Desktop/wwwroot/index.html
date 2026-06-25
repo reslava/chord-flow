@@ -137,8 +137,21 @@
     .cc-list li.active { background: #34374a; }
     .cc-list li.empty { color: #6b7075; cursor: default; font-style: italic; }
     .cc-badge { font-size: .65rem; padding: .05rem .35rem; border-radius: 3px; margin-left: auto;
-      background: #3a3a3d; color: #9aa0a6; border: 1px solid #4a4a4f; }
+      background: #3a3a3d; color: #9aa0a6; border: 1px solid #4a4a4f; white-space: nowrap; }
     .cc-badge.user { background: #2e4a2e; color: #b6e0b6; border-color: #3a5d3a; }
+    .cc-badge.package { background: #2e3a52; color: #b6c8e0; border-color: #3a4d78; }
+    .cc-badge.automatic { background: #4a3a2e; color: #e0c8b6; border-color: #6d5333; }
+
+    /* Source filter (content-source-model): transient per-source toggles above the list. */
+    .cc-filter { display: flex; flex-wrap: wrap; gap: .3rem; margin: 0 .3rem .5rem; }
+    .cc-chip { font-size: .68rem; padding: .1rem .5rem; border-radius: 999px; cursor: pointer;
+      background: #252526; color: #6b7075; border: 1px solid #3a3a3d; }
+    .cc-chip:hover { background: #2d2d30; }
+    /* Active chip colour mirrors the list badge for its source, so toggle ↔ row are easy to match. */
+    .cc-chip.active { background: #3a4d78; color: #fff; border-color: #3a4d78; }
+    .cc-chip.active.user { background: #2e4a2e; color: #b6e0b6; border-color: #3a5d3a; }
+    .cc-chip.active.package { background: #2e3a52; color: #b6c8e0; border-color: #3a4d78; }
+    .cc-chip.active.automatic { background: #4a3a2e; color: #e0c8b6; border-color: #6d5333; }
 
     .cc-editor { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .5rem; }
     .cc-editor .cc-row { display: flex; gap: .5rem; align-items: center; }

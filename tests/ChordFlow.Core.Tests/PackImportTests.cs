@@ -10,8 +10,10 @@ using Xunit;
 namespace ChordFlow.Core.Tests;
 
 /// <summary>
-/// Step 5 — idempotent pack import (IN5, IN8, C2): upsert by the composite (Id, Origin) key, caller-declared
-/// origin (BuiltIn vs Pack — D3), non-destructive tier coexistence (IN3), and fail-loud references (IN8).
+/// Idempotent pack import (IN5, IN8, C2): every definition is stamped <see cref="Origin.Pack"/> with the
+/// manifest id as its PackId (content-source-model — there is no BuiltIn tier), upsert by the composite
+/// (Id, Origin) key, non-destructive tier coexistence (defensive single-item resolve), and fail-loud
+/// references (IN8).
 /// </summary>
 public class PackImportTests
 {
@@ -28,7 +30,7 @@ public class PackImportTests
     private static PackDefinition SongDef(string id, string name, string dsl) => new(ContentKind.Song, id, name, dsl);
 
     [Fact]
-    public void Import_AsPack_StampsPackOriginAndPackId_DenormalizesCatalog()
+    public void Import_StampsPackOriginAndPackId_DenormalizesCatalog()
     {
         using var conn = new SqliteConnection("DataSource=:memory:");
         conn.Open();
@@ -39,7 +41,7 @@ public class PackImportTests
             Prog("shuffle_blues", "Shuffle Blues", "genre: Blues\ntags: [12-bar]\n17 17 17 17 47 47 17 17 57 47 17 57"),
             Rhythm("driving", "Driving", "X...X...X...X..."));
 
-        int count = new PackImporter(db).Import(pack, Origin.Pack);
+        int count = new PackImporter(db).Import(pack);
 
         Assert.Equal(2, count);
         ProgressionEntity prog = db.Progressions.AsNoTracking().Single(p => p.Id == "shuffle_blues");
@@ -64,9 +66,9 @@ public class PackImportTests
         db.Database.Migrate();
 
         var importer = new PackImporter(db);
-        importer.Import(Pack("p", Prog("blues", "First Name", "1 4 5 1")), Origin.Pack);
+        importer.Import(Pack("p", Prog("blues", "First Name", "1 4 5 1")));
         // Re-import the same id with an updated name/dsl: replaces the same-tier row, no duplicate.
-        int second = importer.Import(Pack("p", Prog("blues", "Second Name", "1 1 1 1")), Origin.Pack);
+        int second = importer.Import(Pack("p", Prog("blues", "Second Name", "1 1 1 1")));
 
         Assert.Equal(1, second);
         ProgressionEntity row = db.Progressions.AsNoTracking().Single(p => p.Id == "blues");
@@ -76,48 +78,19 @@ public class PackImportTests
     }
 
     [Fact]
-    public void Import_AsBuiltIn_StampsBuiltIn_WithNullPackId()
+    public void PackAndUser_Coexist_AndResolveHighest_NonDestructively()
     {
         using var conn = new SqliteConnection("DataSource=:memory:");
         conn.Open();
         using var db = new ChordFlowDbContext(Options(conn));
         db.Database.Migrate();
 
-        new PackImporter(db).Import(Pack("default", Prog("blues", "Blues", "1 4 5 1")), Origin.BuiltIn);
-
-        ProgressionEntity row = db.Progressions.AsNoTracking().Single();
-        Assert.Equal(Origin.BuiltIn, row.Origin);
-        Assert.Null(row.PackId);
-    }
-
-    [Fact]
-    public void Import_AsUserDefined_Throws()
-    {
-        using var conn = new SqliteConnection("DataSource=:memory:");
-        conn.Open();
-        using var db = new ChordFlowDbContext(Options(conn));
-        db.Database.Migrate();
-
-        Assert.Throws<ArgumentException>(
-            () => new PackImporter(db).Import(Pack("p", Prog("x", "X", "1 4 5 1")), Origin.UserDefined));
-    }
-
-    [Fact]
-    public void Tiers_Coexist_AndResolveHighest_NonDestructively()
-    {
-        using var conn = new SqliteConnection("DataSource=:memory:");
-        conn.Open();
-        using var db = new ChordFlowDbContext(Options(conn));
-        db.Database.Migrate();
-
-        // BuiltIn (direct), Pack (via importer), UserDefined (direct) — three coexisting rows for one id.
-        db.Progressions.Add(new ProgressionEntity { Id = "blues", Name = "BuiltIn", Dsl = "1 1 1 1", Origin = Origin.BuiltIn, CreatedUtc = DateTime.UtcNow });
-        db.SaveChanges();
-        new PackImporter(db).Import(Pack("pk", Prog("blues", "Pack", "4 4 4 4")), Origin.Pack);
+        // Pack (via importer) + a UserDefined row sharing the id — both coexist; the single-item resolve picks user.
+        new PackImporter(db).Import(Pack("pk", Prog("blues", "Pack", "4 4 4 4")));
         db.Progressions.Add(new ProgressionEntity { Id = "blues", Name = "Local", Dsl = "5 5 5 5", Origin = Origin.UserDefined, CreatedUtc = DateTime.UtcNow });
         db.SaveChanges();
 
-        Assert.Equal(3, db.Progressions.AsNoTracking().Count(p => p.Id == "blues"));
+        Assert.Equal(2, db.Progressions.AsNoTracking().Count(p => p.Id == "blues"));
 
         var store = new ProgressionStore(db, Ts);
         Assert.Equal("Local", store.Find("blues")!.Name);   // UserDefined wins
@@ -126,11 +99,6 @@ public class PackImportTests
         db.Progressions.Remove(db.Progressions.Single(p => p.Id == "blues" && p.Origin == Origin.UserDefined));
         db.SaveChanges();
         Assert.Equal("Pack", store.Find("blues")!.Name);
-
-        // Remove the pack copy too → the built-in remains.
-        db.Progressions.Remove(db.Progressions.Single(p => p.Id == "blues" && p.Origin == Origin.Pack));
-        db.SaveChanges();
-        Assert.Equal("BuiltIn", store.Find("blues")!.Name);
     }
 
     [Fact]
@@ -141,7 +109,7 @@ public class PackImportTests
         using var db = new ChordFlowDbContext(Options(conn));
         db.Database.Migrate();
 
-        new PackImporter(db).Import(Pack("p", Rhythm("driving", "Driving", "X...X...X...X...")), Origin.Pack);
+        new PackImporter(db).Import(Pack("p", Rhythm("driving", "Driving", "X...X...X...X...")));
 
         RhythmPattern? pattern = new RhythmPatternStore(db).Find("driving");
         Assert.NotNull(pattern);
@@ -158,7 +126,7 @@ public class PackImportTests
 
         // A song that references a progression present in no tier of any pack.
         new PackImporter(db).Import(
-            Pack("orphan", SongDef("orphan_song", "Orphan", "verse: nonexistent_prog\nverse")), Origin.Pack);
+            Pack("orphan", SongDef("orphan_song", "Orphan", "verse: nonexistent_prog\nverse")));
 
         SongEntity row = db.Songs.AsNoTracking().Single();
         (_, string body) = CatalogHeader.Parse(row.Dsl);

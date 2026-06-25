@@ -62,15 +62,15 @@ public sealed class ChordFlowDbContext : DbContext
             e.HasKey(x => x.Id);
         });
 
-        // Composite PK (Id, Origin) on every content entity: a definition's BuiltIn / Pack / UserDefined
-        // copies physically coexist as separate rows (design §6.1 / D2). Lookups resolve the highest tier
-        // per Id via OriginResolver, so shadowing is non-destructive — deleting a local copy lets the next
-        // tier down win on the next resolve (IN3). "No duplicates" (IN5) means no two rows of the same
-        // (Id, Origin): a re-import upserts the same-tier row.
+        // Composite PK (Id, Origin) on every content entity: a definition's Pack / UserDefined copies can
+        // physically coexist as separate rows. Under the multi-source model (content-source-model) the list
+        // shows every source — no collapse — and fork-on-edit mints unique ids, so an id usually has one row;
+        // the single-item read paths still resolve the highest tier via OriginResolver as a defensive
+        // tiebreak. "No duplicates" (IN5) means no two rows of the same (Id, Origin): a re-import upserts.
         modelBuilder.Entity<ProgressionEntity>(e =>
         {
             e.HasKey(x => new { x.Id, x.Origin });
-            // Store Origin by name (BuiltIn/UserDefined/Pack) — readable in the DB, matching the Difficulty convention.
+            // Store Origin by name (UserDefined/Pack) — readable in the DB, matching the Difficulty convention.
             e.Property(x => x.Origin).HasConversion<string>();
             // Tags is a JSON array (constraint C3); default to an empty array so legacy/blank rows are well-formed.
             e.Property(x => x.Tags).HasDefaultValue("[]");

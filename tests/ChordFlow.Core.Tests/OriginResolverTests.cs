@@ -4,20 +4,18 @@ using Xunit;
 namespace ChordFlow.Core.Tests;
 
 /// <summary>
-/// The shared shadowing policy (IN3): one Id-keyed resolver, precedence UserDefined &gt; Pack &gt; BuiltIn,
-/// non-destructive (selection only — lower tiers stay available as fallback).
+/// The single-item tier resolver (content-source-model): precedence UserDefined &gt; Pack, non-destructive
+/// (selection only — a lower tier stays available as fallback). Used by the Get/Find single-item paths and
+/// the voicing book's load; the multi-source <i>list</i> path no longer collapses.
 /// </summary>
 public class OriginResolverTests
 {
     private sealed record Def(string Id, Origin Origin) : IOriginated;
 
-    [Theory]
-    [InlineData(Origin.UserDefined, Origin.Pack)]
-    [InlineData(Origin.Pack, Origin.BuiltIn)]
-    [InlineData(Origin.UserDefined, Origin.BuiltIn)]
-    public void Rank_OrdersUserDefinedAbovePackAboveBuiltIn(Origin higher, Origin lower)
+    [Fact]
+    public void Rank_OrdersUserDefinedAbovePack()
     {
-        Assert.True(OriginResolver.Rank(higher) > OriginResolver.Rank(lower));
+        Assert.True(OriginResolver.Rank(Origin.UserDefined) > OriginResolver.Rank(Origin.Pack));
     }
 
     [Fact]
@@ -25,17 +23,16 @@ public class OriginResolverTests
     {
         var candidates = new[]
         {
-            new Def("12bar_blues", Origin.BuiltIn),
             new Def("12bar_blues", Origin.Pack),
             new Def("12bar_blues", Origin.UserDefined),
-            new Def("jazz_blues", Origin.BuiltIn),
+            new Def("jazz_blues", Origin.Pack),
         };
 
         IReadOnlyList<Def> effective = OriginResolver.Resolve(candidates);
 
         Assert.Equal(2, effective.Count);
         Assert.Equal(Origin.UserDefined, effective.Single(d => d.Id == "12bar_blues").Origin);
-        Assert.Equal(Origin.BuiltIn, effective.Single(d => d.Id == "jazz_blues").Origin);
+        Assert.Equal(Origin.Pack, effective.Single(d => d.Id == "jazz_blues").Origin);
     }
 
     [Fact]
@@ -43,8 +40,8 @@ public class OriginResolverTests
     {
         var candidates = new[]
         {
-            new Def("b", Origin.BuiltIn),
-            new Def("a", Origin.BuiltIn),
+            new Def("b", Origin.Pack),
+            new Def("a", Origin.Pack),
             new Def("a", Origin.UserDefined),
         };
 
@@ -54,11 +51,10 @@ public class OriginResolverTests
     }
 
     [Fact]
-    public void Resolve_IsNonDestructive_RemovingHigherTierFallsBackToNext()
+    public void Resolve_IsNonDestructive_RemovingHigherTierFallsBackToPack()
     {
         var all = new List<Def>
         {
-            new("x", Origin.BuiltIn),
             new("x", Origin.Pack),
             new("x", Origin.UserDefined),
         };
@@ -69,16 +65,12 @@ public class OriginResolverTests
         // Remove the local copy → the pack copy is still on hand as fallback.
         all.RemoveAll(d => d.Origin == Origin.UserDefined);
         Assert.Equal(Origin.Pack, OriginResolver.ResolveOne(all, "x")!.Origin);
-
-        // Remove the pack copy too → the built-in remains.
-        all.RemoveAll(d => d.Origin == Origin.Pack);
-        Assert.Equal(Origin.BuiltIn, OriginResolver.ResolveOne(all, "x")!.Origin);
     }
 
     [Fact]
     public void ResolveOne_UnknownId_ReturnsNull()
     {
-        var candidates = new[] { new Def("a", Origin.BuiltIn) };
+        var candidates = new[] { new Def("a", Origin.Pack) };
         Assert.Null(OriginResolver.ResolveOne(candidates, "missing"));
     }
 

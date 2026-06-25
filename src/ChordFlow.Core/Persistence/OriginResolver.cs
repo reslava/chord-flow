@@ -1,22 +1,20 @@
 namespace ChordFlow.Persistence;
 
 /// <summary>
-/// Shadow-resolves content definitions across provenance tiers: for each <see cref="IOriginated.Id"/>, the
-/// highest-precedence copy wins — <c>UserDefined &gt; Pack &gt; BuiltIn</c> (design §6.1). Pure and
-/// read-only: it <i>selects</i>, never mutates, so lower tiers remain available as fallback — removing a
-/// local copy lets the next tier down win on the next resolve ("non-destructive shadowing"). One Id-keyed
-/// resolver shared by every content entity (the same shadowing law the song and voicings threads adopt).
-/// The storage model that lets tiers physically coexist is the import layer's concern; this is the
-/// selection policy over whatever candidate set it is given.
+/// Resolves a single content definition across provenance tiers when more than one row shares an id: the
+/// highest-precedence copy wins — <c>UserDefined &gt; Pack</c>. Pure and read-only. Under the multi-source
+/// model (content-source-model) the <i>list</i> path no longer collapses — every source is shown — so this
+/// resolver is used only by the <b>single-item</b> read paths (<see cref="ResolveOne"/>: <c>Get</c>/<c>Find</c>)
+/// and by <see cref="Resolve"/> (the voicing book's load). With fork-on-edit minting unique ids, an id
+/// usually has exactly one row; the ranking is the defensive tiebreak for any legacy duplicate.
 /// </summary>
 public static class OriginResolver
 {
-    /// <summary>Precedence rank — higher wins: <c>UserDefined</c> (2) &gt; <c>Pack</c> (1) &gt; <c>BuiltIn</c> (0).</summary>
+    /// <summary>Precedence rank — higher wins: <c>UserDefined</c> (1) &gt; <c>Pack</c> (0).</summary>
     public static int Rank(Origin origin) => origin switch
     {
-        Origin.UserDefined => 2,
-        Origin.Pack => 1,
-        Origin.BuiltIn => 0,
+        Origin.UserDefined => 1,
+        Origin.Pack => 0,
         _ => throw new ArgumentOutOfRangeException(nameof(origin), origin, "Unhandled origin."),
     };
 

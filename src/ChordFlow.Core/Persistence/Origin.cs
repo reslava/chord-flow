@@ -2,21 +2,20 @@ namespace ChordFlow.Persistence;
 
 /// <summary>
 /// Provenance of a stored content definition (progression, song, rhythm, voicing) — an <b>Entity-layer</b>
-/// concern (constraint C1: never on a pure <c>Domain/</c> music-theory record). The persisted shape is this
-/// discriminator plus an optional <c>PackId</c> column on the entity (design §2): <see cref="Pack"/> carries
-/// a non-null pack id; <see cref="BuiltIn"/> and <see cref="UserDefined"/> carry null. Shared by every
-/// content entity. Shadowing precedence is <c>UserDefined &gt; Pack &gt; BuiltIn</c> — resolved by the
-/// Origin resolver, which ranks explicitly rather than relying on the declaration order here. Tier/paywall
-/// enforcement is a separate Features/licensing concern (req EX4) — this only <i>records</i> origin.
+/// concern (constraint C1: never on a pure <c>Domain/</c> music-theory record). Two stored tiers:
+/// <see cref="Pack"/> carries a non-null <c>PackId</c> naming its source pack (the default/starter pack
+/// included — it is an ordinary package, id <c>"default"</c>), and <see cref="UserDefined"/> carries a null
+/// PackId. The third content source — engine-derived <c>automatic</c> voicings — is computed, never stored,
+/// so it has no <see cref="Origin"/>. (The former <c>BuiltIn</c> tier was retired when the default pack
+/// became a package — see the content-source-model thread; a startup migration converts legacy rows.)
+/// Tier/paywall enforcement is a separate Features/licensing concern (req EX4) — this only <i>records</i>
+/// provenance.
 /// </summary>
 public enum Origin
 {
-    /// <summary>Ships in the default/starter pack; seeded on first run (stable human-slug ids, e.g. <c>12bar_blues</c>).</summary>
-    BuiltIn,
-
-    /// <summary>Created and saved locally by the user (GUID ids).</summary>
+    /// <summary>Created and saved locally by the user (GUID ids); null <c>PackId</c>.</summary>
     UserDefined,
 
-    /// <summary>Imported from a content pack — the entity's <c>PackId</c> names which pack.</summary>
+    /// <summary>Imported from a content pack — the entity's <c>PackId</c> names which pack (the default pack uses id <c>"default"</c>).</summary>
     Pack,
 }

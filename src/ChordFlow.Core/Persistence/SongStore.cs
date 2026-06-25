@@ -34,7 +34,7 @@ public sealed class SongStore : IContentStore
     public IReadOnlyList<ContentSummary> List()
     {
         List<SongEntity> rows = _db.Songs.AsNoTracking().ToList();
-        return ContentSummaries.Build(rows.Select(s => (s.Id, s.Name, s.Origin)))
+        return ContentSummaries.Build(rows.Select(s => (s.Id, s.Name, s.Origin, s.PackId)))
             .Select(summary => summary with { InitialKey = InitialKeyTonic(rows, summary.Id) })
             .ToList();
     }
@@ -83,10 +83,13 @@ public sealed class SongStore : IContentStore
         ArgumentNullException.ThrowIfNull(dsl);
 
         (_, string body) = CatalogHeader.Parse(dsl);
-        string targetId = string.IsNullOrWhiteSpace(id) ? Guid.NewGuid().ToString() : id;
+
+        // User-only, fork-on-edit (content-source-model): update an existing user row in place; a blank id or
+        // a non-user id (e.g. editing a package item) forks a new user row with a fresh id — never a shadow.
+        SongEntity? row = string.IsNullOrWhiteSpace(id) ? null : _db.Songs.Find(id, Origin.UserDefined);
+        string targetId = row?.Id ?? Guid.NewGuid().ToString();
         Validate(targetId, name, body);
 
-        SongEntity? row = _db.Songs.Find(targetId, Origin.UserDefined);
         if (row is null)
         {
             _db.Songs.Add(new SongEntity
@@ -120,7 +123,7 @@ public sealed class SongStore : IContentStore
 
         _db.Songs.Remove(row);
         _db.SaveChanges();
-        return _db.Songs.Any(s => s.Id == id) ? DeleteOutcome.Reverted : DeleteOutcome.Deleted;
+        return DeleteOutcome.Deleted;
     }
 
     /// <summary>

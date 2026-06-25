@@ -79,8 +79,12 @@ internal static class Program
                 {
                     db.Database.Migrate();
                     // Import the free starter content on first run from the on-disk default pack
-                    // (idempotent by (Id, Origin); content is data, not code — IN6).
+                    // (idempotent by (Id, Origin); content is data, not code — IN6). It now imports as
+                    // Origin.Pack (PackId "default") — the default pack is an ordinary package.
                     DefaultPack.ImportInto(db);
+                    // Retire the legacy BuiltIn tier + fork legacy user shadows into unique-id copies
+                    // (content-source-model). Idempotent — a no-op once migrated.
+                    ContentSourceMigration.Run(db);
                     // Authored-voicing library, loaded once at startup; stored voicings shadow the generated
                     // shapes when rendering. (Voicings authored later take effect on the next launch — slice 1.)
                     voicingLibrary = new VoicingStore(db).LoadShapes();
@@ -95,7 +99,13 @@ internal static class Program
                 var generate = new GenerateExerciseHandler(dbOptions, renderer);
                 var library = new ExerciseLibraryHandler(dbOptions, renderer);
                 var progress = new ProgressHandler(dbOptions);
-                var contentCrud = new ContentCrudHandler(dbOptions, renderer);
+                // PackId → display-name map for source tagging (content-source-model IN2). Only the default
+                // pack exists today (EX3 — no pack-management UI); read its manifest name once at startup.
+                var packNames = new Dictionary<string, string>
+                {
+                    [DefaultPack.PackId] = DefaultPack.Load().Manifest.Name,
+                };
+                var contentCrud = new ContentCrudHandler(dbOptions, renderer, packNames);
                 var scales = new ScalesHandler();
                 var caged = new CagedShapesHandler();
                 var cagedChord = new CagedChordHandler();

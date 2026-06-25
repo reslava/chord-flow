@@ -41,7 +41,7 @@ public class ContentCrudHandlerTests
     }
 
     [Fact]
-    public void Save_NewProgression_ReturnsId_AndIsListedAsUserDefined()
+    public void Save_NewProgression_ReturnsId_AndIsListedAsUser()
     {
         var (handler, conn) = NewHandler(withDefaultPack: false);
         using (conn)
@@ -51,8 +51,26 @@ public class ContentCrudHandlerTests
 
             ContentItem item = Assert.Single(handler.List("progression").Items);
             Assert.Equal("My Tune", item.Name);
-            Assert.Equal("UserDefined", item.Origin);
-            Assert.False(item.HasLowerTier);
+            Assert.Equal("user", item.Source);
+            Assert.Null(item.PackName);
+        }
+    }
+
+    [Fact]
+    public void List_DefaultPackItems_AreTaggedAsPackage_WithThePackId()
+    {
+        var (handler, conn) = NewHandler(withDefaultPack: true);
+        using (conn)
+        {
+            // Imported default-pack content is tagged source="package". The handler here has no packNames map,
+            // so PackName falls back to the PackId ("default").
+            IReadOnlyList<ContentItem> items = handler.List("progression").Items;
+            Assert.NotEmpty(items);
+            Assert.All(items, i =>
+            {
+                Assert.Equal("package", i.Source);
+                Assert.Equal("default", i.PackName);
+            });
         }
     }
 

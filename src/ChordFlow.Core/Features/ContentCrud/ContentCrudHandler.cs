@@ -34,28 +34,65 @@ public sealed class ContentCrudHandler
 
     private readonly DbContextOptions<ChordFlowDbContext> _dbOptions;
     private readonly IScoreRenderer _renderer;
+    private readonly IReadOnlyDictionary<string, string> _packNames;
+    private readonly IComputedContentSource? _computed;
 
     /// <summary>Raised after a successful voicing save/delete so the host can refresh the live voicing book (IN11).</summary>
     public event Action? VoicingsChanged;
 
-    public ContentCrudHandler(DbContextOptions<ChordFlowDbContext> dbOptions, IScoreRenderer renderer)
+    /// <param name="packNames">PackId → display-name map for source tagging (content-source-model IN2); empty if omitted.</param>
+    /// <param name="computed">Optional computed (non-store) content source unioned into the list (IN8); none if omitted.</param>
+    public ContentCrudHandler(
+        DbContextOptions<ChordFlowDbContext> dbOptions,
+        IScoreRenderer renderer,
+        IReadOnlyDictionary<string, string>? packNames = null,
+        IComputedContentSource? computed = null)
     {
         ArgumentNullException.ThrowIfNull(dbOptions);
         ArgumentNullException.ThrowIfNull(renderer);
         _dbOptions = dbOptions;
         _renderer = renderer;
+        _packNames = packNames ?? new Dictionary<string, string>();
+        _computed = computed;
     }
 
-    /// <summary>List one entity type's definitions (resolved winning tier per id).</summary>
+    /// <summary>
+    /// List one entity type's definitions — every source shown (content-source-model): the store's package +
+    /// user rows, each tagged with its source/packName, unioned with any computed (automatic) source (IN8).
+    /// </summary>
     public EntityListEnvelope List(string entity)
     {
         ContentEntity kind = ContentEntities.Parse(entity);
         using var db = new ChordFlowDbContext(_dbOptions);
         var items = StoreFor(kind, db).List()
-            .Select(s => new ContentItem(s.Id, s.Name, s.Origin.ToString(), s.HasLowerTier, s.InitialKey))
+            .Select(ToItem)
             .ToList();
+        if (_computed is not null)
+        {
+            items.AddRange(_computed.List(kind));
+        }
+
         return new EntityListEnvelope(entity, items);
     }
+
+    private ContentItem ToItem(ContentSummary s) => new(
+        s.Id,
+        s.Name,
+        SourceLabel(s.Source),
+        s.Source == ContentSource.Package ? PackName(s.PackId) : null,
+        s.InitialKey);
+
+    private static string SourceLabel(ContentSource source) => source switch
+    {
+        ContentSource.Package => "package",
+        ContentSource.User => "user",
+        ContentSource.Automatic => "automatic",
+        _ => "user",
+    };
+
+    // PackId → display name (e.g. "default" → "ChordFlow Starter"); fall back to the id when unknown.
+    private string? PackName(string? packId) =>
+        packId is null ? null : (_packNames.TryGetValue(packId, out string? name) ? name : packId);
 
     /// <summary>Open one definition for editing, or null if its id is unknown.</summary>
     public EntityLoadedEnvelope? Get(string entity, string id)

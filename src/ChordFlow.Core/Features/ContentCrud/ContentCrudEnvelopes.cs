@@ -11,11 +11,12 @@ namespace ChordFlow.Features.ContentCrud;
 /// (<c>loadScore</c>, <c>exerciseList</c>, …).
 /// </summary>
 
-/// <summary>A list row: id, display name, the resolved winning origin, and whether a lower tier exists under it
-/// (so the UI labels the destructive action "Delete" vs "Revert to default" — IN13). <see cref="InitialKey"/>
-/// is the song's starting-key tonic pitch class (0..11) for seeding the Practice key picker (play-ui-key-init
-/// IN1); null for the key-independent entities.</summary>
-public sealed record ContentItem(string Id, string Name, string Origin, bool HasLowerTier, int? InitialKey = null);
+/// <summary>A list row: id, display name, its <see cref="Source"/> (<c>"package"</c> / <c>"user"</c> /
+/// <c>"automatic"</c>), and — when <see cref="Source"/> is <c>"package"</c> — the source pack's display
+/// <see cref="PackName"/> (else null). The UI tags + filters on source/packName (content-source-model).
+/// <see cref="InitialKey"/> is the song's starting-key tonic pitch class (0..11) for seeding the Practice key
+/// picker (play-ui-key-init IN1); null for the key-independent entities.</summary>
+public sealed record ContentItem(string Id, string Name, string Source, string? PackName, int? InitialKey = null);
 
 /// <summary>The definitions of one entity type, for the list pane: <c>{"type":"entityList","entity":"…","items":[…]}</c>.</summary>
 public sealed record EntityListEnvelope(string Entity, IReadOnlyList<ContentItem> Items, string Type = "entityList");

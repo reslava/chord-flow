@@ -1,12 +1,16 @@
 // ChordFlow Content view — the generic CRUD editor for DSL-backed entities.
 //
 // One component, parameterized by entity type (progression / song / rhythm /
-// voicing), driving the generic `entity*` bridge protocol. Left: a list of the
-// chosen entity's definitions (with origin badges). Right: a name field + DSL
-// textarea with live parse + preview, and Save / Delete. The only per-entity
-// divergence is the PREVIEW STRATEGY — the shared ChordFlowScore render component (full player + toggles)
-// for progression/song/rhythm, the shared ChordFlowFretboard SVG fret-box (window.ChordFlowFretboard,
-// fretboard-render-component.js) for voicing. Lazily initialized the first time the Content view is shown.
+// voicing), driving the generic `entity*` bridge protocol. Left: a source filter
+// + a list of the chosen entity's definitions (with source badges — content-source-model).
+// Right: a name field + DSL textarea with live parse + preview, and Save / Delete.
+//
+// Multi-source model: every source is shown (no hiding) — `user`, `automatic` (engine-derived), and each
+// `package` by name. Package/automatic items are read-only; "Duplicate to user" forks an editable copy.
+// The source filter is transient (resets when the view re-inits / the entity tab changes).
+//
+// The only per-entity divergence is the PREVIEW STRATEGY — the shared ChordFlowScore render component for
+// progression/song/rhythm, the shared ChordFlowFretboard SVG fret-box for voicing. Lazily initialized.
 "use strict";
 
 window.ChordFlowContent = (function () {
@@ -40,15 +44,18 @@ window.ChordFlowContent = (function () {
 
   let initialized = false;
   let current = ENTITIES[0];   // selected entity config
-  let editingId = null;        // id being edited (null = a new, unsaved definition)
-  let items = [];              // last-rendered list summaries, for Delete/Revert labeling
+  let editingId = null;        // user-row id to update on Save (null = create a new/forked definition)
+  let selectedId = null;       // clicked list item (for highlight)
+  let items = [];              // last-rendered list items
+  let activeSources = null;    // Set of active filter keys (null = uninitialized → all on); transient
+  let knownKeys = new Set();   // filter keys seen this session, so a toggled-off key isn't re-enabled on refresh
   let scoreView = null;        // lazy ChordFlowScore handle (full player + toggles) for the score strategy
   let diagramView = null;      // lazy ChordFlowFretboard handle for the voicing fret-box strategy
   let debounceTimer = null;
 
   // DOM refs (set in buildDom)
-  let root, tabsEl, listEl, nameEl, dslEl, helpEl, errorEl;
-  let saveBtn, deleteBtn, newBtn, previewWrap, scoreEl, diagramEl, compingBar, compingEl;
+  let root, tabsEl, listEl, filterEl, nameEl, dslEl, helpEl, errorEl;
+  let saveBtn, deleteBtn, duplicateBtn, newBtn, previewWrap, scoreEl, diagramEl, compingBar, compingEl;
 
   const setStatus = (text) => {
     const el = document.getElementById("status");
@@ -73,6 +80,7 @@ window.ChordFlowContent = (function () {
       <div class="cc-body">
         <div class="cc-list-pane">
           <h2>Definitions</h2>
+          <div class="cc-filter" id="ccFilter"></div>
           <ul class="cc-list" id="ccList"></ul>
         </div>
         <div class="cc-editor">
@@ -85,6 +93,7 @@ window.ChordFlowContent = (function () {
           <div class="cc-actions">
             <button type="button" id="ccNew">+ New</button>
             <button type="button" id="ccSave" class="primary">Save</button>
+            <button type="button" id="ccDuplicate" hidden>Duplicate to user</button>
             <button type="button" id="ccDelete">Delete</button>
           </div>
           <div class="cc-preview-toolbar" id="ccCompingBar" hidden>
@@ -100,12 +109,14 @@ window.ChordFlowContent = (function () {
 
     tabsEl = document.getElementById("ccTabs");
     listEl = document.getElementById("ccList");
+    filterEl = document.getElementById("ccFilter");
     nameEl = document.getElementById("ccName");
     dslEl = document.getElementById("ccDsl");
     helpEl = document.getElementById("ccHelp");
     errorEl = document.getElementById("ccError");
     saveBtn = document.getElementById("ccSave");
     deleteBtn = document.getElementById("ccDelete");
+    duplicateBtn = document.getElementById("ccDuplicate");
     newBtn = document.getElementById("ccNew");
     previewWrap = document.getElementById("ccPreview");
     scoreEl = document.getElementById("ccPreviewScore");
@@ -125,6 +136,7 @@ window.ChordFlowContent = (function () {
     dslEl.addEventListener("input", onDslInput);
     saveBtn.addEventListener("click", onSave);
     deleteBtn.addEventListener("click", onDelete);
+    duplicateBtn.addEventListener("click", onDuplicate);
     newBtn.addEventListener("click", () => newItem());
     compingEl.addEventListener("change", requestPreview); // re-preview with the chosen comping
   }
@@ -134,6 +146,7 @@ window.ChordFlowContent = (function () {
     for (const b of tabsEl.children) b.classList.toggle("active", b.dataset.entity === current.key);
     dslEl.placeholder = current.placeholder;
     helpEl.textContent = current.help;
+    activeSources = null; // transient filter resets per entity (content-source-model D5)
     // The comping picker is a progression/song-only content knob; fetch the rhythm catalog to fill it.
     compingBar.hidden = !current.comping;
     if (current.comping) Bridge.send({ type: "entityList", entity: "rhythm" });
@@ -145,14 +158,15 @@ window.ChordFlowContent = (function () {
     Bridge.send({ type: "entityList", entity: current.key });
   }
 
-  // Reset the editor to a fresh, unsaved definition.
+  // Reset the editor to a fresh, unsaved definition (a new user item).
   function newItem() {
     editingId = null;
+    selectedId = null;
     nameEl.value = "";
     dslEl.value = "";
     clearError();
     clearPreview();
-    refreshDeleteButton();
+    setEditorMode(null);
     highlightSelected();
   }
 
@@ -169,7 +183,7 @@ window.ChordFlowContent = (function () {
     Bridge.send({
       type: "entitySave",
       entity: current.key,
-      entityId: editingId, // null = create
+      entityId: editingId, // null = create (or fork a package item into a new user copy)
       name,
       dsl: dslEl.value,
     });
@@ -177,6 +191,17 @@ window.ChordFlowContent = (function () {
 
   function onDelete() {
     if (editingId) Bridge.send({ type: "entityDelete", entity: current.key, entityId: editingId });
+  }
+
+  // Fork the currently-shown package/automatic item into an editable user copy: keep its name + DSL but
+  // detach the id so the next Save mints a new user definition (content-source-model fork-on-edit).
+  function onDuplicate() {
+    editingId = null;
+    selectedId = null;
+    setEditorMode(null);
+    highlightSelected();
+    nameEl.focus();
+    setStatus("editing a copy — Save to add it as your own");
   }
 
   function onDslInput() {
@@ -237,15 +262,20 @@ window.ChordFlowContent = (function () {
       case "entityList":
         renderList(msg.items || []);
         break;
-      case "entityLoaded":
-        editingId = msg.id;
+      case "entityLoaded": {
+        selectedId = msg.id;
         nameEl.value = msg.name || "";
         dslEl.value = msg.dsl || "";
         clearError();
-        refreshDeleteButton();
+        const it = items.find((i) => i.id === msg.id);
+        const src = it ? it.source : "user";
+        // A user item edits in place; a package/automatic item opens read-only (Duplicate to user to fork).
+        editingId = src === "user" ? msg.id : null;
+        setEditorMode(src === "user" ? "user" : src);
         highlightSelected();
         requestPreview();
         break;
+      }
       case "entityPreview":
         clearError();
         renderPreview(msg);
@@ -256,62 +286,128 @@ window.ChordFlowContent = (function () {
         break;
       case "entitySaved":
         editingId = msg.id;
+        selectedId = msg.id;
+        setEditorMode("user");
         setStatus("saved ✓");
         requestList();
         break;
       case "entityDeleted":
-        setStatus(msg.outcome === "Reverted" ? "reverted to default ✓" : "deleted ✓");
+        setStatus("deleted ✓");
         newItem();
         requestList();
         break;
     }
   }
 
+  // --- list + source filter --------------------------------------------------
+  // A filter key identifies a source for filtering: a pack is keyed by its name, user/automatic by kind.
+  function filterKey(it) {
+    return it.source === "package" ? "pack:" + (it.packName || "") : it.source;
+  }
+
+  function sourceLabel(it) {
+    if (it.source === "package") return it.packName || "Package";
+    if (it.source === "automatic") return "Automatic";
+    return "User";
+  }
+
+  function keyLabel(key) {
+    if (key === "user") return "User";
+    if (key === "automatic") return "Automatic";
+    return key.slice("pack:".length) || "Package";
+  }
+
   function renderList(list) {
     items = list;
+
+    // Available sources in a stable order: automatic, user, then packs (alphabetical).
+    const packNames = [...new Set(list.filter((i) => i.source === "package").map((i) => i.packName || ""))].sort();
+    const availableKeys = [
+      ...(list.some((i) => i.source === "automatic") ? ["automatic"] : []),
+      ...(list.some((i) => i.source === "user") ? ["user"] : []),
+      ...packNames.map((n) => "pack:" + n),
+    ];
+
+    if (activeSources === null) {
+      activeSources = new Set(availableKeys); // default: all on (transient)
+    } else {
+      for (const k of availableKeys) if (!activeSources.has(k) && !knownKeys.has(k)) activeSources.add(k);
+    }
+    knownKeys = new Set(availableKeys);
+
+    renderFilter(availableKeys);
+    applyFilter();
+  }
+
+  function renderFilter(keys) {
+    filterEl.innerHTML = "";
+    // No filter UI when there's only one source — nothing to narrow.
+    if (keys.length < 2) {
+      filterEl.hidden = true;
+      return;
+    }
+    filterEl.hidden = false;
+    for (const key of keys) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      // Tag the chip with its source kind so the active colour matches the list badge (user=green, etc.).
+      const kind = key === "user" ? "user" : key === "automatic" ? "automatic" : "package";
+      chip.className = "cc-chip " + kind + (activeSources.has(key) ? " active" : "");
+      chip.textContent = keyLabel(key);
+      chip.addEventListener("click", () => {
+        if (activeSources.has(key)) activeSources.delete(key);
+        else activeSources.add(key);
+        chip.classList.toggle("active");
+        applyFilter();
+      });
+      filterEl.appendChild(chip);
+    }
+  }
+
+  function applyFilter() {
+    const visible = items.filter((it) => activeSources.has(filterKey(it)));
     listEl.innerHTML = "";
-    if (list.length === 0) {
+    if (visible.length === 0) {
       const li = document.createElement("li");
       li.className = "empty";
-      li.textContent = "No definitions yet";
+      li.textContent = items.length === 0 ? "No definitions yet" : "No definitions for the selected sources";
       listEl.appendChild(li);
-      refreshDeleteButton();
       return;
     }
 
-    for (const it of list) {
+    for (const it of visible) {
       const li = document.createElement("li");
       li.dataset.id = it.id;
       const name = document.createElement("span");
       name.textContent = it.name;
       const badge = document.createElement("span");
-      badge.className = "cc-badge" + (it.origin === "UserDefined" ? " user" : "");
-      badge.textContent = it.origin === "UserDefined" ? "User" : it.origin;
+      badge.className = "cc-badge " + it.source; // cc-badge user|package|automatic
+      badge.textContent = sourceLabel(it);
       li.appendChild(name);
       li.appendChild(badge);
       li.addEventListener("click", () => loadItem(it.id));
       listEl.appendChild(li);
     }
     highlightSelected();
-    refreshDeleteButton();
   }
 
   function highlightSelected() {
     for (const li of listEl.children) {
-      if (li.dataset) li.classList.toggle("active", li.dataset.id === editingId);
+      if (li.dataset) li.classList.toggle("active", li.dataset.id === selectedId);
     }
   }
 
-  // Delete vs Revert vs disabled, per the selected item's origin/lower tier (IN13).
-  function refreshDeleteButton() {
-    const summary = items.find((i) => i.id === editingId);
-    if (!editingId || !summary || summary.origin !== "UserDefined") {
-      deleteBtn.disabled = true;
-      deleteBtn.textContent = "Delete";
-      return;
-    }
-    deleteBtn.disabled = false;
-    deleteBtn.textContent = summary.hasLowerTier ? "Revert to default" : "Delete";
+  // Editor affordances by source (content-source-model): user (or a new/forked item) is editable + deletable;
+  // a package/automatic item is read-only with "Duplicate to user".
+  function setEditorMode(source) {
+    const editable = source === "user" || source == null;
+    nameEl.disabled = !editable;
+    dslEl.readOnly = !editable;
+    saveBtn.hidden = !editable;
+    duplicateBtn.hidden = editable;
+    deleteBtn.hidden = !editable;
+    deleteBtn.disabled = !(editable && editingId);
+    deleteBtn.textContent = "Delete";
   }
 
   // --- preview strategies ----------------------------------------------------

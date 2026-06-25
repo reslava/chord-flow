@@ -28,8 +28,8 @@ public sealed class ProgressionStore : IProgressionStore, IContentStore
     /// <inheritdoc/>
     public IReadOnlyList<ContentSummary> List() =>
         ContentSummaries.Build(_db.Progressions.AsNoTracking()
-            .Select(p => new { p.Id, p.Name, p.Origin }).ToList()
-            .Select(p => (p.Id, p.Name, p.Origin)));
+            .Select(p => new { p.Id, p.Name, p.Origin, p.PackId }).ToList()
+            .Select(p => (p.Id, p.Name, p.Origin, p.PackId)));
 
     /// <inheritdoc/>
     public ContentDoc? Get(string id)
@@ -54,10 +54,13 @@ public sealed class ProgressionStore : IProgressionStore, IContentStore
 
         // Drop any header the user typed (EX3 — metadata isn't edited here), validate the body by parsing.
         (_, string body) = CatalogHeader.Parse(dsl);
-        string targetId = string.IsNullOrWhiteSpace(id) ? Guid.NewGuid().ToString() : id;
+
+        // User-only, fork-on-edit (content-source-model): update an existing user row in place; a blank id or
+        // a non-user id (e.g. editing a package item) forks a new user row with a fresh id — never a shadow.
+        ProgressionEntity? row = string.IsNullOrWhiteSpace(id) ? null : _db.Progressions.Find(id, Origin.UserDefined);
+        string targetId = row?.Id ?? Guid.NewGuid().ToString();
         ProgressionParser.Parse(targetId, name, body, _ts); // throws FormatException on bad input — writes nothing
 
-        ProgressionEntity? row = _db.Progressions.Find(targetId, Origin.UserDefined);
         if (row is null)
         {
             _db.Progressions.Add(new ProgressionEntity
@@ -91,7 +94,7 @@ public sealed class ProgressionStore : IProgressionStore, IContentStore
 
         _db.Progressions.Remove(row);
         _db.SaveChanges();
-        return _db.Progressions.Any(p => p.Id == id) ? DeleteOutcome.Reverted : DeleteOutcome.Deleted;
+        return DeleteOutcome.Deleted;
     }
 
     public Progression? Find(string id)

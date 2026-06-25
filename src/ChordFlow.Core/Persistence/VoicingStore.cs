@@ -24,8 +24,8 @@ public sealed class VoicingStore : IContentStore
     /// <inheritdoc/>
     public IReadOnlyList<ContentSummary> List() =>
         ContentSummaries.Build(_db.Voicings.AsNoTracking()
-            .Select(v => new { v.Id, v.Name, v.Origin }).ToList()
-            .Select(v => (v.Id, v.Name, v.Origin)));
+            .Select(v => new { v.Id, v.Name, v.Origin, v.PackId }).ToList()
+            .Select(v => (v.Id, v.Name, v.Origin, v.PackId)));
 
     /// <inheritdoc/>
     public ContentDoc? Get(string id)
@@ -45,9 +45,12 @@ public sealed class VoicingStore : IContentStore
         // Validate AND canonicalize: any authoring anchor folds to the stored canonical-C form (IN9).
         VoicingShape shape = VoicingDslParser.Parse(StripHeader(dsl)); // throws FormatException on bad input
         string canonicalDsl = VoicingDslWriter.ToDsl(shape);
-        string targetId = string.IsNullOrWhiteSpace(id) ? Guid.NewGuid().ToString() : id;
 
-        Entities.VoicingEntity? row = _db.Voicings.Find(targetId, Origin.UserDefined);
+        // User-only, fork-on-edit (content-source-model): update an existing user row in place; a blank id or
+        // a non-user id (e.g. editing a package item) forks a new user row with a fresh id — never a shadow.
+        Entities.VoicingEntity? row = string.IsNullOrWhiteSpace(id) ? null : _db.Voicings.Find(id, Origin.UserDefined);
+        string targetId = row?.Id ?? Guid.NewGuid().ToString();
+
         if (row is null)
         {
             _db.Voicings.Add(new Entities.VoicingEntity
@@ -81,7 +84,7 @@ public sealed class VoicingStore : IContentStore
 
         _db.Voicings.Remove(row);
         _db.SaveChanges();
-        return _db.Voicings.Any(v => v.Id == id) ? DeleteOutcome.Reverted : DeleteOutcome.Deleted;
+        return DeleteOutcome.Deleted;
     }
 
     /// <summary>
