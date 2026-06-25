@@ -4,12 +4,12 @@ id: th_01KV5CZF1JWWW5K8H5BPS8FEFR
 title: Score Render Component
 status: active
 created: 2026-06-15
-updated: 2026-06-24
+updated: 2026-06-25
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 90
+priority: 100
 depends_on: []
 ---
 # Score Render Component

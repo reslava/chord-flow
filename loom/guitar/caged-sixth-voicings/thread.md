@@ -1,17 +1,17 @@
 ---
 type: thread
-id: th_01KVVCHARK0STQ074HNV1Z5VWC
-title: Voicing selection by difficulty (Beginner = shells) + dim7
+id: th_01KVYRNSYDBFHAV6NVXHSPZVJ3
+title: Derive CAGED 6th voicings
 status: active
-created: 2026-06-23
+created: 2026-06-25
 updated: 2026-06-25
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 40
-depends_on: [th_01KVYQ2XJQ0MWYMY02A4PRFHZF]
+priority: 20
+depends_on: []
 ---
-# Voicing selection by difficulty (Beginner = shells) + dim7
+# Derive CAGED 6th voicings
 
 Thread manifest — authored roadmap metadata only (`priority` + `depends_on`). The thread's roadmap status and history are *derived* (`buildRoadmap`), never stored here.

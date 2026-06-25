@@ -1,17 +1,17 @@
 ---
 type: thread
-id: th_01KVVCHARK0STQ074HNV1Z5VWC
-title: Voicing selection by difficulty (Beginner = shells) + dim7
+id: th_01KVYRP94YY208KDKHVM7MTMV5
+title: Engine-derived voicings as the app's source (authored → oracle)
 status: active
-created: 2026-06-23
+created: 2026-06-25
 updated: 2026-06-25
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 40
-depends_on: [th_01KVYQ2XJQ0MWYMY02A4PRFHZF]
+priority: 10
+depends_on: []
 ---
-# Voicing selection by difficulty (Beginner = shells) + dim7
+# Engine-derived voicings as the app's source (authored → oracle)
 
 Thread manifest — authored roadmap metadata only (`priority` + `depends_on`). The thread's roadmap status and history are *derived* (`buildRoadmap`), never stored here.
