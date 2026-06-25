@@ -180,26 +180,37 @@ public static class ProgressionParser
 
     private static RomanDegree ParseDegreeQuality(string text, string chordToken)
     {
+        // An optional single leading '#'/'b' chromatically alters the degree's root (e.g. "#4dim7",
+        // "b27"). Only one accidental is allowed — "##4"/"#b4" and a bare "#"/"b" are rejected because
+        // a digit must follow the accidental.
+        Accidental accidental = Accidental.Natural;
+        int start = 0;
+        if (text.Length > 0 && (text[0] == '#' || text[0] == 'b'))
+        {
+            accidental = text[0] == '#' ? Accidental.Sharp : Accidental.Flat;
+            start = 1;
+        }
+
         // The degree is exactly one digit (1..7); everything after it is the quality suffix — note the
         // suffixes themselves contain digits (e.g. "7" Dominant7, "-7" Minor7, "m7b5"), so we never
         // greedily swallow them into the degree.
-        if (text.Length == 0 || !char.IsDigit(text[0]))
+        if (text.Length <= start || !char.IsDigit(text[start]))
         {
             throw new FormatException($"Chord \"{chordToken}\" is missing a scale degree.");
         }
 
-        int degree = text[0] - '0';
+        int degree = text[start] - '0';
         if (degree < 1 || degree > 7)
         {
             throw new FormatException($"Chord \"{chordToken}\" has degree {degree} outside 1..7.");
         }
 
-        string suffix = text[1..];
+        string suffix = text[(start + 1)..];
         if (!QualitySuffixes.TryGetValue(suffix, out Quality quality))
         {
             throw new FormatException($"Chord \"{chordToken}\" has an unknown quality suffix \"{suffix}\".");
         }
 
-        return new RomanDegree(degree, quality);
+        return new RomanDegree(degree, quality, accidental);
     }
 }

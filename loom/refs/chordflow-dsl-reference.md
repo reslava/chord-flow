@@ -4,8 +4,8 @@ id: rf_01KTSAQ6990GY3J4CZ7HPVPW6K
 title: ChordFlow DSL
 status: active
 created: 2026-06-10
-updated: 2026-06-24
-version: 20
+updated: 2026-06-25
+version: 23
 tags: []
 parent_id: null
 requires_load: []
@@ -57,12 +57,23 @@ By default a degree is a **major** chord. Add a suffix to change it:
 | `ø` or `m7b5` | Half-diminished 7th | `2ø` · `2m7b5` |
 | `+` or `aug` | Augmented | `5+` · `5aug` |
 
-The degree is always the **first character** (a single digit 1–7); everything after it is the quality — so `17` is "degree 1, dominant 7th," not "degree 17."
+The degree is a **single digit 1–7** — optionally preceded by one accidental (see below) — and everything after it is the quality, so `17` is "degree 1, dominant 7th," not "degree 17."
 
 **12-bar blues**, all dominant 7th chords:
 ```
 17 17 17 17 47 47 17 17 57 47 17 57
 ```
+
+### Chromatic degrees (`#` / `b`)
+
+A degree may carry **one** leading accidental to raise (`#`) or lower (`b`) its root by a semitone — for the passing and substitute chords that live between the diatonic degrees:
+
+| Token | Meaning | In F |
+|-------|---------|------|
+| `#4dim7` | `#IVdim7` — the chromatic passing diminished chord (e.g. blues bar 6) | `Bdim7` |
+| `b27` | `bII7` — the tritone substitute for V7 | `Gb7` |
+
+The accidental **combines** with whatever the degree already is in the key: in F the 4th degree is already B♭, so `#4` raises it to **B natural**. Spelling follows the **written degree**, not the key, and never collapses enharmonically — `b4` in C is `Fb` (not E), `#7` in C is `B#` (not C). Only **one** accidental is allowed in the input; double accidentals (`##4`, `#b4`) are rejected.
 
 ### Chord durations within a bar
 
@@ -94,6 +105,8 @@ Rule of thumb: **no `:n` anywhere in a bar = even split; `:n` on every chord = e
 | 50s doo-wop (I–vi–IV–V) | `1 6- 4 5` |
 | Two chords per bar | `1_5 6-_4` |
 | Uneven bar (I 2 beats, IV + V 1 each) | `1:2_4:1_5:1` |
+| Chromatic passing dim7 (blues bar 6) | `#4dim7` |
+| Tritone sub for V7 | `b27` |
 
 ---
 
@@ -101,8 +114,8 @@ Rule of thumb: **no `:n` anywhere in a bar = even split; `:n` on every chord = e
 
 ChordFlow validates as it parses and tells you which token is wrong:
 
-- **"missing a scale degree"** — a chord didn't start with a digit 1–7 (e.g. you wrote `m7` with no degree).
-- **"degree N outside 1..7"** — degrees are 1 through 7 only.
+- **"missing a scale degree"** — a chord didn't start with a digit 1–7 (e.g. you wrote `m7` with no degree, or a lone `#`/`b` with no degree after it).
+- **"degree N outside 1..7"** — degrees are 1 through 7 only (the accidental, if any, attaches to a valid degree — `#8` is still out of range).
 - **"unknown quality suffix"** — the suffix after the degree isn't in the table above.
 - **"cannot be split evenly into N … chords"** — an even-split bar that doesn't divide into quarter notes; switch that bar to explicit `:n` slots.
 - **"`:slots` sum to X, expected 4"** — the explicit slots in a bar don't add up to the bar length.

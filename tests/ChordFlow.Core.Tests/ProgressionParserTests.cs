@@ -119,6 +119,21 @@ public class ProgressionParserTests
     }
 
     [Theory]
+    [InlineData("#4", 4, Quality.Major, Accidental.Sharp)]
+    [InlineData("#4dim7", 4, Quality.Diminished7, Accidental.Sharp)]
+    [InlineData("b27", 2, Quality.Dominant7, Accidental.Flat)]
+    [InlineData("b2", 2, Quality.Major, Accidental.Flat)]
+    [InlineData("17", 1, Quality.Dominant7, Accidental.Natural)]
+    public void Parse_LeadingAccidental_SetsDegreeAccidental(
+        string token, int degree, Quality quality, Accidental accidental)
+    {
+        Progression prog = Parse(token);
+
+        ChordSpan span = Assert.Single(Assert.Single(prog.Bars).Spans);
+        Assert.Equal(new RomanDegree(degree, quality, accidental), span.Degree);
+    }
+
+    [Theory]
     [InlineData("")]          // empty DSL
     [InlineData("1_4_5")]     // even split into 3 → not quarter-aligned
     [InlineData("1:2_4:1")]   // explicit slots sum to 3, not 4
@@ -128,6 +143,11 @@ public class ProgressionParserTests
     [InlineData("8")]         // degree out of 1..7
     [InlineData("0")]         // degree out of 1..7
     [InlineData("-7")]        // missing scale degree
+    [InlineData("##4")]       // double accidental — only one '#'/'b' allowed
+    [InlineData("#b4")]       // mixed double accidental
+    [InlineData("#")]         // bare accidental, no degree
+    [InlineData("b")]         // bare accidental, no degree
+    [InlineData("#8")]        // accidental on out-of-range degree
     [InlineData("1_")]        // empty chord (trailing '_')
     [InlineData("1:2_4")]     // mixed explicit/even within one bar
     [InlineData("1:2:3")]     // more than one ':slots' suffix

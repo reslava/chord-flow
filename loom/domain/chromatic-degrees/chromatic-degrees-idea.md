@@ -2,9 +2,10 @@
 type: idea
 id: id_01KVVCJAS88SGJ0QHXTGFB5T4S
 title: "Progression DSL — chromatic (#/b) chord degrees"
-status: draft
+status: done
 created: 2026-06-23
-version: 1
+updated: 2026-06-24
+version: 2
 tags: []
 parent_id: null
 requires_load: []

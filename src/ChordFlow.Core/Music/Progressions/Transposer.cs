@@ -44,13 +44,15 @@ public static class Transposer
     public static Chord[] Realize(Progression progression, Key key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        return Realize(progression, Scale.ForKey(key));
+        return Realize(progression, Scale.ForKey(key), key);
     }
 
     /// <summary>
     /// Legacy one-chord-per-bar view in <paramref name="scale"/> (see <see cref="Realize(Progression, Key)"/>).
     /// </summary>
-    public static Chord[] Realize(Progression progression, Scale scale)
+    public static Chord[] Realize(Progression progression, Scale scale) => Realize(progression, scale, key: null);
+
+    private static Chord[] Realize(Progression progression, Scale scale, Key? key)
     {
         ArgumentNullException.ThrowIfNull(progression);
         ArgumentNullException.ThrowIfNull(scale);
@@ -59,7 +61,7 @@ public static class Transposer
         for (int i = 0; i < progression.Bars.Count; i++)
         {
             RomanDegree degree = progression.Bars[i].Spans[0].Degree;
-            chords[i] = ChordFor(degree, scale);
+            chords[i] = ChordFor(degree, scale, key);
         }
 
         return chords;
@@ -72,11 +74,14 @@ public static class Transposer
     public static IReadOnlyList<RealizedBar> RealizeBars(Progression progression, Key key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        return RealizeBars(progression, Scale.ForKey(key));
+        return RealizeBars(progression, Scale.ForKey(key), key);
     }
 
     /// <summary>Realizes the full harmonic-rhythm layer in <paramref name="scale"/>.</summary>
-    public static IReadOnlyList<RealizedBar> RealizeBars(Progression progression, Scale scale)
+    public static IReadOnlyList<RealizedBar> RealizeBars(Progression progression, Scale scale) =>
+        RealizeBars(progression, scale, key: null);
+
+    private static IReadOnlyList<RealizedBar> RealizeBars(Progression progression, Scale scale, Key? key)
     {
         ArgumentNullException.ThrowIfNull(progression);
         ArgumentNullException.ThrowIfNull(scale);
@@ -90,7 +95,7 @@ public static class Transposer
             for (int j = 0; j < bar.Spans.Count; j++)
             {
                 ChordSpan span = bar.Spans[j];
-                spans[j] = new RealizedSpan(ChordFor(span.Degree, scale), start, span.DurationTicks);
+                spans[j] = new RealizedSpan(ChordFor(span.Degree, scale, key), start, span.DurationTicks);
                 start += span.DurationTicks;
             }
 
@@ -100,8 +105,57 @@ public static class Transposer
         return bars;
     }
 
-    // The root pitch class is the scale degree's pitch class; the quality carries straight through from
-    // the degree (e.g. Dominant7 for blues).
-    private static Chord ChordFor(RomanDegree degree, Scale scale) =>
-        new(scale.DegreePitchClass(degree.Degree), degree.Quality);
+    // The musical alphabet, used to advance the tonic's letter by (degree - 1) steps. The major and
+    // natural-minor scales both walk these seven letters in order, so the degree number alone fixes the
+    // root's letter — independent of which accidental the key or the chromatic alteration adds.
+    private const string Alphabet = "CDEFGAB";
+
+    // Pitch class of each bare letter, in Alphabet order (C=0, D=2, E=4, F=5, G=7, A=9, B=11).
+    private static readonly int[] LetterPitchClasses = { 0, 2, 4, 5, 7, 9, 11 };
+
+    // The root pitch class is the scale degree's pitch class shifted by any chromatic accidental; the
+    // quality carries straight through from the degree (e.g. Dominant7 for blues). When a key is given,
+    // the root is spelled letter-pure from the written degree (design §5) and carried on the chord;
+    // the scale-only overloads leave RootSpelling null and let the key-table spell it at display time.
+    private static Chord ChordFor(RomanDegree degree, Scale scale, Key? key)
+    {
+        int diatonicPc = scale.DegreePitchClass(degree.Degree).Value;
+        int rootPc = Mod12(diatonicPc + AccidentalOffset(degree.Accidental));
+
+        // Only an accidental'd degree carries a letter-pure RootSpelling (IN5); a diatonic degree leaves it
+        // null so ChordSymbol falls back to the key-table and existing output stays byte-identical (C2).
+        NoteName? spelling = key is not null && degree.Accidental != Accidental.Natural
+            ? SpellRoot(degree, key, rootPc)
+            : null;
+        return new Chord(new PitchClass(rootPc), degree.Quality, spelling);
+    }
+
+    // Letter-pure spelling: the letter is the tonic's letter advanced (degree - 1) places through the
+    // musical alphabet, and the accidental is whatever turns that letter into the sounding pitch — even
+    // when that yields a rare F♭/B♯/double accidental. The written degree, not the key, names the root.
+    private static NoteName SpellRoot(RomanDegree degree, Key key, int rootPc)
+    {
+        char tonicLetter = NoteSpeller.Name(key.Tonic, key)[0];
+        int letterIndex = (Alphabet.IndexOf(tonicLetter) + degree.Degree - 1) % Alphabet.Length;
+        int naturalPc = LetterPitchClasses[letterIndex];
+
+        // Signed semitone distance letter → pitch, normalized to the nearest spelling (e.g. -1 = 'b',
+        // +1 = '#'); a value > 6 wraps to a small negative so we never spell, say, B as "B#######".
+        int accidental = Mod12(rootPc - naturalPc);
+        if (accidental > 6)
+        {
+            accidental -= 12;
+        }
+
+        return new NoteName(Alphabet[letterIndex], accidental);
+    }
+
+    private static int AccidentalOffset(Accidental accidental) => accidental switch
+    {
+        Accidental.Sharp => 1,
+        Accidental.Flat => -1,
+        _ => 0,
+    };
+
+    private static int Mod12(int value) => ((value % 12) + 12) % 12;
 }

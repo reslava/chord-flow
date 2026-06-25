@@ -67,6 +67,48 @@ public class TransposerTests
         Assert.Equal(0, chord.Root.Value); // C
     }
 
+    [Theory]
+    // key tonic (major), degree, accidental → sounding root pc, letter-pure spelling
+    [InlineData(5, 4, Accidental.Sharp, 11, 'B', 0)]    // F: #4 = B natural (the bar-6 #IVdim7)
+    [InlineData(5, 2, Accidental.Flat, 6, 'G', -1)]     // F: b2 = Gb (the tritone sub bII7)
+    [InlineData(0, 7, Accidental.Sharp, 0, 'B', 1)]     // C: #7 = B# (letter-pure, no collapse to C)
+    [InlineData(0, 4, Accidental.Flat, 4, 'F', -1)]     // C: b4 = Fb (letter-pure, no collapse to E)
+    public void Realize_AltereddDegree_SpellsRootLetterPureFromWrittenDegree(
+        int keyTonic, int degree, Accidental accidental, int expectedPc, char letter, int letterAccidental)
+    {
+        var prog = new Progression("t", "t", new RomanDegree[] { new(degree, Quality.Dominant7, accidental) });
+
+        Chord chord = Transposer.Realize(prog, new Key(new PitchClass(keyTonic), false))[0];
+
+        Assert.Equal(expectedPc, chord.Root.Value);
+        Assert.Equal(new NoteName(letter, letterAccidental), chord.RootSpelling);
+    }
+
+    [Fact]
+    public void Realize_DiatonicDegree_KeyPath_LeavesRootSpellingNull()
+    {
+        // A plain (un-altered) degree carries no RootSpelling, so ChordSymbol falls back to the key
+        // table and existing rendered output stays byte-identical (constraint C2).
+        var prog = new Progression("t", "t", new RomanDegree[] { new(1, Quality.Major) });
+
+        Chord chord = Transposer.Realize(prog, new Key(new PitchClass(0), false))[0];
+
+        Assert.Equal(0, chord.Root.Value); // C
+        Assert.Null(chord.RootSpelling);
+    }
+
+    [Fact]
+    public void Realize_ScaleOnly_ShiftsPitchByAccidentalButLeavesSpellingNull()
+    {
+        // No key → no letter-pure spelling, but the chromatic alteration still moves the sounding pitch.
+        var prog = new Progression("t", "t", new RomanDegree[] { new(2, Quality.Dominant7, Accidental.Flat) });
+
+        Chord chord = Transposer.Realize(prog, Scale.Major(new PitchClass(5)))[0]; // F major scale
+
+        Assert.Equal(6, chord.Root.Value); // bII = Gb pitch
+        Assert.Null(chord.RootSpelling);
+    }
+
     [Fact]
     public void Realize_DegreeOutOfRange_Throws()
     {

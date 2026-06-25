@@ -32,6 +32,9 @@ public static class ChordSymbol
             throw new NotSupportedException($"No display symbol for quality {chord.Quality}.");
         }
 
-        return NoteSpeller.Name(chord.Root, key) + suffix;
+        // A letter-pure RootSpelling (from a chromatically-altered degree) names the root; otherwise the
+        // root is spelled from the key signature exactly as before — byte-identical for diatonic chords.
+        string root = chord.RootSpelling is { } spelling ? spelling.Symbol : NoteSpeller.Name(chord.Root, key);
+        return root + suffix;
     }
 }
