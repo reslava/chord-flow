@@ -9,7 +9,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 30
+priority: 40
 depends_on: [th_01KVYRP94YY208KDKHVM7MTMV5, th_01KVYRNSYDBFHAV6NVXHSPZVJ3]
 ---
 # Derive shell voicings from CAGED chords

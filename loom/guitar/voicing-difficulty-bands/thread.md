@@ -9,7 +9,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 40
+priority: 50
 depends_on: [th_01KVYQ2XJQ0MWYMY02A4PRFHZF]
 ---
 # Voicing selection by difficulty (Beginner = shells) + dim7

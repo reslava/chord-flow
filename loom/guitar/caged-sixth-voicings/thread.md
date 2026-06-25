@@ -9,7 +9,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 20
+priority: 30
 depends_on: []
 ---
 # Derive CAGED 6th voicings

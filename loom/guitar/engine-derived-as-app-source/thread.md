@@ -9,8 +9,8 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 10
-depends_on: []
+priority: 20
+depends_on: [th_01KVZ3QQ2C8Z52PVR0TVNJEX7T]
 ---
 # Engine-derived voicings as the app's source (authored → oracle)
 
