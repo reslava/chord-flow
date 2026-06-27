@@ -20,7 +20,8 @@ public class EngineVoicingCoverageTests
     public void AutomaticCatalog_Offers46Families_SupersetOfTheOracleVerified()
     {
         var verified = OracleVoicings.Load().Select(v => (v.Shape.Quality, v.Shape.Shape)).ToHashSet();
-        var offered = CagedVoicingCatalog.Combos.ToHashSet();
+        var offered = CagedVoicingCatalog.Combos
+            .Where(c => c.Family == VoicingFamily.Caged).Select(c => (c.Quality, c.Shape)).ToHashSet();
 
         Assert.Equal(46, offered.Count);
         Assert.True(offered.IsSupersetOf(verified), "every oracle-verified combo must still be offered by the catalog");
@@ -47,7 +48,7 @@ public class EngineVoicingCoverageTests
     [InlineData(Quality.Minor6)]
     public void EverySixthFamily_DerivesCanonical_FullySpelled_AndRealizesAcrossAllRoots(Quality quality)
     {
-        foreach (CagedShape shape in CagedVoicingCatalog.ShapesFor(quality))
+        foreach (CagedShape shape in CagedVoicingCatalog.ShapesFor(VoicingFamily.Caged, quality))
         {
             ChordShape grip = CanonicalGrip(quality, shape);
             AssertFullySpelled(quality, grip);

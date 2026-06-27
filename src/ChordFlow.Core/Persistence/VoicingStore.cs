@@ -88,9 +88,10 @@ public sealed class VoicingStore : IContentStore
     }
 
     /// <summary>
-    /// Every stored voicing parsed into a <see cref="VoicingShape"/> — the authored library for a
-    /// <see cref="VoicingBook"/>. Under the composite (Id, Origin) PK each id may have tiered rows; the
-    /// highest tier per id wins (UserDefined > Pack > BuiltIn, IN3), so one shape per id reaches the book.
+    /// Every stored voicing parsed into a <see cref="VoicingShape"/> — the tier-collapsed authored library.
+    /// Under the composite (Id, Origin) PK each id may have tiered rows; the highest tier per id wins
+    /// (UserDefined > Pack > BuiltIn, IN3), so one shape per id reaches the caller. (The comping path now reads
+    /// <see cref="LoadShapesBySource"/>; this remains the tier-collapsed read used by persistence round-trips.)
     /// </summary>
     public IReadOnlyList<VoicingShape> LoadShapes()
     {

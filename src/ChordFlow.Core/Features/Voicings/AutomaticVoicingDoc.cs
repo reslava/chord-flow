@@ -4,7 +4,7 @@ using ChordFlow.Music.Harmony;
 namespace ChordFlow.Features.Voicings;
 
 /// <summary>
-/// Resolves an <c>automatic</c> voicing family id (<c>auto:dom7:E</c> …) to a canonical voicing DSL line
+/// Resolves an <c>automatic</c> voicing family id (<c>auto:shell:dom7:E</c> …) to a canonical voicing DSL line
 /// (engine-derived-as-app-source IN13): derive the family's <b>lowest valid grip at canonical C</b> and write
 /// it via the normal <see cref="VoicingDslWriter"/>. This lets the Content view show a computed (un-stored)
 /// voicing through the existing read-only preview / "Duplicate to user" path — no special-case rendering.
@@ -21,25 +21,25 @@ public static class AutomaticVoicingDoc
     /// </summary>
     public static string? DslFor(string id)
     {
-        if (!AutomaticVoicingId.TryParse(id, out Quality quality, out CagedShape shape))
+        if (!AutomaticVoicingId.TryParse(id, out VoicingFamily family, out Quality quality, out CagedShape shape))
         {
             return null;
         }
 
-        ChordShape grip = LowestValidPlacement(quality, shape);
-        int rootString = OctaveShape.RootStrings(shape).Max(); // the bass root string for this CAGED shape
+        ChordShape grip = LowestValidPlacement(family, quality, shape);
+        int rootString = OctaveShape.RootStrings(shape).Max(); // the bass root string for this CAGED shape / form
         var voicingShape = new VoicingShape(quality, shape, rootString, ChordShapeVoicing.ToVoicing(grip));
         return VoicingDslWriter.ToDsl(voicingShape); // canonical-C; the parser re-normalizes on read
     }
 
     // The lowest fret window whose grip derives without a throw — the resolver's region filter for one shape.
-    private static ChordShape LowestValidPlacement(Quality quality, CagedShape shape)
+    private static ChordShape LowestValidPlacement(VoicingFamily family, Quality quality, CagedShape shape)
     {
         for (int minFret = 0; minFret <= 12; minFret++)
         {
             try
             {
-                return CagedDerivation.Derive(quality, shape, C, minFret, 15);
+                return FamilyVoicing.Derive(family, quality, shape, C, minFret, 15);
             }
             catch (Exception ex) when (ex is InvalidOperationException or ArgumentOutOfRangeException)
             {

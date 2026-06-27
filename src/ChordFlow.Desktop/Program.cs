@@ -304,10 +304,10 @@ internal static class Program
                 };
 
                 // CAGED Chords page: derive the grip + build its diagram; an unknown or unvoiceable combo surfaces inline.
-                router.CagedChordPreviewRequested += (shape, quality, rootPc) =>
+                router.CagedChordPreviewRequested += (family, shape, quality, rootPc) =>
                 {
-                    try { bridge.Send(cagedChord.Preview(quality, shape, rootPc)); }
-                    catch (Exception ex) when (ex is FormatException or InvalidOperationException)
+                    try { bridge.Send(cagedChord.Preview(family, quality, shape, rootPc)); }
+                    catch (Exception ex) when (ex is FormatException or InvalidOperationException or ArgumentOutOfRangeException)
                     { bridge.Send(new CagedChordErrorEnvelope(ex.Message)); }
                 };
 

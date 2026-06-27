@@ -45,10 +45,10 @@ public class ContentCrudHandlerTests
         var (handler, conn) = NewHandler(withDefaultPack: false);
         using (conn)
         {
-            EntityLoadedEnvelope? loaded = handler.Get("voicing", "auto:dom7:E");
+            EntityLoadedEnvelope? loaded = handler.Get("voicing", "auto:caged:dom7:E");
 
             Assert.NotNull(loaded);
-            Assert.Equal("auto:dom7:E", loaded!.Id);
+            Assert.Equal("auto:caged:dom7:E", loaded!.Id);
             Assert.Contains("Dominant 7", loaded.Name);
             Assert.Contains("voicing", loaded.Dsl); // a real voicing DSL the read-only preview can render
         }

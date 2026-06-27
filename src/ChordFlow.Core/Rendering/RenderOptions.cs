@@ -41,7 +41,8 @@ public sealed record VoicingSource(
     int? MinFret = null,
     int? MaxFret = null,
     string? PackageId = null,
-    string? Ranking = null)
+    string? Ranking = null,
+    string? Family = null)
 {
     /// <summary>Engine-derived voicings.</summary>
     public const string Automatic = "automatic";

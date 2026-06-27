@@ -5,13 +5,12 @@ using ChordFlow.Music.Harmony;
 namespace ChordFlow.Features.Voicings;
 
 /// <summary>
-/// The engine-derived <c>automatic</c> voicing source (engine-derived-as-app-source, req IN2) — the
-/// implementation that fills the content-source-model union seam (<see cref="IComputedContentSource"/>). It
-/// lists the <b>36</b> pinned quality×CAGED-shape families (<see cref="CagedVoicingCatalog"/>) as
-/// <c>automatic</c>-tagged catalog rows so they appear on the Content page alongside the package and user
-/// voicings. These are root-independent catalog entries (like the canonical-C authored voicings); they carry
-/// no grip geometry — the comping resolver derives actual grips at render time. Computed, never stored (C3):
-/// it touches no <see cref="ChordFlow.Persistence.IContentStore"/> and never flows through SQLite.
+/// The engine-derived <c>automatic</c> voicing source (engine-derived-as-app-source, req IN2; shell-voicing-
+/// derivation IN8) — the implementation that fills the content-source-model union seam
+/// (<see cref="IComputedContentSource"/>). It lists the pinned (family, quality, CAGED-shape) families
+/// (<see cref="CagedVoicingCatalog"/>) as <c>automatic</c>-tagged catalog rows so they appear on the Content page
+/// alongside the package and user voicings. These are root-independent catalog entries; they carry no grip
+/// geometry — the comping resolver derives actual grips at render time. Computed, never stored (C3).
 /// </summary>
 public sealed class EngineVoicingSource : IComputedContentSource
 {
@@ -29,7 +28,14 @@ public sealed class EngineVoicingSource : IComputedContentSource
         [Quality.Minor6] = "Minor 6",
     };
 
-    /// <summary>The 36 <c>automatic</c> voicing rows for <see cref="ContentEntity.Voicing"/>; every other kind is empty.</summary>
+    private static readonly IReadOnlyDictionary<VoicingFamily, string> FamilySuffixes = new Dictionary<VoicingFamily, string>
+    {
+        [VoicingFamily.Caged] = "",
+        [VoicingFamily.DoubledShell] = " (doubled shell)",
+        [VoicingFamily.Shell] = " (shell)",
+    };
+
+    /// <summary>The <c>automatic</c> voicing rows for <see cref="ContentEntity.Voicing"/>; every other kind is empty.</summary>
     public IReadOnlyList<ContentItem> List(ContentEntity entity)
     {
         if (entity != ContentEntity.Voicing)
@@ -39,17 +45,20 @@ public sealed class EngineVoicingSource : IComputedContentSource
 
         return CagedVoicingCatalog.Combos
             .Select(c => new ContentItem(
-                AutomaticVoicingId.For(c.Quality, c.Shape),
-                DisplayName(c.Quality, c.Shape),
+                AutomaticVoicingId.For(c.Family, c.Quality, c.Shape),
+                DisplayName(c.Family, c.Quality, c.Shape),
                 "automatic",
                 PackName: null))
             .ToList();
     }
 
-    /// <summary>The catalog display name for a quality×shape family, e.g. "Dominant 7 — E shape".</summary>
-    public static string DisplayName(Quality quality, CagedShape shape) => $"{DisplayNames[quality]} — {shape} shape";
+    /// <summary>The catalog display name for a family × quality × shape, e.g. "Dominant 7 (shell) — E shape".</summary>
+    public static string DisplayName(VoicingFamily family, Quality quality, CagedShape shape) =>
+        $"{DisplayNames[quality]}{FamilySuffixes[family]} — {shape} shape";
 
     /// <summary>The display name for an <c>auto:</c> id, or null if it is not one.</summary>
     public static string? DisplayNameFor(string id) =>
-        AutomaticVoicingId.TryParse(id, out Quality quality, out CagedShape shape) ? DisplayName(quality, shape) : null;
+        AutomaticVoicingId.TryParse(id, out VoicingFamily family, out Quality quality, out CagedShape shape)
+            ? DisplayName(family, quality, shape)
+            : null;
 }

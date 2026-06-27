@@ -2,10 +2,10 @@
 type: idea
 id: id_01KVYQ3DY08RT6KGK50X0PPEGR
 title: Derive shell voicings from CAGED chords
-status: draft
+status: done
 created: 2026-06-25
-updated: 2026-06-25
-version: 2
+updated: 2026-06-27
+version: 3
 tags: []
 parent_id: null
 requires_load: []

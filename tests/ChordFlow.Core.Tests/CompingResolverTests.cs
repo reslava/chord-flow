@@ -81,6 +81,52 @@ public class CompingResolverTests
     }
 
     [Fact]
+    public void ShellFamily_CompsThreeNoteGuideToneGrips()
+    {
+        RealizedSong song = Realize("17", C); // C7
+        var shell = new VoicingSource(Family: "shell");
+
+        CompingPlan plan = CompingResolver.Resolve(song, shell, StoredVoicingSource.Empty);
+
+        Assert.Equal(3, plan.For(ChordsOf(song).Single()).Positions.Count);
+    }
+
+    [Fact]
+    public void DoubledShellFamily_DropsTheFifth_FewerNotesThanCaged()
+    {
+        RealizedSong song = Realize("17", C);
+
+        int caged = CompingResolver.Resolve(song, VoicingSource.Default, StoredVoicingSource.Empty)
+            .For(ChordsOf(song).Single()).Positions.Count;
+        int doubledShell = CompingResolver.Resolve(song, new VoicingSource(Family: "dshell"), StoredVoicingSource.Empty)
+            .For(ChordsOf(song).Single()).Positions.Count;
+
+        Assert.True(doubledShell < caged, $"doubled-shell ({doubledShell}) should drop the fifth vs caged ({caged}).");
+    }
+
+    [Fact]
+    public void TriadUnderShellFamily_FallsBackToCagedGrip()
+    {
+        RealizedSong song = Realize("1", C); // C major triad — no shell exists
+        var shell = new VoicingSource(Family: "shell");
+
+        CompingPlan plan = CompingResolver.Resolve(song, shell, StoredVoicingSource.Empty);
+
+        // Fell back to the caged family: a full chord grip, more than three notes.
+        Assert.True(plan.For(ChordsOf(song).Single()).Positions.Count > 3);
+    }
+
+    [Fact]
+    public void UnknownFamily_ThrowsFormatException()
+    {
+        RealizedSong song = Realize("17", C);
+        var bogus = new VoicingSource(Family: "nonsense");
+
+        Assert.Throws<FormatException>(
+            () => CompingResolver.Resolve(song, bogus, StoredVoicingSource.Empty));
+    }
+
+    [Fact]
     public void FallbackToUserStored_WhenAutomaticHasNoneForTheChord()
     {
         RealizedSong song = Realize("7dim", C); // automatic can't voice a diminished triad

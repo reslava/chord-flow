@@ -16,7 +16,7 @@ public class AutomaticVoicingDocTests
     [Fact]
     public void DslFor_AutoId_ParsesToTheRightFamily()
     {
-        string? dsl = AutomaticVoicingDoc.DslFor("auto:dom7:E");
+        string? dsl = AutomaticVoicingDoc.DslFor("auto:caged:dom7:E");
 
         Assert.NotNull(dsl);
         VoicingShape shape = VoicingDslParser.Parse(dsl!);
@@ -27,10 +27,10 @@ public class AutomaticVoicingDocTests
     [Fact]
     public void DslFor_EveryCatalogFamily_ResolvesToParseableDsl()
     {
-        // Includes auto:maj:C — the family that errored in the app — so the lowest-valid-placement scan is exercised.
-        foreach ((Quality quality, CagedShape shape) in CagedVoicingCatalog.Combos)
+        // Includes auto:caged:maj:C — the family that errored in the app — so the lowest-valid-placement scan is exercised.
+        foreach ((VoicingFamily family, Quality quality, CagedShape shape) in CagedVoicingCatalog.Combos)
         {
-            string id = AutomaticVoicingId.For(quality, shape);
+            string id = AutomaticVoicingId.For(family, quality, shape);
             string? dsl = AutomaticVoicingDoc.DslFor(id);
 
             Assert.NotNull(dsl);

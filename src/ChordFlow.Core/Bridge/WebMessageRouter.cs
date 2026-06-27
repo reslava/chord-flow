@@ -99,8 +99,8 @@ public sealed class WebMessageRouter
     /// <summary>Preview a CAGED octave shape on the fretboard (the CAGED Shapes page) — <c>(shape, rootPitchClass)</c>.</summary>
     public event Action<string, int>? CagedPreviewRequested;
 
-    /// <summary>Preview a derived CAGED chord on the fretboard (the CAGED Chords page) — <c>(shape, quality, rootPitchClass)</c>.</summary>
-    public event Action<string, string, int>? CagedChordPreviewRequested;
+    /// <summary>Preview a derived CAGED chord on the fretboard (the CAGED Chords page) — <c>(family, shape, quality, rootPitchClass)</c>.</summary>
+    public event Action<string, string, string, int>? CagedChordPreviewRequested;
 
     /// <summary>Deserialize one inbound message string and dispatch it to subscribers.</summary>
     public void Dispatch(string message)
@@ -237,7 +237,8 @@ public sealed class WebMessageRouter
             case "cagedChordPreview":
                 if (envelope.Shape is { } chordShape && envelope.Quality is { } chordQuality)
                 {
-                    CagedChordPreviewRequested?.Invoke(chordShape, chordQuality, envelope.RootPitchClass ?? 0);
+                    CagedChordPreviewRequested?.Invoke(
+                        envelope.Family ?? "caged", chordShape, chordQuality, envelope.RootPitchClass ?? 0);
                 }
                 break;
             // Unknown / null types are ignored — forward-compatible.
@@ -294,8 +295,8 @@ public sealed class WebMessageRouter
         // scalePreview: the interval set text ("1 b3 4 5 b7") + the chosen root pitch class (0..11).
         string? Intervals, int? RootPitchClass,
         // cagedPreview: the CAGED shape name ("C"/"A"/"G"/"E"/"D"); reuses RootPitchClass for the root.
-        // cagedChordPreview adds Quality (the quality enum name) alongside Shape + RootPitchClass.
-        string? Shape, string? Quality,
+        // cagedChordPreview adds Quality (the quality enum name) and Family ("caged"/"dshell"/"shell") alongside Shape + RootPitchClass.
+        string? Shape, string? Quality, string? Family,
         // Optional render-time presentation options on the render-producing verbs (generate/loadExercise/entityPreview).
         InboundRenderOptions? RenderOptions);
 

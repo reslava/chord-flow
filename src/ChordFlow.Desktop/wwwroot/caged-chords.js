@@ -13,6 +13,24 @@ window.ChordFlowCagedChords = (function () {
   // Root names per pitch class (0 = C .. 11 = B), matching the renderer's spelling. The selector value is the pc.
   const KEY_NAMES = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
   const SHAPES = ["C", "A", "G", "E", "D"];
+  // The voicing family. caged = full chord; dshell = chord minus the 5th; shell = the compact 2-form guide-tone
+  // shell (only the C = 5th-string-root and E = 6th-string-root forms exist).
+  const FAMILIES = [
+    { value: "caged", label: "CAGED (full)" },
+    { value: "dshell", label: "doubled shell" },
+    { value: "shell", label: "shell" },
+  ];
+  // Shapes a family offers: shell has the two forms (C/E), doubled-shell is the C form only, caged spans all five.
+  const shapesFor = (family) =>
+    family === "shell" ? ["C", "E"] : family === "dshell" ? ["C"] : SHAPES;
+  // Qualities a family offers (matching CagedVoicingCatalog): shells need a 7th/6th; doubled-shell is the curated
+  // common doubled-root set; caged covers everything.
+  const SHELL_QUALITIES = ["Dominant7", "Major7", "Minor7", "HalfDiminished7", "Diminished7", "Major6", "Minor6"];
+  const DSHELL_QUALITIES = ["Dominant7", "Diminished7", "Major6", "Minor6"];
+  const qualitiesFor = (family) =>
+    family === "shell" ? QUALITIES.filter((q) => SHELL_QUALITIES.includes(q.value))
+    : family === "dshell" ? QUALITIES.filter((q) => DSHELL_QUALITIES.includes(q.value))
+    : QUALITIES;
   // value = the Quality enum name the host parses; label = the familiar symbol shown to the player.
   const QUALITIES = [
     { value: "Major", label: "maj" },
@@ -31,7 +49,7 @@ window.ChordFlowCagedChords = (function () {
 
   let initialized = false;
   let fretView = null; // lazy ChordFlowFretboard handle (created on the first diagram)
-  let shapeEl, qualityEl, rootEl, errorEl, diagramEl;
+  let familyEl, shapeEl, qualityEl, rootEl, errorEl, diagramEl;
 
   function setError(text) {
     if (errorEl) errorEl.textContent = text || "";
@@ -46,6 +64,7 @@ window.ChordFlowCagedChords = (function () {
     setError("");
     Bridge.send({
       type: "cagedChordPreview",
+      family: familyEl.value,
       shape: shapeEl.value,
       quality: qualityEl.value,
       rootPitchClass: parseInt(rootEl.value, 10) || 0,
@@ -85,21 +104,38 @@ window.ChordFlowCagedChords = (function () {
     });
   }
 
+  // Refill the shape + quality selects for the current family (a shell offers only C/E and 7th/6th qualities;
+  // doubled-shell only the C form + the curated doubled-root qualities), keeping the current value if it survives.
+  function populateForFamily() {
+    const shapes = shapesFor(familyEl.value);
+    const curShape = shapeEl.value;
+    fillSelect(shapeEl, shapes.map((s) => ({ value: s, label: s })));
+    shapeEl.value = shapes.includes(curShape) ? curShape : shapes[0];
+
+    const quals = qualitiesFor(familyEl.value);
+    const curQual = qualityEl.value;
+    fillSelect(qualityEl, quals);
+    qualityEl.value = quals.some((q) => q.value === curQual) ? curQual : quals[0].value;
+  }
+
   function init() {
+    familyEl = $("cagedChordFamily");
     shapeEl = $("cagedChordShape");
     qualityEl = $("cagedChordQuality");
     rootEl = $("cagedChordRoot");
     errorEl = $("cagedChordError");
     diagramEl = $("caged-chord-diagram");
 
-    fillSelect(shapeEl, SHAPES.map((s) => ({ value: s, label: s })));
-    fillSelect(qualityEl, QUALITIES);
+    fillSelect(familyEl, FAMILIES);
     fillSelect(rootEl, KEY_NAMES.map((name, pc) => ({ value: String(pc), label: name })));
 
+    familyEl.value = "caged";
+    populateForFamily();
     shapeEl.value = "E"; // a familiar E-shape barre
     qualityEl.value = "Major7";
     rootEl.value = "9"; // A — the E-shape A-major barre sits at fret 5
 
+    familyEl.addEventListener("change", () => { populateForFamily(); requestPreview(); });
     shapeEl.addEventListener("change", requestPreview);
     qualityEl.addEventListener("change", requestPreview);
     rootEl.addEventListener("change", requestPreview);

@@ -88,7 +88,7 @@ public class ExercisePipelineTests
         // The other content branch: resolve each realized chord's guide tones to the fretboard
         // (fret resolution is now a guitar concern — GuitarInstrument.ResolveLead).
         var bb = new Key(new PitchClass(10), false);
-        var guitar = new GuitarInstrument(new VoicingBook(Array.Empty<VoicingShape>()));
+        var guitar = new GuitarInstrument();
 
         foreach (Chord chord in Transposer.Realize(SeedData.TwelveBarBlues, bb))
         {

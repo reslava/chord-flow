@@ -4,9 +4,10 @@ namespace ChordFlow.Instruments.Guitar;
 
 /// <summary>
 /// The synthetic identity scheme for engine-derived <c>automatic</c> voicing families
-/// (engine-derived-as-app-source, req IN3): <c>auto:{qualityToken}:{shape}</c> — e.g. <c>auto:dom7:E</c>,
-/// <c>auto:maj7:A</c>, <c>auto:m7b5:D</c>. Stable, unique, human-readable; shared by the listing source, the
-/// comping resolver, and (later) the explicit per-chord voicing reference (<c>{a: …}</c>).
+/// (shell-voicing-derivation, req IN5): <c>auto:{family}:{qualityToken}:{shape}</c> — e.g.
+/// <c>auto:caged:dom7:E</c>, <c>auto:shell:maj7:C</c>, <c>auto:dshell:m7b5:D</c>. Stable, unique,
+/// human-readable; shared by the listing source, the comping resolver, and the explicit per-chord voicing
+/// reference. The family segment was added when shells joined the engine (the prior 3-segment form is gone).
 /// </summary>
 public static class AutomaticVoicingId
 {
@@ -34,12 +35,14 @@ public static class AutomaticVoicingId
     /// <summary>The quality token (e.g. <c>dom7</c>) used in a synthetic id.</summary>
     public static string Token(Quality quality) => Tokens[quality];
 
-    /// <summary>The synthetic id for a quality×shape family, e.g. <c>auto:dom7:E</c>.</summary>
-    public static string For(Quality quality, CagedShape shape) => $"{Prefix}:{Token(quality)}:{shape}";
+    /// <summary>The synthetic id for a family × quality × shape, e.g. <c>auto:shell:dom7:E</c>.</summary>
+    public static string For(VoicingFamily family, Quality quality, CagedShape shape) =>
+        $"{Prefix}:{family.Token()}:{Token(quality)}:{shape}";
 
-    /// <summary>Parse a synthetic id back to its (quality, shape); false if it is not a well-formed <c>auto:…</c> id.</summary>
-    public static bool TryParse(string id, out Quality quality, out CagedShape shape)
+    /// <summary>Parse a synthetic id back to its (family, quality, shape); false if it is not a well-formed <c>auto:…</c> id.</summary>
+    public static bool TryParse(string id, out VoicingFamily family, out Quality quality, out CagedShape shape)
     {
+        family = default;
         quality = default;
         shape = default;
         if (id is null)
@@ -48,10 +51,11 @@ public static class AutomaticVoicingId
         }
 
         string[] parts = id.Split(':');
-        return parts.Length == 3
+        return parts.Length == 4
             && string.Equals(parts[0], Prefix, StringComparison.Ordinal)
-            && ByToken.TryGetValue(parts[1], out quality)
-            && Enum.TryParse(parts[2], ignoreCase: false, out shape)
+            && VoicingFamilies.TryParse(parts[1], out family)
+            && ByToken.TryGetValue(parts[2], out quality)
+            && Enum.TryParse(parts[3], ignoreCase: false, out shape)
             && Enum.IsDefined(shape);
     }
 }

@@ -19,11 +19,13 @@ public sealed class CagedChordHandler
     // finds it; the grip's own span is the reach window (≤4 frets), independent of this bound.
     private const int NeckMaxFret = 15;
 
-    /// <summary>Derive <paramref name="quality"/> in CAGED <paramref name="shape"/> at <paramref name="rootPitchClass"/> (mod-12) and build its diagram.</summary>
-    /// <exception cref="FormatException"><paramref name="quality"/> or <paramref name="shape"/> is not a known name.</exception>
-    /// <exception cref="InvalidOperationException">the combo has no voiceable placement in range.</exception>
-    public CagedChordDiagramEnvelope Preview(string quality, string shape, int rootPitchClass)
+    /// <summary>Derive the <paramref name="family"/> grip for <paramref name="quality"/> in CAGED <paramref name="shape"/> at <paramref name="rootPitchClass"/> (mod-12) and build its diagram.</summary>
+    /// <exception cref="FormatException"><paramref name="family"/>, <paramref name="quality"/>, or <paramref name="shape"/> is not a known name.</exception>
+    /// <exception cref="InvalidOperationException">the combo has no voiceable placement (e.g. a shell of a triad).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">the family rejects the shape (e.g. a shell in a form other than C/E).</exception>
+    public CagedChordDiagramEnvelope Preview(string family, string quality, string shape, int rootPitchClass)
     {
+        ArgumentNullException.ThrowIfNull(family);
         ArgumentNullException.ThrowIfNull(quality);
         ArgumentNullException.ThrowIfNull(shape);
 
@@ -32,8 +34,13 @@ public sealed class CagedChordHandler
         if (!Enum.TryParse(shape, ignoreCase: true, out CagedShape parsedShape) || !Enum.IsDefined(parsedShape))
             throw new FormatException($"Unknown CAGED shape '{shape}'. Expected one of C, A, G, E, D.");
 
+        VoicingFamily parsedFamily = VoicingFamily.Caged;
+        if (!string.IsNullOrWhiteSpace(family)
+            && !VoicingFamilies.TryParse(family.Trim().ToLowerInvariant(), out parsedFamily))
+            throw new FormatException($"Unknown voicing family '{family}'. Expected caged, dshell, or shell.");
+
         var root = new PitchClass(((rootPitchClass % 12) + 12) % 12);
-        ChordShape derived = CagedDerivation.Derive(parsedQuality, parsedShape, root, 0, NeckMaxFret);
+        ChordShape derived = FamilyVoicing.Derive(parsedFamily, parsedQuality, parsedShape, root, 0, NeckMaxFret);
         return new CagedChordDiagramEnvelope(ChordShapeDiagram.Build(derived, root));
     }
 }

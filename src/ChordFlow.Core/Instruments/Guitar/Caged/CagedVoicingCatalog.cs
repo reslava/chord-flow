@@ -3,13 +3,18 @@ using ChordFlow.Music.Harmony;
 namespace ChordFlow.Instruments.Guitar;
 
 /// <summary>
-/// The pinned set of quality×CAGED-shape combos the engine offers as <c>automatic</c> voicings
-/// (engine-derived-as-app-source, req IN2/IN9/C5) — <b>46</b> combos. The eight five-shape qualities (the six
-/// tertian ones plus Major6/Minor6, per the caged-c-full rule) take all five CAGED shapes; the two
-/// diminished-family qualities (m7♭5, dim7) trim to E/A/D only (no C/G). Major6/Minor6 are offered before they
-/// gain golden-oracle anchors (captured after the visual-confirm step, req C5), so the catalog is a superset of
-/// the oracle-verified set in the interim. One source of truth shared by the listing source, the comping
-/// resolver, and the coverage test, so they can never drift.
+/// The pinned set of (family, quality, CAGED-shape) combos the engine offers as <c>automatic</c> voicings
+/// (shell-voicing-derivation, req IN6) — <b>64</b> combos:
+/// <list type="bullet">
+/// <item><c>caged</c> (full chord) over all 46 quality×shape combos — the eight five-shape qualities ×5, the
+///   two diminished-family qualities (m7♭5, dim7) ×3.</item>
+/// <item><c>doubled-shell</c> (chord minus 5th, doubled root) — a curated set of the commonly-played doubled-root
+///   voicings: the <b>C form only</b>, for <c>dom7 / dim7 / 6 / m6</c> (e.g. the open-ish C7, C6) — 4.</item>
+/// <item><c>shell</c> (compact 2-form) over the 7 shell-eligible qualities × the two forms {C (5th-string root),
+///   E (6th-string root)} — 14.</item>
+/// </list>
+/// One source of truth shared by the listing source, the comping resolver, and the coverage test, so they can
+/// never drift. (Triads have only the <c>caged</c> family — shells need a 7th or 6th.)
 /// </summary>
 public static class CagedVoicingCatalog
 {
@@ -30,31 +35,63 @@ public static class CagedVoicingCatalog
     private static readonly CagedShape[] DiminishedShapes =
         { CagedShape.A, CagedShape.E, CagedShape.D };
 
-    /// <summary>The 46 (quality, shape) combos, five-shape qualities first (each ×5), then m7♭5/dim7 (each ×3).</summary>
-    public static readonly IReadOnlyList<(Quality Quality, CagedShape Shape)> Combos = Build();
+    /// <summary>The two shell forms: C = 5th-string root, E = 6th-string root.</summary>
+    private static readonly CagedShape[] ShellForms = { CagedShape.C, CagedShape.E };
 
-    /// <summary>The CAGED shapes the engine can derive for <paramref name="quality"/> (empty for an unsupported quality).</summary>
-    public static IReadOnlyList<CagedShape> ShapesFor(Quality quality) =>
+    /// <summary>The qualities a shell can voice — those with a 7th or a 6th.</summary>
+    private static readonly IReadOnlySet<Quality> ShellEligible = new HashSet<Quality>
+    {
+        Quality.Dominant7, Quality.Major7, Quality.Minor7,
+        Quality.HalfDiminished7, Quality.Diminished7, Quality.Major6, Quality.Minor6,
+    };
+
+    /// <summary>The curated `doubled-shell` qualities — the commonly-played doubled-root voicings (chat-001).</summary>
+    private static readonly IReadOnlySet<Quality> DoubledShellQualities = new HashSet<Quality>
+    {
+        Quality.Dominant7, Quality.Diminished7, Quality.Major6, Quality.Minor6,
+    };
+
+    /// <summary>`doubled-shell` is offered in the C form only.</summary>
+    private static readonly CagedShape[] DoubledShellForms = { CagedShape.C };
+
+    private static readonly VoicingFamily[] Families =
+        { VoicingFamily.Caged, VoicingFamily.DoubledShell, VoicingFamily.Shell };
+
+    /// <summary>All 91 (family, quality, shape) combos, in family then quality then shape order.</summary>
+    public static readonly IReadOnlyList<(VoicingFamily Family, Quality Quality, CagedShape Shape)> Combos = Build();
+
+    /// <summary>Whether a quality can be voiced as a shell (has a 7th or 6th).</summary>
+    public static bool IsShellEligible(Quality quality) => ShellEligible.Contains(quality);
+
+    /// <summary>
+    /// The CAGED shapes the engine offers for <paramref name="family"/> × <paramref name="quality"/> (empty when
+    /// the family does not cover that quality — e.g. a shell of a triad).
+    /// </summary>
+    public static IReadOnlyList<CagedShape> ShapesFor(VoicingFamily family, Quality quality) => family switch
+    {
+        VoicingFamily.Caged => CagedShapesFor(quality),
+        VoicingFamily.DoubledShell => DoubledShellQualities.Contains(quality) ? DoubledShellForms : Array.Empty<CagedShape>(),
+        VoicingFamily.Shell => ShellEligible.Contains(quality) ? ShellForms : Array.Empty<CagedShape>(),
+        _ => Array.Empty<CagedShape>(),
+    };
+
+    // The full chord's shapes for a quality (the caged family's coverage).
+    private static IReadOnlyList<CagedShape> CagedShapesFor(Quality quality) =>
         ThreeShapeQualities.Contains(quality) ? DiminishedShapes
         : FiveShapeQualities.Contains(quality) ? AllShapes
         : Array.Empty<CagedShape>();
 
-    private static IReadOnlyList<(Quality, CagedShape)> Build()
+    private static IReadOnlyList<(VoicingFamily, Quality, CagedShape)> Build()
     {
-        var combos = new List<(Quality, CagedShape)>();
-        foreach (Quality quality in FiveShapeQualities)
+        var combos = new List<(VoicingFamily, Quality, CagedShape)>();
+        foreach (VoicingFamily family in Families)
         {
-            foreach (CagedShape shape in AllShapes)
+            foreach (Quality quality in FiveShapeQualities.Concat(ThreeShapeQualities))
             {
-                combos.Add((quality, shape));
-            }
-        }
-
-        foreach (Quality quality in ThreeShapeQualities)
-        {
-            foreach (CagedShape shape in DiminishedShapes)
-            {
-                combos.Add((quality, shape));
+                foreach (CagedShape shape in ShapesFor(family, quality))
+                {
+                    combos.Add((family, quality, shape));
+                }
             }
         }
 

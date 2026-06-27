@@ -24,7 +24,8 @@ public class CagedDeriveAnchorEdgeTests
     [Fact]
     public void EveryCatalogCombo_AcrossAllRoots_NeverThrowsOutOfRange_AtFullNeck()
     {
-        foreach ((Quality quality, CagedShape shape) in CagedVoicingCatalog.Combos)
+        foreach ((Quality quality, CagedShape shape) in
+                 CagedVoicingCatalog.Combos.Where(c => c.Family == VoicingFamily.Caged).Select(c => (c.Quality, c.Shape)))
         {
             for (int root = 0; root < 12; root++)
             {
