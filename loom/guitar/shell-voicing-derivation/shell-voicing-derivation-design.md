@@ -2,10 +2,10 @@
 type: design
 id: de_01KW481X6B93Y3QPX8G2E7XMP2
 title: Derive shell voicings from CAGED chords
-status: active
+status: done
 created: 2026-06-27
 updated: 2026-06-27
-version: 7
+version: 8
 tags: []
 parent_id: id_01KVYQ3DY08RT6KGK50X0PPEGR
 requires_load: []

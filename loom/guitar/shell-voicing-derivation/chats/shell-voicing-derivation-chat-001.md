@@ -2,9 +2,10 @@
 type: chat
 id: ch_01KVYQ81FZ5EXQ4MV1K8NN143Y
 title: shell-voicing-derivation Chat
-status: active
+status: done
 created: 2026-06-25
-version: 1
+updated: 2026-06-27
+version: 2
 tags: []
 parent_id: null
 requires_load: []
