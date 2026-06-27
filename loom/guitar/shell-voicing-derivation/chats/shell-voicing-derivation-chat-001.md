@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 35
+last_ai_block: 36
 ---
 # shell-voicing-derivation Chat
 
@@ -559,3 +559,12 @@ Docs synced: req v3 (re-locked, IN6 curation + IN13 compact-anchor), design + do
 Quick re-check list when you reopen: `dshell` shows only C + {dom7,dim7,6,m6}; `shell · maj7 · C` at root A = `x 12 11 13`.
 
 Still nothing committed. Commit everything (the whole thread) to `main` once you're happy with the page?
+
+## AI:
+
+Committed to `main` as **`00834b9`** — `feat(voicings): shell & doubled-shell voicing families` (47 files: the engine families + resolver + retire + CAGED-page Family selector + tests/fixtures + the Loom thread docs + domain-model ref).
+
+Notes:
+- **Not pushed** — say the word and I'll push.
+- I left one file *out* of the commit: `caged-sixth-voicings/chats/caged-sixth-voicings-chat-001.md` has an uncommitted edit from the **prior** caged-sixth session (a reply about its own commit `a6496de` + a `scale-arpeggio-tone-functions` idea) — not part of this thread, so I didn't bundle it. It's still sitting modified in your tree; commit it whenever you close out that thread.
+- The plan (all 10 steps) is done; the thread is complete. Want me to `loom_close_plan` (write the done-doc) as well?

@@ -9,7 +9,7 @@ version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 23
+last_ai_block: 25
 ---
 # caged-sixth-voicings Chat
 
@@ -346,3 +346,9 @@ The one *optional* consistency tweak left: make that dormant `FunctionFor` degre
 I need to think deeper about scales, arpeggios, etc
 Spin up a thread idea for the tweak
 Commit
+
+## AI:
+
+Done:
+- **Idea spun up** — `guitar/scale-arpeggio-tone-functions` (draft): the degree-aware `FunctionFor` tweak as the concrete step, with the broader "how scales/arpeggios model function/spelling" questions parked there for you to think through.
+- **Committed** to `main` as `a6496de` (49 files: engine + diagrams + JS + tests/fixtures + Loom docs). Not pushed — say the word if you want me to push.
