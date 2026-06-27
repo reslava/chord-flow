@@ -25,6 +25,8 @@ public sealed class EngineVoicingSource : IComputedContentSource
         [Quality.HalfDiminished7] = "Half-diminished 7 (m7♭5)",
         [Quality.Diminished7] = "Diminished 7",
         [Quality.Augmented] = "Augmented",
+        [Quality.Major6] = "Major 6",
+        [Quality.Minor6] = "Minor 6",
     };
 
     /// <summary>The 36 <c>automatic</c> voicing rows for <see cref="ContentEntity.Voicing"/>; every other kind is empty.</summary>

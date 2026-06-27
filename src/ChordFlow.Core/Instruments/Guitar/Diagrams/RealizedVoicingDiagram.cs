@@ -61,31 +61,19 @@ public static class RealizedVoicingDiagram
         return new FretboardDiagram(title, markers, mutedStrings, voicing.BarreFret, FretMin: firstFret, FretMax: null);
     }
 
-    // Map each chord-tone semitone (relative to the root) to its function by its tertian position (root, third,
-    // fifth, seventh). Every v1 quality is a stacked-thirds set, so index 0/1/2/3 is exactly root/third/fifth/seventh.
-    private static Dictionary<int, ChordToneFunction> RoleByInterval(Quality quality)
-    {
-        var map = new Dictionary<int, ChordToneFunction>();
-        IReadOnlyList<int> intervals = QualityIntervals.Intervals(quality);
-        for (int i = 0; i < intervals.Count; i++)
-        {
-            map[intervals[i]] = i switch
-            {
-                0 => ChordToneFunction.Root,
-                1 => ChordToneFunction.Third,
-                2 => ChordToneFunction.Fifth,
-                _ => ChordToneFunction.Seventh,
-            };
-        }
-
-        return map;
-    }
+    // Each chord-tone semitone (relative to the root) → its function, read from the quality's formula degree
+    // (ChordTones / C6). The 6 and the bb7 — both semitone 9 — separate by degree, so a 6/m6 voicing lights its 6
+    // as a sixth while dim7 keeps its bb7 as a seventh; tertian qualities are byte-identical to the old mapping.
+    private static Dictionary<int, ChordToneFunction> RoleByInterval(Quality quality) =>
+        ChordTones.Of(new Chord(new PitchClass(0), quality))
+            .ToDictionary(t => ((t.Interval % 12) + 12) % 12, t => t.Function);
 
     private static string FunctionName(ChordToneFunction? role) => role switch
     {
         ChordToneFunction.Root => "root",
         ChordToneFunction.Third => "third",
         ChordToneFunction.Fifth => "fifth",
+        ChordToneFunction.Sixth => "sixth",
         ChordToneFunction.Seventh => "seventh",
         _ => "tension",
     };

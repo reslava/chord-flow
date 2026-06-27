@@ -15,11 +15,14 @@ public static class ChordTones
     {
         ArgumentNullException.ThrowIfNull(chord);
 
-        IReadOnlyList<int> intervals = QualityIntervals.Intervals(chord.Quality);
-        var tones = new ChordTone[intervals.Count];
-        for (int i = 0; i < intervals.Count; i++)
+        // Function is read from the formula's degree spelling (C6), not the semitone — so the enharmonically
+        // ambiguous semitone 9 resolves by quality: degree "bb7" (dim7) → Seventh, degree "6" (6/m6) → Sixth.
+        string[] tokens = QualityFormulas.Formula(chord.Quality)
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        var tones = new ChordTone[tokens.Length];
+        for (int i = 0; i < tokens.Length; i++)
         {
-            tones[i] = new ChordTone(intervals[i], Classify(intervals[i]));
+            tones[i] = new ChordTone(IntervalSpeller.Parse(tokens[i]), Classify(IntervalSpeller.Degree(tokens[i])));
         }
 
         return tones;
@@ -34,16 +37,17 @@ public static class ChordTones
         return Of(chord).Select(t => t.PitchClassFor(chord.Root)).ToArray();
     }
 
-    // Map a semitone interval to its harmonic function. The v1 qualities (C5) only ever place
-    // a tone in one of these bands, so the classification is unambiguous:
-    //   0 → root · 3/4 → third · 6/7/8 → fifth (dim/perfect/aug) · 9/10/11 → seventh (bb7/b7/maj7).
-    private static ChordToneFunction Classify(int interval) => interval switch
+    // Map a formula scale-degree (accidental-stripped: 1/3/5/6/7) to its harmonic function. Degree, not
+    // semitone, so the 6 and the bb7 — both at semitone 9 — separate cleanly. The current qualities only use
+    // these degrees; an unsupported one (a 9th/11th/13th chord) would need its own function and falls through.
+    private static ChordToneFunction Classify(int degree) => degree switch
     {
-        0 => ChordToneFunction.Root,
-        3 or 4 => ChordToneFunction.Third,
-        6 or 7 or 8 => ChordToneFunction.Fifth,
-        9 or 10 or 11 => ChordToneFunction.Seventh,
+        1 => ChordToneFunction.Root,
+        3 => ChordToneFunction.Third,
+        5 => ChordToneFunction.Fifth,
+        6 => ChordToneFunction.Sixth,
+        7 => ChordToneFunction.Seventh,
         _ => throw new ArgumentOutOfRangeException(
-            nameof(interval), interval, "Interval does not map to a v1 chord-tone function."),
+            nameof(degree), degree, "Degree does not map to a chord-tone function."),
     };
 }

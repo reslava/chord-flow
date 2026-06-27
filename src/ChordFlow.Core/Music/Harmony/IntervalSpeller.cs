@@ -8,7 +8,7 @@ namespace ChordFlow.Music.Harmony;
 /// and <b>unfolded</b> so the second octave yields <c>9/10/11/13…</c> for free (used by scales /
 /// arpeggios, which have real octaves).</item>
 /// <item><see cref="Label"/> — the <b>chord-context</b> spelling: role-keyed chord tones
-/// (<c>R/b3/3/b5/5/#5/b7/bb7/7</c>) falling back to the conventional compound tensions
+/// (<c>R/b3/3/b5/5/#5/6/b7/bb7/7</c>) falling back to the conventional compound tensions
 /// (<c>b9/9/#9/11/#11/b13/13</c>) for a note outside the quality.</item>
 /// </list>
 /// The two differ by design: <see cref="Name"/> is indexed by the <i>absolute</i> semitone
@@ -61,6 +61,23 @@ public static class IntervalSpeller
     /// <exception cref="FormatException"><paramref name="token"/> is empty or not a valid interval label.</exception>
     public static int Parse(string token)
     {
+        (int accidental, int degree) = ParseToken(token);
+        int step = (degree - 1) % 7;
+        int octave = (degree - 1) / 7;
+        return 12 * octave + NaturalDegreeSemitone[step] + accidental;
+    }
+
+    /// <summary>
+    /// The scale-<b>degree number</b> of an interval label, accidentals stripped: <c>"b3"→3</c>, <c>"6"→6</c>,
+    /// <c>"bb7"→7</c>, <c>"9"→9</c>. The degree (not the semitone) is what names a chord tone's function, so two
+    /// enharmonic spellings of the same pitch (<c>bb7</c> vs <c>6</c>, both semitone 9) read as different degrees.
+    /// </summary>
+    /// <exception cref="FormatException"><paramref name="token"/> is empty or not a valid interval label.</exception>
+    public static int Degree(string token) => ParseToken(token).Degree;
+
+    // Shared parse for Parse/Degree: an optional run of b/# accidentals (each ∓1 semitone) then a degree number ≥ 1.
+    private static (int Accidental, int Degree) ParseToken(string token)
+    {
         if (string.IsNullOrWhiteSpace(token))
         {
             throw new FormatException("An interval token cannot be empty.");
@@ -80,9 +97,7 @@ public static class IntervalSpeller
                 $"'{token}' is not a valid interval label (expected an optional run of 'b'/'#' then a degree number ≥ 1).");
         }
 
-        int step = (degree - 1) % 7;
-        int octave = (degree - 1) / 7;
-        return 12 * octave + NaturalDegreeSemitone[step] + accidental;
+        return (accidental, degree);
     }
 
     /// <summary>
@@ -130,6 +145,7 @@ public static class IntervalSpeller
             ChordToneFunction.Root => "R",
             ChordToneFunction.Third => s == 3 ? "b3" : "3",
             ChordToneFunction.Fifth => s switch { 6 => "b5", 8 => "#5", _ => "5" },
+            ChordToneFunction.Sixth => "6",
             ChordToneFunction.Seventh => s switch { 9 => "bb7", 11 => "7", _ => "b7" },
             _ => Tension[s],
         };

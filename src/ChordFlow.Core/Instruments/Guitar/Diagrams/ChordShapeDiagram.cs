@@ -66,30 +66,18 @@ public static class ChordShapeDiagram
             ZoneFretMax: zoneMax);
     }
 
-    // Map each chord-tone semitone to its function by tertian position (every v1 quality is stacked thirds).
-    private static Dictionary<int, ChordToneFunction> RoleByInterval(Quality quality)
-    {
-        var map = new Dictionary<int, ChordToneFunction>();
-        IReadOnlyList<int> intervals = QualityIntervals.Intervals(quality);
-        for (int i = 0; i < intervals.Count; i++)
-        {
-            map[intervals[i]] = i switch
-            {
-                0 => ChordToneFunction.Root,
-                1 => ChordToneFunction.Third,
-                2 => ChordToneFunction.Fifth,
-                _ => ChordToneFunction.Seventh,
-            };
-        }
-
-        return map;
-    }
+    // Each chord-tone semitone → its function, read from the quality's formula degree (ChordTones / C6): the 6
+    // and the bb7 (both semitone 9) separate by degree, so a 6/m6 lights its 6 as a sixth, dim7 its bb7 as a seventh.
+    private static Dictionary<int, ChordToneFunction> RoleByInterval(Quality quality) =>
+        ChordTones.Of(new Chord(new PitchClass(0), quality))
+            .ToDictionary(t => ((t.Interval % 12) + 12) % 12, t => t.Function);
 
     private static string FunctionName(ChordToneFunction? role) => role switch
     {
         ChordToneFunction.Root => "root",
         ChordToneFunction.Third => "third",
         ChordToneFunction.Fifth => "fifth",
+        ChordToneFunction.Sixth => "sixth",
         ChordToneFunction.Seventh => "seventh",
         _ => "tension",
     };

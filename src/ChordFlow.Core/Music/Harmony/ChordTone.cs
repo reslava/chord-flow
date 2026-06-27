@@ -1,14 +1,17 @@
 namespace ChordFlow.Music.Harmony;
 
 /// <summary>
-/// The harmonic role a <see cref="ChordTone"/> plays within its chord. Classified from the
-/// semitone interval so guide tones (3rd &amp; 7th) and the root/fifth fall out automatically.
+/// The harmonic role a <see cref="ChordTone"/> plays within its chord. Classified from the quality's
+/// <see cref="QualityFormulas">formula degree</see> (not the raw semitone), so an enharmonically ambiguous
+/// pitch resolves by quality — semitone 9 is the <see cref="Seventh"/> (bb7) of a dim7 but the <see cref="Sixth"/>
+/// (6) of a 6/m6 chord.
 /// </summary>
 public enum ChordToneFunction
 {
     Root,
     Third,
     Fifth,
+    Sixth,
     Seventh,
 }
 

@@ -16,6 +16,8 @@ public class ChordTonesTests
     [InlineData(Quality.Diminished, new[] { 0, 3, 6 })]
     [InlineData(Quality.Diminished7, new[] { 0, 3, 6, 9 })]
     [InlineData(Quality.Augmented, new[] { 0, 4, 8 })]
+    [InlineData(Quality.Major6, new[] { 0, 4, 7, 9 })]
+    [InlineData(Quality.Minor6, new[] { 0, 3, 7, 9 })]
     public void Of_EachQuality_SpellsTheC5IntervalSet(Quality quality, int[] expected)
     {
         var chord = new Chord(new PitchClass(0), quality);
@@ -53,6 +55,21 @@ public class ChordTonesTests
         ChordTone seventh = Assert.Single(tones, t => t.Function == ChordToneFunction.Seventh);
         Assert.Equal(11, third.PitchClassFor(g7.Root).Value);  // B
         Assert.Equal(5, seventh.PitchClassFor(g7.Root).Value); // F
+    }
+
+    [Theory]
+    // Semitone 9 is enharmonically ambiguous — it resolves to a function by the quality's formula degree:
+    // the 6 of a 6/m6 chord vs the bb7 of a dim7. (IN10/C6)
+    [InlineData(Quality.Major6, ChordToneFunction.Sixth)]
+    [InlineData(Quality.Minor6, ChordToneFunction.Sixth)]
+    [InlineData(Quality.Diminished7, ChordToneFunction.Seventh)]
+    public void Of_SemitoneNine_ResolvesToFunctionByQuality(Quality quality, ChordToneFunction expected)
+    {
+        var chord = new Chord(new PitchClass(0), quality);
+
+        ChordTone tone = Assert.Single(ChordTones.Of(chord), t => t.Interval == 9);
+
+        Assert.Equal(expected, tone.Function);
     }
 
     [Fact]

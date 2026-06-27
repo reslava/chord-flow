@@ -23,6 +23,8 @@ public static class QualityFormulas
         [Quality.Diminished] = "1 b3 b5",
         [Quality.Diminished7] = "1 b3 b5 bb7",
         [Quality.Augmented] = "1 3 #5",
+        [Quality.Major6] = "1 3 5 6",
+        [Quality.Minor6] = "1 b3 5 6",
     };
 
     /// <summary>The interval formula (degree+accidental spelling, root-up) of <paramref name="quality"/>.</summary>

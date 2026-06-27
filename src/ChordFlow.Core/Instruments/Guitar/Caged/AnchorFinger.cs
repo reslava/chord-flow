@@ -16,12 +16,27 @@ public static class AnchorFinger
     /// finger). Lowest fret → index; interior → middle (low side) / ring (high side); highest fret → <b>ring</b> for a
     /// tight grip, <b>pinky</b> only when the grip spans the full 4-fret hand (chat-002): the C/G shapes carry the root
     /// on the pinky side, but a 3-fret box reaches it with the ring, a 4-fret box needs the pinky.
+    /// <para>When <paramref name="indexOnStretchBack"/> is set, the index is committed to the box's low edge (the
+    /// E-shape behind-1 stretch-back fret), so the fingers count up one-per-fret from it — a root one fret above the
+    /// stretch lands on the <b>middle</b> finger, not the ring (chat-001 review: E-shape 1-behind grips anchor m).</para>
     /// </summary>
-    public static Finger Derive(int anchorFret, int boxMinFret, int boxMaxFret)
+    public static Finger Derive(int anchorFret, int boxMinFret, int boxMaxFret, bool indexOnStretchBack = false)
     {
         if (boxMaxFret < boxMinFret) throw new ArgumentException("Box max fret is below its min fret.");
         if (anchorFret > boxMaxFret)
             throw new ArgumentOutOfRangeException(nameof(anchorFret), "Anchor fret is above the realized box.");
+
+        // Index pinned to the stretch-back fret at the low edge: every other finger steps up one fret from it.
+        if (indexOnStretchBack)
+        {
+            return (anchorFret - boxMinFret) switch
+            {
+                <= 0 => Finger.Index,
+                1 => Finger.Middle,
+                2 => Finger.Ring,
+                _ => Finger.Pinky,
+            };
+        }
 
         // Root at or below the box's low edge — including an OPEN root (fret 0) that the fretted box excludes
         // (e.g. open D7 "x x 0 2 1 2") — anchors the hand at the low end: index / open position. The fretted

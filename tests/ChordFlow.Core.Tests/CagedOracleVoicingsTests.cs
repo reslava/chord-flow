@@ -10,15 +10,15 @@ using ChordFlow.Instruments.Guitar;
 namespace ChordFlow.Core.Tests;
 
 /// <summary>
-/// Validation for the 36 authored CAGED grips now living in the <b>test-only golden-oracle fixture</b>
+/// Validation for the 46 authored CAGED grips now living in the <b>test-only golden-oracle fixture</b>
 /// (engine-derived-as-app-source IN8): every <c>fixtures/caged-oracle/*.dsl</c> parses and realizes across all
 /// 12 roots inside the 0–15 window; a couple of golden cells anchor the canonical frets. Also pins the other
 /// half of the relocation — the default pack ships <b>no</b> voicings (the engine derives <c>automatic</c> ones).
 /// </summary>
 public class CagedOracleVoicingsTests
 {
-    // maj/min/dom7/maj7/m7 × full CAGED (25) + aug × full CAGED (5) + m7b5/dim7 at E/A/D (6) = 36.
-    private const int ExpectedVoicingCount = 36;
+    // maj/min/dom7/maj7/m7/6/m6 × full CAGED (35) + aug × full CAGED (5) + m7b5/dim7 at E/A/D (6) = 46.
+    private const int ExpectedVoicingCount = 46;
 
     private static DbContextOptions<ChordFlowDbContext> Options(SqliteConnection conn) =>
         new DbContextOptionsBuilder<ChordFlowDbContext>().UseSqlite(conn).Options;

@@ -19,6 +19,8 @@ public class QualityFormulasTests
     [InlineData(Quality.Diminished, "1 b3 b5", new[] { 0, 3, 6 })]
     [InlineData(Quality.Diminished7, "1 b3 b5 bb7", new[] { 0, 3, 6, 9 })]
     [InlineData(Quality.Augmented, "1 3 #5", new[] { 0, 4, 8 })]
+    [InlineData(Quality.Major6, "1 3 5 6", new[] { 0, 4, 7, 9 })]
+    [InlineData(Quality.Minor6, "1 b3 5 6", new[] { 0, 3, 7, 9 })]
     public void Formula_AndDerivedSemitones_MatchTheAuthoredOracle(
         Quality quality, string expectedFormula, int[] expectedSemitones)
     {

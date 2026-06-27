@@ -64,6 +64,19 @@ public class ChordShapeDiagramTests
     }
 
     [Fact]
+    public void Build_Major6_LabelsTheSixthAsSix_NotASeventh()
+    {
+        // IN10: the 6 (semitone 9) must read as a "6" sixth, never the dim7 "bb7" seventh.
+        ChordShape shape = CagedDerivation.Derive(Quality.Major6, CagedShape.E, C, 0, 15);
+
+        FretboardDiagram diagram = ChordShapeDiagram.Build(shape, C);
+
+        FretboardMarker six = Assert.Single(diagram.Markers, m => m.Interval == "6");
+        Assert.Equal("sixth", six.Function);
+        Assert.DoesNotContain(diagram.Markers, m => m.Interval == "bb7");
+    }
+
+    [Fact]
     public void Build_DerivesCombosBeyondTheAuthoredPack()
     {
         // m7b5 is authored only for E/A/D, but the engine derives it in the C shape — the generator case (IN4).

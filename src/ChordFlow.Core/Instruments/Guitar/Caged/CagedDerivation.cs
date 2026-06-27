@@ -24,6 +24,19 @@ public static class CagedDerivation
     private const int MaxChordSpan = MaxChordWidth - 1;
 
     /// <summary>
+    /// The "string-5-is-awkward" qualities whose E-shape grip relocates a colour tone to one fret <i>below</i> the
+    /// bass root: the b5 onto string 2 (m7♭5 / dim7) or the 6 onto string 4 (6 / m6) (design D2). For these, in the
+    /// <b>E shape only</b>, the engine (1) mutes string 5 — it would only re-double the 5th or block the relocated
+    /// 6 — and (2) grants the index's behind-1 stretch-back so the relocated tone is reachable. E-shape-gated (D4):
+    /// every C/A/G/D derivation stays byte-identical, so the m7♭5 A/D oracle grips never regress. Diminished7 keeps
+    /// its existing un-gated stretch-back (the A/D oracle already bakes it in).
+    /// </summary>
+    private static readonly IReadOnlySet<Quality> EShapeSkipString5 = new HashSet<Quality>
+    {
+        Quality.HalfDiminished7, Quality.Diminished7, Quality.Major6, Quality.Minor6,
+    };
+
+    /// <summary>
     /// Derive the <see cref="ChordShape"/> for <paramref name="quality"/> in the CAGED <paramref name="shape"/> at
     /// <paramref name="root"/>, placed in the neck region <c>[<paramref name="minFret"/>, <paramref name="maxFret"/>]</c>
     /// (the region whose lowest occurrence of the root on the shape's primary string anchors the grip). Throws if
@@ -56,9 +69,13 @@ public static class CagedDerivation
         // the bass root, so up-stacked dim7 grips get the index's behind-1 reach (one "stretch-back" fret). The
         // selector lets that fret voice only an uncovered tone, never a doubling — so it grabs the low bb7 without
         // dragging colour tones below the bass on every other quality. Other qualities reach forward only.
+        // E-shape exception (D2/D4): for the string-5-awkward qualities in the E shape, mute string 5 and grant the
+        // index's behind-1 stretch-back. Gated on shape == E so all other shapes derive exactly as before.
+        bool eShapeException = shape == CagedShape.E && EShapeSkipString5.Contains(quality);
+
         int reachAhead = Math.Min(HandReach.Of(Finger.Index).Ahead, MaxChordSpan);
         int reachBehind = Math.Min(HandReach.Of(Finger.Pinky).Behind, MaxChordSpan);
-        bool allowStretchBack = stacksUp && quality == Quality.Diminished7;
+        bool allowStretchBack = stacksUp && (quality == Quality.Diminished7 || eShapeException);
         int stretchBack = allowStretchBack ? HandReach.Of(Finger.Index).Behind : 0;
         FretWindow window = stacksUp
             ? new FretWindow(Math.Max(0, bassFret - stretchBack), bassFret + reachAhead)
@@ -70,6 +87,10 @@ public static class CagedDerivation
         var candidatesByString = new Dictionary<int, IReadOnlyList<ToneCandidate>>();
         for (int s = bassRoot; s >= 1; s--)
         {
+            // E-shape exception (D2): string 5 is left out of candidate building for the awkward qualities, so it
+            // is muted in the assembled grip — freeing the hand to reach the colour tone relocated below the root.
+            if (s == 5 && eShapeException) continue;
+
             var candidates = new List<ToneCandidate>();
             foreach (int tone in distinctTones)
             {
@@ -113,7 +134,10 @@ public static class CagedDerivation
             .Select(kv => kv.Value.Fret)
             .DefaultIfEmpty(anchors[0].Fret)
             .First();
-        Finger anchorFinger = AnchorFinger.Derive(anchorFret, boxMin, boxMax);
+        // E-shape behind-1: when the grip actually reached the stretch-back fret (its low edge), the index is spent
+        // on that fret, so the root one fret up anchors with the middle finger (chat-001 review).
+        bool indexOnStretchBack = eShapeException && stretchBackFret is int sbf && boxMin == sbf;
+        Finger anchorFinger = AnchorFinger.Derive(anchorFret, boxMin, boxMax, indexOnStretchBack);
 
         // Assemble one entry per string, low-E→high-E (6 → 1): muted below the bass root, played at/above it.
         var strings = new List<ChordShapeString>(Fretboard.StringCount);

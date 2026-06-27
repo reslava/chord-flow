@@ -63,6 +63,9 @@ public class VoicingDslParserTests
     [InlineData("Cmin", Quality.Minor)]
     [InlineData("Cmaj7", Quality.Major7)]
     [InlineData("C-", Quality.Minor)]
+    [InlineData("C6", Quality.Major6)]
+    [InlineData("Cm6", Quality.Minor6)]
+    [InlineData("C-6", Quality.Minor6)]
     public void Parse_QualitySuffixes_MapToQuality(string chord, Quality expected)
     {
         VoicingShape shape = VoicingDslParser.Parse($"voicing {chord} shape:A root:5 frets: x 3 2 0 1 3");

@@ -23,6 +23,8 @@ window.ChordFlowCagedChords = (function () {
     { value: "HalfDiminished7", label: "m7b5" },
     { value: "Diminished7", label: "dim7" },
     { value: "Augmented", label: "aug" },
+    { value: "Major6", label: "6" },
+    { value: "Minor6", label: "m6" },
   ];
 
   const $ = (id) => document.getElementById(id);

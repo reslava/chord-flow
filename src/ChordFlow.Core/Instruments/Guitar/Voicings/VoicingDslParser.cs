@@ -65,6 +65,9 @@ public static class VoicingDslParser
             ["m7b5"] = Quality.HalfDiminished7,
             ["+"] = Quality.Augmented,
             ["aug"] = Quality.Augmented,
+            ["6"] = Quality.Major6,
+            ["m6"] = Quality.Minor6,
+            ["-6"] = Quality.Minor6,
         };
 
     // Natural note letter → pitch class (C = 0 .. B = 11), before any accidental.

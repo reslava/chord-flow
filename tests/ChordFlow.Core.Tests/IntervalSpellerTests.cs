@@ -56,6 +56,7 @@ public class IntervalSpellerTests
     [InlineData(6, ChordToneFunction.Fifth, "b5")]
     [InlineData(7, ChordToneFunction.Fifth, "5")]
     [InlineData(8, ChordToneFunction.Fifth, "#5")]   // aug
+    [InlineData(9, ChordToneFunction.Sixth, "6")]     // 6 / m6
     [InlineData(9, ChordToneFunction.Seventh, "bb7")] // dim7
     [InlineData(10, ChordToneFunction.Seventh, "b7")]
     [InlineData(11, ChordToneFunction.Seventh, "7")]
@@ -145,6 +146,16 @@ public class IntervalSpellerTests
     [InlineData("#0")]
     public void Parse_RejectsInvalidTokens(string token) =>
         Assert.Throws<FormatException>(() => IntervalSpeller.Parse(token));
+
+    [Theory]
+    [InlineData("1", 1)]
+    [InlineData("b3", 3)]
+    [InlineData("5", 5)]
+    [InlineData("6", 6)]      // the sixth — degree 6, distinct from the bb7 (degree 7) at the same semitone
+    [InlineData("bb7", 7)]
+    [InlineData("9", 9)]
+    public void Degree_StripsAccidentalsToTheDegreeNumber(string token, int expected) =>
+        Assert.Equal(expected, IntervalSpeller.Degree(token));
 
     [Fact]
     public void ParseSet_SplitsAndDedupesPreservingOrder()

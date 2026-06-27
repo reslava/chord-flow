@@ -4,7 +4,7 @@ using ChordFlow.Instruments.Guitar;
 namespace ChordFlow.Core.Tests;
 
 /// <summary>
-/// Loads the <b>golden-oracle voicing fixture</b> — the 36 authored CAGED grips that the app no longer ships
+/// Loads the <b>golden-oracle voicing fixture</b> — the 46 authored CAGED grips that the app no longer ships
 /// (engine-derived-as-app-source IN8). They live under <c>fixtures/caged-oracle/*.dsl</c> (copied next to the
 /// test assembly) and exist only to verify the engine (<see cref="CagedDerivation"/>) against the authored
 /// fingerings. Each <c>.dsl</c> is a plain voicing line (no catalog header), so <see cref="VoicingDslParser"/>

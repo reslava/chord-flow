@@ -24,6 +24,8 @@ public static class AutomaticVoicingId
         [Quality.Diminished] = "dim",
         [Quality.Diminished7] = "dim7",
         [Quality.Augmented] = "aug",
+        [Quality.Major6] = "6",
+        [Quality.Minor6] = "m6",
     };
 
     private static readonly IReadOnlyDictionary<string, Quality> ByToken =

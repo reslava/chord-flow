@@ -33,4 +33,10 @@ public enum Quality
 
     /// <summary>Augmented triad — {0, 4, 8}.</summary>
     Augmented,
+
+    /// <summary>Major 6th — {0, 4, 7, 9}; the major triad plus the 6th (1 3 5 6).</summary>
+    Major6,
+
+    /// <summary>Minor 6th — {0, 3, 7, 9}; the minor triad plus the (major) 6th (1 b3 5 6).</summary>
+    Minor6,
 }

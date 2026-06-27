@@ -38,6 +38,7 @@ window.ChordFlowFretboard = (function () {
     root: "#e2574c",
     third: "#3b82f6",
     fifth: "#22a06b",
+    sixth: "#f59e0b",
     seventh: "#a855f7",
     tension: "#9aa0a6",
   };
@@ -46,10 +47,18 @@ window.ChordFlowFretboard = (function () {
     root: "Root",
     third: "3rd",
     fifth: "5th",
+    sixth: "6th",
     seventh: "7th",
     tension: "Tension",
   };
   const SHAPE_NAMES = ["circle", "square", "diamond", "ring"]; // MarkerShape ordinal → name
+  // Sort weight for a legend entry: the interval's degree number, so the legend reads low→high (1, 3, 5, 6, 7, …)
+  // instead of string-encounter order. "R" is the root (1); any token's degree is its first run of digits.
+  function legendRank(interval) {
+    if (interval === "R") return 1;
+    const m = String(interval).match(/\d+/);
+    return m ? parseInt(m[0], 10) : 999;
+  }
 
   // Geometry (vertical chord box)
   const COL_GAP = 26;
@@ -429,16 +438,21 @@ window.ChordFlowFretboard = (function () {
       const wrap = document.createElement("div");
       wrap.style.cssText = "display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;padding:.3rem .5rem .6rem;";
       const seen = new Set();
+      const entries = [];
       for (const marker of model.markers) {
         const { key, label } = legendKeyLabel(marker);
         if (seen.has(key)) continue;
         seen.add(key);
+        entries.push({ label, color: colorFor(marker), rank: legendRank(marker.interval) });
+      }
+      entries.sort((a, b) => a.rank - b.rank);
+      for (const entry of entries) {
         const item = document.createElement("span");
         item.style.cssText = "display:inline-flex;align-items:center;gap:.25rem;font-size:.7rem;color:#9aa0a6;";
         const dot = document.createElement("span");
-        dot.style.cssText = `width:10px;height:10px;border-radius:50%;background:${colorFor(marker)};display:inline-block;`;
+        dot.style.cssText = `width:10px;height:10px;border-radius:50%;background:${entry.color};display:inline-block;`;
         item.appendChild(dot);
-        item.appendChild(document.createTextNode(label));
+        item.appendChild(document.createTextNode(entry.label));
         wrap.appendChild(item);
       }
       return wrap;

@@ -10,11 +10,11 @@ public class EngineVoicingSourceTests
     private readonly EngineVoicingSource _source = new();
 
     [Fact]
-    public void List_Voicing_Yields36AutomaticRows()
+    public void List_Voicing_Yields46AutomaticRows()
     {
         IReadOnlyList<ContentItem> rows = _source.List(ContentEntity.Voicing);
 
-        Assert.Equal(36, rows.Count);
+        Assert.Equal(46, rows.Count);
         Assert.All(rows, r => Assert.Equal("automatic", r.Source));
         Assert.All(rows, r => Assert.Null(r.PackName));
     }

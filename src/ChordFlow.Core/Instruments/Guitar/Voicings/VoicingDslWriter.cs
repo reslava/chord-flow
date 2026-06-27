@@ -26,6 +26,8 @@ public static class VoicingDslWriter
             [Quality.Diminished] = "dim",
             [Quality.Diminished7] = "dim7",
             [Quality.Augmented] = "aug",
+            [Quality.Major6] = "6",
+            [Quality.Minor6] = "m6",
         };
 
     /// <summary>The canonical-C DSL line for <paramref name="shape"/>.</summary>

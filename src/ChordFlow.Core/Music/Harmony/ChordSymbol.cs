@@ -21,6 +21,8 @@ public static class ChordSymbol
             [Quality.Diminished] = "dim",
             [Quality.Diminished7] = "dim7",
             [Quality.Augmented] = "aug",
+            [Quality.Major6] = "6",
+            [Quality.Minor6] = "m6",
         };
 
     /// <summary>The display symbol for <paramref name="chord"/>, root spelled against <paramref name="key"/>.</summary>

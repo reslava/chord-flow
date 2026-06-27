@@ -2,9 +2,10 @@
 type: idea
 id: id_01KVYRNSY7JPFKF3TWYKJYWH6V
 title: Derive CAGED 6th voicings
-status: draft
+status: done
 created: 2026-06-25
-version: 1
+updated: 2026-06-26
+version: 2
 tags: []
 parent_id: null
 requires_load: []

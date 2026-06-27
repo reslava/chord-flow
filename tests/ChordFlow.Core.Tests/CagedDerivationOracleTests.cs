@@ -18,7 +18,7 @@ public class CagedDerivationOracleTests
 
     public CagedDerivationOracleTests(ITestOutputHelper output) => _out = output;
 
-    // The 36 authored voicings (the test-only oracle fixture, fixtures/caged-oracle/*.dsl), frets low-E→high-E (string 6 → 1).
+    // The 46 authored voicings (the test-only oracle fixture, fixtures/caged-oracle/*.dsl), frets low-E→high-E (string 6 → 1).
     private static readonly (Quality Quality, CagedShape Shape, string Frets)[] Authored =
     {
         (Quality.Major, CagedShape.C, "x 3 2 0 1 0"),
@@ -52,11 +52,11 @@ public class CagedDerivationOracleTests
         (Quality.Minor7, CagedShape.D, "x x 10 12 11 11"),
 
         (Quality.HalfDiminished7, CagedShape.A, "x 3 4 3 4 6"),
-        (Quality.HalfDiminished7, CagedShape.E, "8 9 8 8 11 8"),
+        (Quality.HalfDiminished7, CagedShape.E, "8 x 8 8 7 8"),
         (Quality.HalfDiminished7, CagedShape.D, "x x 10 11 11 11"),
 
         (Quality.Diminished7, CagedShape.A, "x 3 4 2 4 5"),
-        (Quality.Diminished7, CagedShape.E, "8 9 7 8 10 8"),
+        (Quality.Diminished7, CagedShape.E, "8 x 7 8 7 8"),
         (Quality.Diminished7, CagedShape.D, "x x 10 11 10 11"),
 
         (Quality.Augmented, CagedShape.C, "x 3 2 1 1 0"),
@@ -64,6 +64,18 @@ public class CagedDerivationOracleTests
         (Quality.Augmented, CagedShape.G, "8 7 6 5 5 8"),
         (Quality.Augmented, CagedShape.E, "8 11 10 9 9 8"),
         (Quality.Augmented, CagedShape.D, "x x 10 13 13 12"),
+
+        (Quality.Major6, CagedShape.C, "x 3 2 2 1 3"),
+        (Quality.Major6, CagedShape.A, "x 3 5 5 5 5"),
+        (Quality.Major6, CagedShape.G, "8 7 7 5 8 8"),
+        (Quality.Major6, CagedShape.E, "8 x 7 9 8 8"),
+        (Quality.Major6, CagedShape.D, "x x 10 12 10 12"),
+
+        (Quality.Minor6, CagedShape.C, "x 3 1 2 1 3"),
+        (Quality.Minor6, CagedShape.A, "x 3 5 5 4 5"),
+        (Quality.Minor6, CagedShape.G, "8 6 7 5 8 8"),
+        (Quality.Minor6, CagedShape.E, "8 x 7 8 8 8"),
+        (Quality.Minor6, CagedShape.D, "x x 10 12 10 11"),
     };
 
     [Fact]
