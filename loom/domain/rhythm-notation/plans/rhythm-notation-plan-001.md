@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVW7YEZ70AXE0NNAE82DJWTX
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.12.0
 steps:
   - id: add-model-fields-rhythmevent-tiedtonext-and
     order: 1

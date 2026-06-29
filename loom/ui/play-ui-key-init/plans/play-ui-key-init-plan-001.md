@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVVAXKWG4F6SFKSPPC2P4CPG
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.12.0
 steps:
   - id: core-expose-song-initialkey-on-the
     order: 1

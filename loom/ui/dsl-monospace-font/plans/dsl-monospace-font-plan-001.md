@@ -12,6 +12,7 @@ tags: []
 parent_id: null
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.12.0
 steps:
   - id: define-the-shared-dsl-input-class
     order: 1

@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KW481X6B93Y3QPX8G2E7XMP2
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.12.0
 steps:
   - id: voicingfamily-shellreduction-doubled-shell
     order: 1

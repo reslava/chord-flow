@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVSZBZQ1WZB5S31GSNS0F3QD
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.12.0
 steps:
   - id: scroll-mode-fix-the-actual-annoyance
     order: 1

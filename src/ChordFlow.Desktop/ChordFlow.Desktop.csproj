@@ -10,7 +10,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>0.11.0</Version>
+    <Version>0.12.0</Version>
     <!-- Ship as ChordFlow.exe (not ChordFlow.Desktop.exe) — the end-user-facing name. -->
     <AssemblyName>ChordFlow</AssemblyName>
     <!-- App icon (the .exe + window icon) — committed at the repo root, shared with the docs. -->

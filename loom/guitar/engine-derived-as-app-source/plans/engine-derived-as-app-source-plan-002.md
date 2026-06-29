@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVZVJC1A52Q0GSJGRHXQJZ8B
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.12.0
 steps:
   - id: pack-import-reconcile
     order: 1

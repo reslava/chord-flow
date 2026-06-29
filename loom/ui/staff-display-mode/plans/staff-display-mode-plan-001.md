@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVX5ZNHEZKPEHGC1DYA84MQ0
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.12.0
 steps:
   - id: persistence-seam-bridge-core
     order: 1

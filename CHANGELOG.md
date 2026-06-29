@@ -6,6 +6,63 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-06-27
+
+The voicing engine becomes the app's living comping source. ChordFlow now derives **every** comping
+voicing from its CAGED engine — and shows **every content source side by side** (the default pack, your
+own edits, and a new computed `automatic` source) instead of hiding them. The engine also grows
+**voicing families** — compact **shell** and **doubled-shell** grips, picked per chord — and **6th
+chords** (maj6 / m6) across all five CAGED shapes. Notation gets more accurate too: the **Rhythm DSL**
+now describes true notated durations (**dotted notes + ties**, with rhythm winning over harmony),
+progressions accept **chromatic (#/b) degrees**, and a **tab / standard / both** staff-display switch
+rides the score. Plus a jazz-blues song bundle, monospace DSL editors, and an OffScreen score-follow mode.
+
+### Added
+- **Multi-source content model.** Content lists now show every source side by side — the default
+  **package**, your **user** edits, and the computed **automatic** source — each carrying a per-source
+  badge and filterable by a transient source chip. Editing a package item **forks a user copy** (never a
+  silent same-id shadow); the old BuiltIn tier is retired (the default pack is now an ordinary package).
+- **Engine-derived automatic comping.** The CAGED derivation engine is now the app's `automatic` voicing
+  source: a Features-layer **CompingResolver** builds a comping plan (user > package > automatic fallback,
+  closest-ranked) and the renderer becomes a pure formatter consuming it, with a Practice **min/max
+  fret-region** control. The default pack ships zero authored voicings — the engine fills them (the
+  authored grips live on as a test-only golden oracle).
+- **Voicing families — shell & doubled-shell.** Comping can pick a **shell** voicing (compact root + 3rd +
+  7th/6th guide-tone grip, 5th omitted) or a **doubled-shell** (chord minus the 5th) instead of the full
+  CAGED grip; a **Family** selector on the CAGED Chords page filters shape + quality per family.
+- **CAGED 6th chords (maj6 / m6).** Major6 and Minor6 join the derived five-shape CAGED qualities, with an
+  E-shape grip tweak (mute string 5 + behind-1 stretch) for the string-5-awkward qualities (m7b5, dim7, 6, m6).
+- **Chromatic (#/b) progression degrees.** A Progression-DSL degree can take a single leading `#`/`b`
+  (e.g. `#4dim7` → B°7 in F), resolved to the correct pitch and a **letter-pure** spelled chord symbol
+  (the written degree spells the root, no enharmonic collapse).
+- **Accurate-notation Rhythm DSL — dotted notes & ties.** The Rhythm DSL now notates real durations:
+  `.` extends a sounding note, `-` is silence, `_` is a **tied** note (a leading `_` ties across the
+  barline). Ties are held — **rhythm wins over harmony**, so a tie over a chord change keeps the previous
+  chord — and the renderer emits dotted notes (`{d}`) and ties.
+- **Staff-display mode (tab / standard / both).** A three-way switch on the shared score component shows
+  tablature, standard notation, or both — a display-only choice over unchanged content, persisted as a
+  global preference and available in Practice + Content preview.
+- **Jazz-blues song bundle.** The default pack gains a **Standard Jazz Blues** progression and a
+  **Jazz Blues in F** song.
+- **OffScreen score follow + transport controls.** A new **OffScreen** scroll mode page-flips the score
+  instead of creeping per-frame; a transport **Scroll** select (Off / OffScreen / Continuous) and a
+  **Now / Next** toggle for the fretboards now sit on the score transport.
+
+### Changed
+- **Practice key seeds from the selected song.** Choosing a song seeds the Practice key picker from the
+  song's own key (progressions still default to C); a saved exercise's key override still wins.
+- **Monospace DSL editors.** Every DSL text input (the content-CRUD editor + the Scales interval input)
+  now renders in a ligature-free monospace font so cells and columns line up.
+- **Chord-tone function derives from the formula degree.** Chord-tone colouring + legend now read from the
+  quality's formula degree, so semitone 9 reads **6** for a 6/m6 chord vs **bb7** for dim7.
+
+### Fixed
+- **Open-root comping no longer throws.** `AnchorFinger.Derive` now handles an open root (e.g. open D7),
+  unblocking open-position comping.
+
+### Tests
+- Full `ChordFlow.Core` xUnit suite green (735).
+
 ## [0.11.0] — 2026-06-23
 
 The score comes alive. ChordFlow gains **Now/Next chord fretboards** — two fret-boxes above the
@@ -428,6 +485,7 @@ as tablature, and plays it back with a synchronized beat cursor.
   the next phase).
 - No audio-input accuracy detection (out of scope for v1).
 
+[0.12.0]: https://github.com/reslava/chord-flow/releases/tag/v0.12.0
 [0.11.0]: https://github.com/reslava/chord-flow/releases/tag/v0.11.0
 [0.10.0]: https://github.com/reslava/chord-flow/releases/tag/v0.10.0
 [0.9.0]: https://github.com/reslava/chord-flow/releases/tag/v0.9.0

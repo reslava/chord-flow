@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KVZ4XQ47ZZ3DWFR65Z5AW1RH
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.12.0
 steps:
   - id: unify-provenance-default-pack-is-a
     order: 1

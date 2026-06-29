@@ -7,20 +7,42 @@ guitarists practice **rhythm patterns over chord progressions**. The core is an
 exercise-generation engine (progressions × keys × rhythms × voicings), rendered as
 guitar tablature with **synchronized playback** via [alphaTab](https://www.alphatab.net/).
 
-> **Status:** v0.11.0 — a **content-driven** trainer over a music-theory-first kernel with a growing
+> **Status:** v0.12.0 — a **content-driven** trainer over a music-theory-first kernel with a growing
 > guitar **shape engine**. Progressions, songs, rhythms, and voicings are authored in compact **text
 > DSLs**, shipped as importable **content packs**, and assembled through an on-screen **workbench**;
 > shapes render through a reusable **fretboard-diagram** layer over a provably **instrument-agnostic**
-> kernel. New this release: **Now/Next chord fretboards** above the Practice score that show the
-> current + upcoming chord as real voicings and follow the beat as it plays, a **comping picker** in
-> the Content preview, and opt-in **score auto-scroll**. Windows-only for now (downloadable build below).
+> kernel. New this release: the **CAGED engine is now the app's comping source**, every **content
+> source** (package / your edits / computed `automatic`) is shown side by side, the engine grows
+> **voicing families** (shell + doubled-shell) and **6th chords**, and notation gets more accurate —
+> **dotted notes + ties**, **chromatic (#/b) degrees**, and a **tab / standard / both** staff switch.
+> Windows-only for now (downloadable build below).
 
-## Features (v0.11.0)
+## Features (v0.12.0)
+
+- **Engine-derived comping + multi-source content** — the CAGED derivation engine is now the app's
+  **automatic** voicing source (a `CompingResolver` ranks user > package > automatic with a Practice
+  fret-region control), and every content source — the default **package**, your **user** edits, and the
+  computed **automatic** source — is shown **side by side** with per-source badges and a source filter;
+  editing a package item forks a user copy
+
+- **Voicing families & 6th chords** — comping can pick a compact **shell** or **doubled-shell** grip
+  instead of the full CAGED voicing (a **Family** selector on the CAGED Chords page), and **maj6 / m6**
+  join the derived five-shape CAGED qualities
+
+- **Accurate-notation Rhythm DSL** — `.` extends a sounding note, `-` is silence, and `_` is a **tied**
+  note (across the barline too); ties are held so **rhythm wins over harmony**, rendering true **dotted
+  notes + ties**
+
+- **Chromatic (#/b) progression degrees** — a degree can take a leading `#`/`b` (e.g. `#4dim7` → B°7 in F),
+  resolved to a **letter-pure** spelled chord symbol
+
+- **Staff-display mode** — a **tab / standard / both** switch on the score (a display-only choice over
+  unchanged content, persisted globally), in Practice + Content preview
 
 - **Now/Next chord fretboards** — two fret-boxes above the Practice score show the chord playing
   **now** and the one coming **next** as real voicings, synced to playback (the engine emits a chord
-  schedule alongside the tab, so the boards always match what's comped); the first slice of a live
-  theory overlay on the staff
+  schedule alongside the tab, so the boards always match what's comped), with **OffScreen** score-follow
+  and a transport **Scroll** / **Now/Next** control
 
 - **Content authored in text DSLs** — a key-independent
   **[Progression & Song DSL](loom/refs/chordflow-dsl-reference.md)** (multiple chords per
@@ -147,11 +169,13 @@ Some downloads are zipped — extract the `.sf2` / `.sf3` and place it in the fo
 dotnet test
 ```
 
-645 xUnit tests cover the `Music` kernel (incl. the `IntervalSpeller` interval-naming + parsing
-authority and `QualityFormulas`), the guitar **interval lattice**, **CAGED octave shapes**, and the
-**CAGED chord-derivation engine** (frets + anchor-finger oracles, 36/36), the content DSLs/parsers,
-packs, persistence, `AlphaTexRenderer`, and `NetArchTest` architecture-boundary tests asserting
-`ChordFlow.Music` stays instrument-agnostic and the `Music.*` sub-namespaces stay an acyclic DAG.
+735 xUnit tests cover the `Music` kernel (incl. the `IntervalSpeller` interval-naming + parsing
+authority and `QualityFormulas`), the guitar **interval lattice**, **CAGED octave shapes**, the
+**CAGED chord-derivation engine** + **voicing families** (shell / doubled-shell, against a golden
+oracle), the **CompingResolver** + multi-source content model, the content DSLs/parsers (incl. the
+dotted/tie Rhythm DSL and chromatic progression degrees), packs, persistence, `AlphaTexRenderer`, and
+`NetArchTest` architecture-boundary tests asserting `ChordFlow.Music` stays instrument-agnostic and the
+`Music.*` sub-namespaces stay an acyclic DAG.
 
 ## Project layout
 
@@ -164,7 +188,8 @@ src/ChordFlow.Core/        host-agnostic engine (net10.0, zero UI refs)
                    fretboard geometry + interval lattice + CAGED octave shapes, voicings/CAGED,
                    fret-box / scale / CAGED-shape diagrams)
   Rendering/       AlphaTexRenderer (only alphaTex-aware code)
-  Features/        GenerateExercise, PracticeSession, ExerciseLibrary, Progress, Scales, Caged
+  Features/        GenerateExercise, PracticeSession, ExerciseLibrary, Progress, Scales, Caged,
+                   Voicings (CompingResolver + EngineVoicingSource), ContentCrud, Packs
   Bridge/          C#↔JS envelope DTOs + inbound message router (host-agnostic)
   Persistence/     SQLite (EF Core) store + migrations
 src/ChordFlow.Desktop/     WinForms + WebView2 host (net10.0-windows)

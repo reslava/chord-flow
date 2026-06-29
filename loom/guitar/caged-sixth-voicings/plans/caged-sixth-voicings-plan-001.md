@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KW2G8YYBE2QE4M78H519RH2A
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.12.0
 steps:
   - id: qualities-major6-minor6
     order: 1
