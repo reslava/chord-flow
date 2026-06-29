@@ -1,1 +1,2 @@
 @.loom/CLAUDE.md
+@CLAUDE-LOCAL.md
