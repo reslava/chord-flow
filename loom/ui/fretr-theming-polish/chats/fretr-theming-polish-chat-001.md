@@ -9,7 +9,7 @@ version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 5
+last_ai_block: 7
 ---
 # fretr-theming-polish Chat
 
@@ -105,3 +105,13 @@ dark/light working nicely!
 
 If this thread is finished then 
 commit
+
+## AI:
+
+All done — thread wrapped. 🎉
+
+- **Req reconciled** → `req.md` **v2 (re-locked)**: IN7 now lists all four standalone pages (incl. CAGED octave shapes); C2 relaxed to "light preserves the dark-on-white diagram; the component owns its themed surface"; IN1 + EX3 wording brought in line (theme covers the surface, not just chrome). All handles preserved (append-only).
+- **Step 5 ✅** → plan **auto-closed to `done`** (5/5).
+- **Committed** → `ccf731a` *feat: FretR light/dark theme + display polish* (17 files: the FretR/GuitarVoicingsR/standalone-page changes, sandbox, ref sync, and the thread docs + the `voicings-pages-ia` draft idea).
+
+**`fretr-theming-polish` is complete.** Next open front whenever you want it: the **`voicings-pages-ia`** design conversation — which is also where the **CAGED → Octave Shapes** rename lives.
