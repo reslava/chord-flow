@@ -89,7 +89,7 @@ window.ChordFlowFretboard = (function () {
   // Geometry (vertical chord box)
   const COL_GAP = 26;
   const ROW_H = 24;
-  const LEFT = 22; // room for a position label
+  const LEFT = 34; // room for a position label (end-anchored at LEFT-8; sized for a 2-digit "12fr")
   const TOP = 22; // room for open/mute markers
   const DOT_R = 9;
   const ZONE_MARGIN = 2; // frets of context kept each side of the zone band so it reads within the neck, not edge-to-edge

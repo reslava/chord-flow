@@ -2,7 +2,7 @@
 type: idea
 id: id_01KW0HVVBWNZ9J9JKDWE9KY1TX
 title: Two-digit fret-position label clipped in the SVG fret-box
-status: draft
+status: done
 created: 2026-06-25
 version: 1
 tags: []
