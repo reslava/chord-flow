@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 3
+last_ai_block: 5
 ---
 # fretboard-fret-label-clip Chat
 
@@ -53,3 +53,11 @@ Plan written, started, and both steps done — `fretboard-fret-label-clip-plan-0
 
 Fixed
 Commit
+
+## AI:
+
+Committed and pushed to `main`.
+
+`27e2dc3 fix: two-digit fret-position label clipped in vertical chord-box`
+
+Staged in the one unit: the `LEFT 22→34` fix in `fretboard-render-component.js` plus this thread's idea/chat/plan docs. Thread's done — nice clean one-liner.
