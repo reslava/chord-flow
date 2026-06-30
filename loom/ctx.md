@@ -4,8 +4,8 @@ id: loom-ctx
 title: Loom — Global Context
 status: active
 created: 2026-06-07
-updated: 2026-06-21
-version: 10
+updated: 2026-06-29
+version: 11
 tags: [ctx, summary]
 parent_id: null
 requires_load: []
@@ -18,6 +18,8 @@ source_hash: 61c479f6d5a2f19917ec21349afc4694cf705f66
 ## 1. What this project is
 
 **ChordFlow — Rhythm & Progression Trainer for Guitar.** A **local, desktop-first** app that helps guitarists practice **rhythm patterns over chord progressions**. The core is an **exercise-generation engine** (progressions × keys × rhythms × voicings × difficulty), not a tab viewer. Exercises are rendered as guitar tablature with **synchronized playback** (highlighted beat in time) via [alphaTab](https://www.alphatab.net/); the engine emits the **alphaTex** text DSL as its render format. Solo-dev MVP: simplest, most independent, ~$0 operating cost, C# where possible.
+
+**Product identity (north star) — ChordFlow is a chord *reasoner*, not a chord viewer.** Voicings are *derived* from theory through a **declarative, introspectable library of derivation operators** (the Voicings Engine), so the app can *explain*, *re-voice*, and *voice-lead* chords rather than display a frozen chord dictionary. The engine is dogfooded through an **inspector/playground page**. This is ChordFlow's core differentiator — see `loom/guitar/voicings-engine/` and `loom/refs/voicings-engine-rules-reference.md`.
 
 ## 2. Architecture (baseline — see `loom/refs/chordflow-architecture-reference.md` + `loom/chordflow/mvp/mvp-design.md`)
 

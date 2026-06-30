@@ -231,6 +231,7 @@ const ChordFlow = (function () {
 
   // --- view toggle (Practice ⇄ Content) ------------------------------------
   function setupViewToggle() {
+    let voicingsView = null; // lazy GuitarVoicingsR handle (created on first show of the Voicings tab)
     // The top-level views in the single page; each lazily inits its module on first show.
     const views = {
       practice: { nav: $("navPractice"), el: $("practice-view") },
@@ -242,6 +243,12 @@ const ChordFlow = (function () {
         onShow: () => window.ChordFlowCagedShapes && window.ChordFlowCagedShapes.show() },
       cagedChords: { nav: $("navCagedChords"), el: $("caged-chords-view"),
         onShow: () => window.ChordFlowCagedChords && window.ChordFlowCagedChords.show() },
+      voicings: { nav: $("navVoicings"), el: $("voicings-view"),
+        onShow: () => {
+          if (!voicingsView && window.ChordFlowGuitarVoicings)
+            voicingsView = window.ChordFlowGuitarVoicings.create($("voicings-mount"));
+          if (voicingsView) voicingsView.show();
+        } },
     };
 
     function show(viewName) {

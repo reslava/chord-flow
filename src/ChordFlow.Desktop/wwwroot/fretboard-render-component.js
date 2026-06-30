@@ -20,11 +20,16 @@
 //     orientation: "vertical",  // "vertical" = chord box (strings as columns) | "horizontal" = neck (frets left→right).
 //     labelMode:   "interval",  // "interval" | "note" — toggled by the component's own toolbar.
 //     showLegend:  true,
+//     title:       null,        // optional per-cell heading (e.g. "Dominant 7 (shell) — E shape"); overrides the
+//                               //   diagram's model.title when set. A grid cell passes the voicing's display name here.
+//     id:          null,        // optional synthetic voicing id (e.g. "auto:shell:dom7:E"); shown with a copy-to-
+//                               //   clipboard control — the oracle/debug handle (the seed of "explain this voicing").
 //     palette:     null,        // null = default 5-color function palette; or { "b3":"#…", "*":"#000" } keyed on
 //                               //   interval, with an optional "*" fallback color for any interval not listed.
 //     controls:    {},          // per-control visibility, all true by default; a consumer hides what it fixes:
 //                               //   { orientation, fretWindow, label, legend }. e.g. a scale page locks horizontal
-//                               //   with controls:{ orientation:false }; a voicing hides controls:{ fretWindow:false }.
+//                               //   with controls:{ orientation:false }; inside a VoicingsR grid the cell locks
+//                               //   controls:{ orientation:false } so the grid's one global toggle drives every cell.
 //   });
 //   view.render(model); view.setLabelMode("note"); view.setOrientation("horizontal"); view.dispose();
 "use strict";
@@ -80,10 +85,43 @@ window.ChordFlowFretboard = (function () {
     return String(shape || "circle").toLowerCase();
   }
 
+  // Copy text to the clipboard with brief "Copied!" feedback on the triggering button. Prefers the async
+  // Clipboard API (available over the https virtual host); falls back to a hidden-textarea execCommand copy.
+  function copyToClipboard(text, btn) {
+    const flash = () => {
+      if (!btn) return;
+      const prev = btn.textContent;
+      btn.textContent = "Copied!";
+      setTimeout(() => (btn.textContent = prev), 1200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(flash, () => fallbackCopy(text, flash));
+    } else {
+      fallbackCopy(text, flash);
+    }
+  }
+
+  function fallbackCopy(text, done) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.cssText = "position:fixed;top:-1000px;opacity:0;";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      done();
+    } catch (_) {
+      /* clipboard unavailable — silently no-op */
+    }
+    document.body.removeChild(ta);
+  }
+
   function create(container, opts) {
     opts = opts || {};
     const palette = opts.palette || null; // override, keyed on interval token (with an optional "*" fallback)
     const controls = opts.controls || {}; // per-control visibility; every control defaults visible (!== false)
+    const fixedTitle = opts.title || null; // optional per-cell heading; overrides model.title when set
+    const voicingId = opts.id || null; // optional synthetic voicing id, shown with copy-to-clipboard
     let labelMode = opts.labelMode === "note" ? "note" : "interval";
     let orientation = opts.orientation === "horizontal" ? "horizontal" : "vertical";
     const showLegend = opts.showLegend !== false && controls.legend !== false;
@@ -163,12 +201,24 @@ window.ChordFlowFretboard = (function () {
 
     function buildToolbar() {
       const bar = document.createElement("div");
-      bar.style.cssText = "padding:.4rem .5rem;display:flex;gap:.5rem;align-items:center;";
-      if (model.title) {
+      bar.style.cssText = "padding:.4rem .5rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;";
+      // Title: the per-cell heading (opts.title) wins over the diagram's own title (the chord symbol).
+      const titleText = fixedTitle || model.title;
+      if (titleText) {
         const title = document.createElement("span");
-        title.textContent = model.title;
+        title.textContent = titleText;
         title.style.cssText = "font-size:.85rem;font-weight:600;color:#e6e6e6;";
         bar.appendChild(title);
+      }
+      // Synthetic voicing id + copy-to-clipboard (the oracle/debug handle). Shown right after the title.
+      if (voicingId) {
+        const idChip = document.createElement("code");
+        idChip.textContent = voicingId;
+        idChip.title = voicingId;
+        idChip.style.cssText =
+          "font-size:.7rem;color:#9aa0a6;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;max-width:14rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+        bar.appendChild(idChip);
+        bar.appendChild(toolbarButton("Copy id", (e) => copyToClipboard(voicingId, e.currentTarget)));
       }
       const spacer = document.createElement("span");
       spacer.style.cssText = "flex:1;";

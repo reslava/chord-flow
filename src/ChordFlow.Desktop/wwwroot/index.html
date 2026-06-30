@@ -210,6 +210,7 @@
       <button id="navScales" type="button">Scales</button>
       <button id="navCaged" type="button">CAGED</button>
       <button id="navCagedChords" type="button">CAGED Chords</button>
+      <button id="navVoicings" type="button">Voicings</button>
     </nav>
     <span id="status">starting…</span>
   </header>
@@ -307,6 +308,12 @@
     <div id="caged-chord-diagram" class="cc-preview" style="margin:0 1rem 1rem;"></div>
   </div>
 
+  <!-- Voicings view: the faceted voicings grid (GuitarVoicingsR) — many realized voicings at once with a toggle-button
+       filter stack. The engine's visual oracle and the voicings-subsystem dogfood surface (guitar-voicings-render-component.js). -->
+  <div id="voicings-view" hidden>
+    <div id="voicings-mount" style="padding:1rem;"></div>
+  </div>
+
   <!-- Bundled alphaTab JS build (constraint C6) — loaded from disk, offline. -->
   <script src="alphaTab.min.js"></script>
   <script src="bridge.js"></script>
@@ -317,6 +324,7 @@
   <script src="scales.js"></script>
   <script src="caged-shapes.js"></script>
   <script src="caged-chords.js"></script>
+  <script src="guitar-voicings-render-component.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

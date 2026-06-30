@@ -14,6 +14,7 @@ Three `loom/refs/` docs mirror the live system. Keeping them current is **mandat
 | A **core DSL** (Progression / Song / Rhythm grammar, glyphs, tokens) | `chordflow-dsl-reference.md` | `chordflow-dsl-reference.md` |
 | The **domain/kernel** (`Domain/` or `Rendering/` types, the music model) | `chordflow-domain-model-reference.md` | `chordflow-domain-model-reference.md` |
 | **App architecture** (project structure, boundaries, seams, dependency direction) | `chordflow-architecture-reference.md` | `chordflow-architecture-reference.md` |
+| The **Voicings Engine** derivation rules (operators, families, order, golden oracles, catalog coverage) | `voicings-engine-rules-reference.md` | `voicings-engine-rules-reference.md` |
 
 - **Always UPDATE**: when you change the code in one of those areas, edit the matching ref in the *same* unit of work — never "later."
 - **Always LOAD**: before designing or reasoning about one of those areas, read the matching ref first (it is the authoritative map; the source files are the detail).

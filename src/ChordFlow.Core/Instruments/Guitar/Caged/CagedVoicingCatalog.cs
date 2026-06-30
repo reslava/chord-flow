@@ -57,7 +57,7 @@ public static class CagedVoicingCatalog
     private static readonly VoicingFamily[] Families =
         { VoicingFamily.Caged, VoicingFamily.DoubledShell, VoicingFamily.Shell };
 
-    /// <summary>All 91 (family, quality, shape) combos, in family then quality then shape order.</summary>
+    /// <summary>All 64 (family, quality, shape) combos, in family then quality then shape order.</summary>
     public static readonly IReadOnlyList<(VoicingFamily Family, Quality Quality, CagedShape Shape)> Combos = Build();
 
     /// <summary>Whether a quality can be voiced as a shell (has a 7th or 6th).</summary>

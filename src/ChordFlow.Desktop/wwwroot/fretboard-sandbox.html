@@ -26,6 +26,8 @@
     <b>C-major scale</b> shows <i>many markers per string</i> as squares — the generalization the voicing model
     can't express. <b>Layered overlay</b> mixes all four shapes (ring root, circle chord tones, square scale,
     diamond target) and passes an override per-interval palette, so the legend keys on interval tokens.
+    <b>Grid cell</b> shows a per-cell <code>title</code> + a synthetic <code>id</code> with a Copy-id button, and
+    the per-cell orientation toggle hidden (<code>controls.orientation:false</code>) as it is inside a VoicingsR grid.
     Toggle Intervals/Notes on each diagram.
   </p>
   <div class="row" id="row"></div>
@@ -111,6 +113,14 @@
     add("Voicing (chord case)", cMajorVoicing);
     add("Scale (many per string)", cMajorScale);
     add("Layered overlay (interval palette)", overlay, { palette: intervalPalette });
+
+    // 4) Grid-cell case (GuitarVoicingsR): a per-cell `title` + a synthetic `id` with copy-to-clipboard, and the
+    //    per-cell orientation toggle hidden via controls:{orientation:false} (the grid owns one global toggle).
+    add("Grid cell (title + id + orientation hidden)", cMajorVoicing, {
+      title: "Major — C shape",
+      id: "auto:caged:maj:C",
+      controls: { orientation: false, fretWindow: false },
+    });
   </script>
 </body>
 </html>

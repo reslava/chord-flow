@@ -110,6 +110,7 @@ internal static class Program
                 var scales = new ScalesHandler();
                 var caged = new CagedShapesHandler();
                 var cagedChord = new CagedChordHandler();
+                var voicingGrid = new VoicingGridHandler();
 
                 // App-lifetime global-preference store (key/value over SQLite). Shared by the soundfont choice
                 // and the staff-display profile below.
@@ -310,6 +311,10 @@ internal static class Program
                     catch (Exception ex) when (ex is FormatException or InvalidOperationException or ArgumentOutOfRangeException)
                     { bridge.Send(new CagedChordErrorEnvelope(ex.Message)); }
                 };
+
+                // GuitarVoicingsR page: resolve the whole filtered voicings grid in one round-trip. Unvoiceable
+                // combos are dropped inside the handler, so an over-narrow filter just yields fewer/zero cells.
+                router.VoicingGridRequested += filter => bridge.Send(voicingGrid.Build(filter));
 
                 // Playback soundfont: list (fonts + persisted selection) on request; persist a new global choice.
                 router.ListSoundFontsRequested += () => bridge.Send(soundFonts.ListWithSelection());

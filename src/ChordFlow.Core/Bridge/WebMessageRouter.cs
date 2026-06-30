@@ -16,6 +16,21 @@ public sealed record GenerateRequest(
     int? KeyPitchClass, int Tempo, Difficulty Difficulty, TripletFeel TripletFeel);
 
 /// <summary>
+/// The faceted filter state for one <c>voicingGrid</c> request (GuitarVoicingsR): the chosen <see cref="Root"/>
+/// (single global pitch class) plus the multi-select <b>enabled-token</b> sets for each level —
+/// <see cref="Sources"/> (automatic/package/user), <see cref="Families"/> (caged/dshell/shell), and the
+/// (3rd × 5th × 7th) facet axes <see cref="Thirds"/>/<see cref="Fifths"/>/<see cref="Sevenths"/>. A
+/// <c>null</c> level is unconstrained (matches all); membership is OR within a level, AND across levels.
+/// </summary>
+public sealed record VoicingGridFilter(
+    int Root,
+    IReadOnlyList<string>? Sources,
+    IReadOnlyList<string>? Families,
+    IReadOnlyList<string>? Thirds,
+    IReadOnlyList<string>? Fifths,
+    IReadOnlyList<string>? Sevenths);
+
+/// <summary>
 /// Parses inbound JSON envelopes from the WebView (JS→C#) and raises typed
 /// events for feature slices to subscribe to. The envelope <c>type</c> string is
 /// the only contract surface. Inbound vocabulary: <c>ready</c> /
@@ -25,7 +40,7 @@ public sealed record GenerateRequest(
 /// <c>entityList</c> / <c>entityGet</c> / <c>entityPreview</c> / <c>entitySave</c> /
 /// <c>entityDelete</c> (each carrying an <c>entity</c> discriminator) / the playback-soundfont pair
 /// <c>listSoundFonts</c> / <c>setSoundFont</c> / the staff-display-profile pair <c>getStaffProfile</c> /
-/// <c>setStaffProfile</c> / <c>scalePreview</c> / <c>cagedPreview</c> / <c>cagedChordPreview</c>.
+/// <c>setStaffProfile</c> / <c>scalePreview</c> / <c>cagedPreview</c> / <c>cagedChordPreview</c> / <c>voicingGrid</c>.
 /// </summary>
 public sealed class WebMessageRouter
 {
@@ -101,6 +116,9 @@ public sealed class WebMessageRouter
 
     /// <summary>Preview a derived CAGED chord on the fretboard (the CAGED Chords page) — <c>(family, shape, quality, rootPitchClass)</c>.</summary>
     public event Action<string, string, string, int>? CagedChordPreviewRequested;
+
+    /// <summary>Resolve the whole filtered voicings grid in one round-trip (GuitarVoicingsR) — <c>(filter)</c>.</summary>
+    public event Action<VoicingGridFilter>? VoicingGridRequested;
 
     /// <summary>Deserialize one inbound message string and dispatch it to subscribers.</summary>
     public void Dispatch(string message)
@@ -241,6 +259,11 @@ public sealed class WebMessageRouter
                         envelope.Family ?? "caged", chordShape, chordQuality, envelope.RootPitchClass ?? 0);
                 }
                 break;
+            case "voicingGrid":
+                VoicingGridRequested?.Invoke(new VoicingGridFilter(
+                    envelope.RootPitchClass ?? 0,
+                    envelope.Sources, envelope.Families, envelope.Thirds, envelope.Fifths, envelope.Sevenths));
+                break;
             // Unknown / null types are ignored — forward-compatible.
         }
     }
@@ -297,6 +320,10 @@ public sealed class WebMessageRouter
         // cagedPreview: the CAGED shape name ("C"/"A"/"G"/"E"/"D"); reuses RootPitchClass for the root.
         // cagedChordPreview adds Quality (the quality enum name) and Family ("caged"/"dshell"/"shell") alongside Shape + RootPitchClass.
         string? Shape, string? Quality, string? Family,
+        // voicingGrid: the faceted filter state — reuses RootPitchClass for the single root; the rest are the
+        // multi-select enabled-token sets per level (absent ⇒ null ⇒ that level is unconstrained).
+        IReadOnlyList<string>? Sources, IReadOnlyList<string>? Families, IReadOnlyList<string>? Thirds,
+        IReadOnlyList<string>? Fifths, IReadOnlyList<string>? Sevenths,
         // Optional render-time presentation options on the render-producing verbs (generate/loadExercise/entityPreview).
         InboundRenderOptions? RenderOptions);
 

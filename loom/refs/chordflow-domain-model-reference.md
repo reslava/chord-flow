@@ -4,8 +4,8 @@ id: rf_01KTM41K36DYJ0CE44FE7TMCGH
 title: ChordFlow Domain Model
 status: active
 created: 2026-06-08
-updated: 2026-06-27
-version: 97
+updated: 2026-06-30
+version: 98
 tags: []
 parent_id: null
 requires_load: []
@@ -41,6 +41,7 @@ no I/O (C3). Spelling and `Feel` are **never stored** — always derived (C4).
 | `ChordTone(int Interval, ChordToneFunction Function)` | A tone **relative to the chord root** (R/3/5/7). `PitchClassFor(root)` resolves it late. |
 | `ChordToneFunction` (enum) | Root, Third, Fifth, **Sixth**, Seventh — classified from the quality's **formula degree** (not the raw semitone): degree 1→Root, 3→Third, 5→Fifth, 6→Sixth, 7→Seventh (`ChordTones`, C6 of `caged-sixth-voicings`). Degree, not semitone, resolves the enharmonically ambiguous semitone 9 — the `6` of a Major6/Minor6 vs the `bb7` (degree 7) of a `Diminished7`. |
 | `ChordTones` | `Of(chord)` → the chord's tones; `PitchClassesOf(chord)`. The **Theme A↔B bridge**: "b7 of G7" = root+10, computed not stored. |
+| `QualityFacets(ThirdFacet, FifthFacet, SeventhFacet)` | **voicings-render-component.** The orthogonal decomposition of a `Quality` into three filterable facets — **3rd** (emotion: major/minor/suspended), **5th** (stability: perfect/augmented/diminished), **7th/color** (triad/6/7/maj7/dim7) — **derived from chord-tone spelling** via `ChordTones` (not hand-authored, so it stays auto-correct as qualities are added). Collision-free across all 11 qualities (the plain Diminished triad → `minor/diminished/triad`). `Of(q)` decomposes; `ThirdToken`/`FifthToken`/`SeventhToken` give the wire/filter tokens. Instrument-agnostic (references nothing under `Instruments/`). The facet axes of the GuitarVoicingsR filter grid. |
 | `Chord(PitchClass Root, Quality Quality, NoteName? RootSpelling = null)` | A concrete chord. `RootSpelling` (set only for a chromatically-altered degree) is the letter-pure root name that overrides the key-table spelling at display time; `null` ⇒ spell from the key, so diatonic chords stay byte-identical. |
 | `NoteName(char Letter, int Accidental)` | **chromatic-degrees thread.** A letter-pure spelled note: base letter A–G + signed accidental (0 natural, +1 `#`, −1 `b`, ±2 double). `Symbol` → `F`/`F#`/`Bb`/`B#`/`Bbb`. Unlike `PitchClass`, commits to a spelling (`Fb` ≠ `E`). |
 | `RomanDegree(int Degree, Quality Quality, Accidental Accidental = Accidental.Natural)` | Key-relative degree **carrying an explicit quality** and an optional chromatic `Accidental` (`{Natural,Sharp,Flat}`, defaulted so existing call sites compile) — for authored progressions. **Timing-free** (C1 of the harmonic-rhythm thread: timing lives on `ChordSpan`, never on the degree). |
