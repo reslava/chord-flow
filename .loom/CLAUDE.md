@@ -201,6 +201,13 @@ STOP — waiting for go
 
 ---
 
+<!-- rule:commit-last -->
+## Commit last
+
+When a chat turn asks you to commit, the chat reply is part of the work, so it must land **before** the commit. Append your reply to the active chat first (`loom_append_to_chat`), then stage everything — including the chat doc — and commit as the **last** action of the turn. Never put the commit hash in the reply: that forces the reply after the commit and re-dirties the doc — describe what changed, not the commit object (the hash is in `git log`). This keeps a commit from leaving its own trigger chat modified. The next turn legitimately re-dirties the doc; that's expected.
+
+---
+
 <!-- rule:collaboration-style -->
 ## Collaboration style
 
