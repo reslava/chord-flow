@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-21
 updated: 2026-06-21
 version: 3
+design_version: 5
 tags: []
-parent_id: id_01KVB4KGMYZTB1FXVB3XJ82HTG
+parent_id: de_01KVNEHZVQJP675M66SV68MD2P
 requires_load: []
 ---
 # ChordFlow user guide — Requirements

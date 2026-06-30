@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-22
 updated: 2026-06-22
 version: 1
+design_version: 2
 tags: []
-parent_id: id_01KTVTM1797WBJ8TF9K7B4VPTR
+parent_id: de_01KVQ23HY2X7VM6JY2S51F0NCH
 requires_load: []
 ---
 # Progression Transforms — functional rewrites of Progressions — Requirements

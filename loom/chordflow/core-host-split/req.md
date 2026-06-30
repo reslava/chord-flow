@@ -3,11 +3,12 @@ type: req
 id: rq_01KTS50QAYJX82T6YSJZCJJGVC
 title: Core/Host Project Split — Requirements
 status: locked
-created: "2026-06-10T00:00:00.000Z"
+created: 2026-06-10
 updated: 2026-06-10
 version: 1
+design_version: 3
 tags: []
-parent_id: id_01KTRRCRC5ES07FP464QHF7QPM
+parent_id: de_01KTRW1F3JRETAXP21J04DRKDV
 requires_load: []
 ---
 # Core/Host Project Split — Requirements

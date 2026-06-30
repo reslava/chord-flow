@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-24
 updated: 2026-06-24
 version: 2
+design_version: 4
 tags: []
-parent_id: id_01KVVCJ200HK15X7GABK2P2NKT
+parent_id: de_01KVW7YEZ70AXE0NNAE82DJWTX
 requires_load: []
 ---
 # Rhythm DSL — Accurate-Notation Redesign — Requirements

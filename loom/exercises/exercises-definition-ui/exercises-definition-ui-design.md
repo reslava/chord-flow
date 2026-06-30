@@ -3,9 +3,10 @@ type: design
 id: de_01KTWE8B7WKRX7M681PM4P9JFP
 title: Exercise definition & UI — Design
 status: done
-created: "2026-06-11T00:00:00.000Z"
+created: 2026-06-11
 updated: 2026-06-15
 version: 9
+idea_version: 2
 tags: []
 parent_id: id_01KTWE71HWW2GWFHQQ0QMR84K6
 requires_load: []

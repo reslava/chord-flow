@@ -6,6 +6,7 @@ status: done
 created: 2026-06-27
 updated: 2026-06-27
 version: 8
+idea_version: 3
 tags: []
 parent_id: id_01KVYQ3DY08RT6KGK50X0PPEGR
 requires_load: []

@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-26
 updated: 2026-06-27
 version: 2
+design_version: 2
 tags: []
-parent_id: id_01KVYRNSY7JPFKF3TWYKJYWH6V
+parent_id: de_01KW2G8YYBE2QE4M78H519RH2A
 requires_load: []
 ---
 # Derive CAGED 6th voicings — Requirements

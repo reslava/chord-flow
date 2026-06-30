@@ -3,11 +3,12 @@ type: req
 id: rq_01KV7P09B3S4G6SZP6KDD2M6NM
 title: SoundFont library — pick & load playback soundfonts — Requirements
 status: locked
-created: "2026-06-16T00:00:00.000Z"
+created: 2026-06-16
 updated: 2026-06-16
 version: 1
+design_version: 2
 tags: []
-parent_id: id_01KV7MTAXG10Y0HQVYABXZ7TVA
+parent_id: de_01KV7NET48R277ZA3EWC9ZR6ZY
 requires_load: []
 ---
 # SoundFont library — pick & load playback soundfonts — Requirements

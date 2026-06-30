@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-25
 updated: 2026-06-25
 version: 2
+design_version: 8
 tags: []
-parent_id: id_01KVYRP94S3FVD9VAGSH81046N
+parent_id: de_01KVZVJC1A52Q0GSJGRHXQJZ8B
 requires_load: []
 ---
 # Engine-derived voicings as the app's source (authored → oracle) — Requirements

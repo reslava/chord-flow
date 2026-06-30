@@ -3,11 +3,12 @@ type: req
 id: rq_01KV62KTJFKQZBGJ123S0WVT4X
 title: Exercise definition & UI — the capstone over Harmony + Rhythm — Requirements
 status: locked
-created: "2026-06-15T00:00:00.000Z"
+created: 2026-06-15
 updated: 2026-06-15
 version: 1
+design_version: 9
 tags: []
-parent_id: id_01KTWE71HWW2GWFHQQ0QMR84K6
+parent_id: de_01KTWE8B7WKRX7M681PM4P9JFP
 requires_load: []
 ---
 # Exercise definition & UI — the capstone over Harmony + Rhythm — Requirements

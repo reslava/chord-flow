@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-21
 updated: 2026-06-21
 version: 2
+design_version: 3
 tags: []
-parent_id: id_01KVGH7P05NX5W8RKTMVRGBTZ6
+parent_id: de_01KVP2BZJANXQR4TD9DQ4DVECH
 requires_load: []
 ---
 # Rename Domain → Music (theory kernel) — Requirements

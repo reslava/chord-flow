@@ -3,9 +3,10 @@ type: design
 id: de_01KV5CZF197BYKYJGS4W3NTQDY
 title: Score Render Component
 status: done
-created: "2026-06-15T00:00:00.000Z"
+created: 2026-06-15
 updated: 2026-06-15
 version: 5
+idea_version: 1
 tags: []
 parent_id: null
 requires_load: []

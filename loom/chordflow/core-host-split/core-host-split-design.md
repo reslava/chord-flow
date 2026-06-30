@@ -3,9 +3,10 @@ type: design
 id: de_01KTRW1F3JRETAXP21J04DRKDV
 title: Core/Host Project Split — Design
 status: done
-created: "2026-06-10T00:00:00.000Z"
+created: 2026-06-10
 updated: 2026-06-10
 version: 3
+idea_version: 3
 tags: []
 parent_id: id_01KTRRCRC5ES07FP464QHF7QPM
 requires_load: []

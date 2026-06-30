@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-18
 updated: 2026-06-18
 version: 1
+design_version: 8
 tags: []
-parent_id: id_01KVCTCBE0AXZH6FX2HJ9ZA1YH
+parent_id: de_01KVEASE6MHSWMVDER0AY0ZJPT
 requires_load: []
 ---
 # Theory / Instrument boundary + concrete Guitar adapter — Requirements

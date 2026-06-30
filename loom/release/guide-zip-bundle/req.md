@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-21
 updated: 2026-06-21
 version: 1
+design_version: 2
 tags: []
-parent_id: id_01KVNGQP5KEXJPNPVNFDE7DY7F
+parent_id: de_01KVNHWEWNXJJ4RNCKZ32BRY12
 requires_load: []
 ---
 # Bundle the user guide + images into the release zip — Requirements

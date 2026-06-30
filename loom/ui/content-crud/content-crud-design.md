@@ -3,9 +3,10 @@ type: design
 id: de_01KV54ENW26AVDKP72VKY39ZEK
 title: Content-definition CRUD UI — Design
 status: done
-created: "2026-06-15T00:00:00.000Z"
+created: 2026-06-15
 updated: 2026-06-15
 version: 3
+idea_version: 2
 tags: []
 parent_id: id_01KV05AZ7T77CMGM86X7T7GZRB
 requires_load: []

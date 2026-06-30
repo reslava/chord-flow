@@ -3,11 +3,12 @@ type: req
 id: rq_01KTM0Y9B6JMQNJDA8THQG4WCR
 title: Music-Theory Domain Model — Requirements
 status: locked
-created: "2026-06-08T00:00:00.000Z"
+created: 2026-06-08
 updated: 2026-06-08
 version: 1
+design_version: 2
 tags: []
-parent_id: null
+parent_id: de_01KTM0DRF3Q7F4X35RMCBX6DDT
 requires_load: []
 ---
 # Music-Theory Domain Model — Requirements

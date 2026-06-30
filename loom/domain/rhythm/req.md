@@ -3,11 +3,12 @@ type: req
 id: rq_01KTXTFZFJXVRXNN5MNN7XDJ7V
 title: Rhythm DSL — authoring strum patterns as a tick grid — Requirements
 status: locked
-created: "2026-06-12T00:00:00.000Z"
+created: 2026-06-12
 updated: 2026-06-12
 version: 3
+design_version: 14
 tags: []
-parent_id: id_01KTVVS1K2KZH08E63QQB3PQ4V
+parent_id: de_01KTVVTS9HG5X2C39TC1X1KP94
 requires_load: []
 ---
 # Rhythm DSL — authoring strum patterns as a tick grid — Requirements

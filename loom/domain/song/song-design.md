@@ -3,9 +3,10 @@ type: design
 id: de_01KTVTNZPYS36K23R5Z9MYDB54
 title: Song — Design
 status: done
-created: "2026-06-11T00:00:00.000Z"
+created: 2026-06-11
 updated: 2026-06-12
 version: 8
+idea_version: 2
 tags: []
 parent_id: id_01KTVTKHDVQYNXYB33HXH0HXAS
 requires_load: []

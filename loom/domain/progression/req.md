@@ -3,11 +3,12 @@ type: req
 id: rq_01KTP12K0BP250TBP9EHWAXRQ2
 title: Multi-chord-per-bar progressions with harmonic-rhythm layer — Requirements
 status: locked
-created: "2026-06-09T00:00:00.000Z"
+created: 2026-06-09
 updated: 2026-06-09
 version: 2
+design_version: 4
 tags: []
-parent_id: id_01KTP0SG7G3YR8CRQKZA3YPK6G
+parent_id: de_01KTP11T7JCSDK6PN2FEXDR5CW
 requires_load: []
 ---
 # Multi-chord-per-bar progressions with harmonic-rhythm layer — Requirements

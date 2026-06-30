@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-22
 updated: 2026-06-22
 version: 2
+design_version: 3
 tags: []
-parent_id: id_01KVQ3RMZXEPH63QJQD2M3MVE2
+parent_id: de_01KVQ4HM9ZV5SSRR86P1TGZ9H2
 requires_load: []
 ---
 # Anacrusis rendering — emit PickupMeasure as a true \ac pickup bar — Requirements

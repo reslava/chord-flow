@@ -3,9 +3,10 @@ type: design
 id: de_01KV1NEPYM2Y7FQ3J7J523Q2BA
 title: Default pack — authored CAGED voicing content (the voicings/ bundle)
 status: done
-created: "2026-06-13T00:00:00.000Z"
+created: 2026-06-13
 updated: 2026-06-14
 version: 6
+idea_version: 2
 tags: []
 parent_id: id_01KV06Z7C68HW71XF76ESWT203
 requires_load: []

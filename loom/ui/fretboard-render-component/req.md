@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-17
 updated: 2026-06-17
 version: 1
+design_version: 3
 tags: []
-parent_id: null
+parent_id: de_01KVBSHF54Q2AMJESSQAKVV97W
 requires_load: []
 ---
 # Fretboard Render Component — Requirements

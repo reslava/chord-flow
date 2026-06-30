@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-21
 updated: 2026-06-21
 version: 2
+design_version: 2
 tags: []
-parent_id: id_01KVMX260B9QFH71G7TBAGFX7Q
+parent_id: de_01KVMZJWXJ47KGK6YJG2S6QHYR
 requires_load: []
 ---
 # CAGED Chords — the derivation-engine dogfood page — Requirements

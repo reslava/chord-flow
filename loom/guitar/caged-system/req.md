@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-20
 updated: 2026-06-20
 version: 1
+design_version: 3
 tags: []
-parent_id: id_01KV2WWWZ6PYT4Y4VCT4A5KD8N
+parent_id: de_01KVK5JEFP67KM8213ZPZGGSSC
 requires_load: []
 ---
 # CAGED system — the derivation engine (subsumes authored voicings) — Requirements

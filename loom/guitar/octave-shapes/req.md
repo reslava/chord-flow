@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-20
 updated: 2026-06-20
 version: 1
+design_version: 4
 tags: []
-parent_id: id_01KV2WVWE75SPHV91HX03J4DTG
+parent_id: de_01KVJ7M0EAS5PXGQ0W7T67ZPKX
 requires_load: []
 ---
 # Octave shapes — the 5 CAGED root maps (engine skeleton) — Requirements

@@ -3,14 +3,15 @@ type: req
 id: rq_01KTZWXSJ6PS9CFX8AJHENNXDB
 title: Guitar voicings — the fourth content pillar (authored, stored, movable) — Requirements
 status: locked
-created: "2026-06-13T00:00:00.000Z"
+created: 2026-06-13
 updated: 2026-06-13
 version: 3
+design_version: 11
 tags: []
-parent_id: id_01KTXEQ5F1R316J3RCF5CMBDTW
+parent_id: de_01KTXERD54E8GFPPNE19GMCPB1
 requires_load: []
 ---
-# Voicings — the fourth content pillar (authored, stored, movable) — Requirements
+# Guitar voicings — the fourth content pillar (authored, stored, movable) — Requirements
 
 Requirements for the authored-voicing content pillar (the fourth content pillar:
 DSL → entity → stored-first lookup → pack-distributable). Anchored on

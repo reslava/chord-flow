@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-24
 updated: 2026-06-25
 version: 2
+design_version: 2
 tags: []
-parent_id: id_01KVVCJAS88SGJ0QHXTGFB5T4S
+parent_id: de_01KVXYQ0HR654X95B5HCVJC64K
 requires_load: []
 ---
 # Progression DSL — chromatic (#/b) chord degrees — Requirements

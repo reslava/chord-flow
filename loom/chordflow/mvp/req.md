@@ -3,11 +3,12 @@ type: req
 id: rq_01KTHK46HYYPF80HFHGBX8DASN
 title: ChordFlow MVP — Requirements
 status: locked
-created: "2026-06-07T00:00:00.000Z"
+created: 2026-06-07
 updated: 2026-06-08
 version: 2
+design_version: 5
 tags: []
-parent_id: id_01KTHJ61W7749XVY7AKGZV7F9D
+parent_id: de_01KTHJD3QTBGRVX3BBRD29PKAW
 requires_load: []
 ---
 # ChordFlow MVP — Requirements

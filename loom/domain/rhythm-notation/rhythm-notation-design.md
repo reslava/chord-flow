@@ -6,6 +6,7 @@ status: done
 created: 2026-06-24
 updated: 2026-06-24
 version: 4
+idea_version: 3
 tags: []
 parent_id: id_01KVVCJ200HK15X7GABK2P2NKT
 requires_load: []

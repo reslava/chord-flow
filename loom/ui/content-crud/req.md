@@ -3,11 +3,12 @@ type: req
 id: rq_01KV5509VZ77PSNX4ADHYMVEBB
 title: Content-definition CRUD UI — the shared editor for DSL-backed entities — Requirements
 status: locked
-created: "2026-06-15T00:00:00.000Z"
+created: 2026-06-15
 updated: 2026-06-15
 version: 1
+design_version: 3
 tags: []
-parent_id: id_01KV05AZ7T77CMGM86X7T7GZRB
+parent_id: de_01KV54ENW26AVDKP72VKY39ZEK
 requires_load: []
 ---
 # Content-definition CRUD UI — the shared editor for DSL-backed entities — Requirements

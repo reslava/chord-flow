@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-23
 updated: 2026-06-23
 version: 1
+design_version: 2
 tags: []
-parent_id: id_01KVSYWCXFGDW3EX0Q02MR8895
+parent_id: de_01KVSZBZQ1WZB5S31GSNS0F3QD
 requires_load: []
 ---
 # Now/Next Fretboards — Requirements

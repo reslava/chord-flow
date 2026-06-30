@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-19
 updated: 2026-06-19
 version: 4
+design_version: 5
 tags: []
-parent_id: id_01KVDEEY1959RD07H63R5PFMVZ
+parent_id: de_01KVGJ0P3FC7P36EQ0ZN6FJGEB
 requires_load: []
 ---
 # Interval lattice — fretboard interval positions (guitar projection of intervals) — Requirements

@@ -3,11 +3,12 @@ type: req
 id: rq_01KV1NR7T9YGS3VGK94P39BRP0
 title: Default pack — the curated free starter content bundle (all entities) — Requirements
 status: locked
-created: "2026-06-13T00:00:00.000Z"
+created: 2026-06-13
 updated: 2026-06-14
 version: 2
+design_version: 6
 tags: []
-parent_id: id_01KV06Z7C68HW71XF76ESWT203
+parent_id: de_01KV1NEPYM2Y7FQ3J7J523Q2BA
 requires_load: []
 ---
 # Default pack — the curated free starter content bundle (all entities) — Requirements

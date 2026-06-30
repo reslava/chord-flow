@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-17
 updated: 2026-06-21
 version: 2
+design_version: 3
 tags: []
-parent_id: null
+parent_id: de_01KVB4K1PTQ437QZHX8PWX0N63
 requires_load: []
 ---
 # release-pipeline Requirements

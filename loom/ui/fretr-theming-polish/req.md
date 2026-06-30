@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-30
 updated: 2026-06-30
 version: 2
+design_version: 2
 tags: []
-parent_id: id_01KWC2NDD20PZTJ2ZY2YAX3MDF
+parent_id: de_01KWC2P5FB9R739B0QT3PC118Z
 requires_load: []
 ---
 # FretR theming + display polish — Requirements

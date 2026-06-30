@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-29
 updated: 2026-06-29
 version: 1
+design_version: 4
 tags: []
-parent_id: id_01KWAJXJAS34EZMZSQJVC56WC5
+parent_id: de_01KWAQ35KX1PNST681WY0RVQDS
 requires_load: []
 ---
 # Guitar Voicings Render Component — Requirements

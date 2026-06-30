@@ -3,9 +3,10 @@ type: design
 id: de_01KTVVTS9HG5X2C39TC1X1KP94
 title: Rhythm DSL — Design
 status: done
-created: "2026-06-11T00:00:00.000Z"
+created: 2026-06-11
 updated: 2026-06-12
 version: 14
+idea_version: 5
 tags: []
 parent_id: id_01KTVVS1K2KZH08E63QQB3PQ4V
 requires_load: []

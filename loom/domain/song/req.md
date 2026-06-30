@@ -3,11 +3,12 @@ type: req
 id: rq_01KTXQ815FXKF6N974RNKJWRD2
 title: Song — an arrangement layer over Progressions — Requirements
 status: locked
-created: "2026-06-12T00:00:00.000Z"
+created: 2026-06-12
 updated: 2026-06-12
 version: 1
+design_version: 8
 tags: []
-parent_id: id_01KTVTKHDVQYNXYB33HXH0HXAS
+parent_id: de_01KTVTNZPYS36K23R5Z9MYDB54
 requires_load: []
 ---
 # Song — an arrangement layer over Progressions — Requirements

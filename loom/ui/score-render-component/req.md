@@ -3,11 +3,12 @@ type: req
 id: rq_01KV5D9MXERR51XQ7A84YDEV2E
 title: Score Render Component — Requirements
 status: locked
-created: "2026-06-15T00:00:00.000Z"
+created: 2026-06-15
 updated: 2026-06-15
 version: 3
+design_version: 5
 tags: []
-parent_id: null
+parent_id: de_01KV5CZF197BYKYJGS4W3NTQDY
 requires_load: []
 ---
 # Score Render Component — Requirements

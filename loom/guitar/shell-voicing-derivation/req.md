@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-27
 updated: 2026-06-27
 version: 3
+design_version: 8
 tags: []
-parent_id: id_01KVYQ3DY08RT6KGK50X0PPEGR
+parent_id: de_01KW481X6B93Y3QPX8G2E7XMP2
 requires_load: []
 ---
 # Derive shell voicings from CAGED chords — Requirements

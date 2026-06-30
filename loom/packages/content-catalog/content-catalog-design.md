@@ -3,9 +3,10 @@ type: design
 id: de_01KTXEQWS29T4T2S0GKP7C23AB
 title: Content packages & catalog — open-core content distribution
 status: done
-created: "2026-06-12T00:00:00.000Z"
+created: 2026-06-12
 updated: 2026-06-13
 version: 6
+idea_version: 2
 tags: []
 parent_id: id_01KTXEPV11EAA4DDY2A8MWTCB4
 requires_load: []

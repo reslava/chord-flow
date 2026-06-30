@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-23
 updated: 2026-06-23
 version: 1
+design_version: 2
 tags: []
-parent_id: id_01KVVADMV8C65C52YN8E8C0CEZ
+parent_id: de_01KVVAXKWG4F6SFKSPPC2P4CPG
 requires_load: []
 ---
 # Play UI — Key control seeds from the song's key — Requirements

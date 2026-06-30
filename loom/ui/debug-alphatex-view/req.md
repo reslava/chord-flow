@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-22
 updated: 2026-06-22
 version: 1
+design_version: 2
 tags: []
-parent_id: id_01KVQGJXY8VJMKMR25N337ASK6
+parent_id: de_01KVQK4VV6C4YHS2N04PMGFSC6
 requires_load: []
 ---
 # Show alphaTex — always-visible DSL debug view — Requirements

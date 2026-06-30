@@ -3,9 +3,10 @@ type: design
 id: de_01KV7NET48R277ZA3EWC9ZR6ZY
 title: SoundFont library — pick & load playback soundfonts
 status: done
-created: "2026-06-16T00:00:00.000Z"
+created: 2026-06-16
 updated: 2026-06-16
 version: 2
+idea_version: 3
 tags: []
 parent_id: id_01KV7MTAXG10Y0HQVYABXZ7TVA
 requires_load: []

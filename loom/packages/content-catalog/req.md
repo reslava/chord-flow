@@ -3,11 +3,12 @@ type: req
 id: rq_01KTXK59QABEQ6T9EZVSR9SEEG
 title: Content packages & catalog — open-core content distribution — Requirements
 status: locked
-created: "2026-06-12T00:00:00.000Z"
+created: 2026-06-12
 updated: 2026-06-12
 version: 1
+design_version: 6
 tags: []
-parent_id: id_01KTXEPV11EAA4DDY2A8MWTCB4
+parent_id: de_01KTXEQWS29T4T2S0GKP7C23AB
 requires_load: []
 ---
 # Content packages & catalog — open-core content distribution — Requirements

@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-22
 updated: 2026-06-22
 version: 2
+design_version: 2
 tags: []
-parent_id: id_01KVQGK9R3CNMJZRZVN3V65SJB
+parent_id: de_01KVR89QNHC6NE2XHTJ6EM9MDQ
 requires_load: []
 ---
 # Triplet Feel (\tf) — span/song-level swing — Requirements

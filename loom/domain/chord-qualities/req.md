@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-20
 updated: 2026-06-20
 version: 1
+design_version: 2
 tags: []
-parent_id: id_01KV2WWAZDDC1XWFF5AGTJX197
+parent_id: de_01KVJYPHF2G4CHGNEN9ZMFPGAY
 requires_load: []
 ---
 # Chord qualities — the interval formulas (engine input) — Requirements

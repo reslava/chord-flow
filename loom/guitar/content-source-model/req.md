@@ -6,8 +6,9 @@ status: locked
 created: 2026-06-25
 updated: 2026-06-25
 version: 1
+design_version: 4
 tags: []
-parent_id: id_01KVZ3QQ26RZE2H32VXQWKXFND
+parent_id: de_01KVZ4XQ47ZZ3DWFR65Z5AW1RH
 requires_load: []
 ---
 # Multi-source content model (additive listing, source tags, filter) — Requirements
