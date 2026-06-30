@@ -53,9 +53,8 @@ window.ChordFlowCagedShapes = (function () {
       setError("");
       if (!fretView && window.ChordFlowFretboard) {
         fretView = window.ChordFlowFretboard.create(diagramEl, {
-          orientation: "horizontal",
+          orientation: "horizontal", // defaults to the neck layout; the orientation toggle lets the user flip it
           labelMode: "interval",
-          controls: { orientation: false }, // CAGED shapes are always the neck layout
           palette: PALETTE,
         });
       }

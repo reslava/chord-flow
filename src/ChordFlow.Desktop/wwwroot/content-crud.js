@@ -417,9 +417,10 @@ window.ChordFlowContent = (function () {
       scoreEl.hidden = true;
       diagramEl.hidden = false;
       if (window.ChordFlowFretboard && msg.diagram) {
-        // Voicings are vertical chord-boxes with an auto-fit window — hide the orientation + fret-window controls.
+        // Voicings default to a vertical chord-box with an auto-fit window — hide the fret-window control, but
+        // expose the orientation toggle so the user can flip to the horizontal neck.
         if (!diagramView) diagramView = window.ChordFlowFretboard.create(diagramEl, {
-          labelMode: "interval", controls: { orientation: false, fretWindow: false },
+          labelMode: "interval", controls: { fretWindow: false },
         });
         diagramView.render(msg.diagram);
       } else {

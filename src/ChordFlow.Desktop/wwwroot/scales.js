@@ -58,9 +58,8 @@ window.ChordFlowScales = (function () {
       setError("");
       if (!fretView && window.ChordFlowFretboard) {
         fretView = window.ChordFlowFretboard.create(diagramEl, {
-          orientation: "horizontal",
+          orientation: "horizontal", // defaults to the neck layout; the orientation toggle lets the user flip it
           labelMode: "interval",
-          controls: { orientation: false }, // locked to the neck layout (Scales is always horizontal)
           palette: ROOT_PALETTE,
         });
       }

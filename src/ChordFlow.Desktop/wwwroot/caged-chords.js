@@ -83,9 +83,8 @@ window.ChordFlowCagedChords = (function () {
       setError("");
       if (!fretView && window.ChordFlowFretboard) {
         fretView = window.ChordFlowFretboard.create(diagramEl, {
-          orientation: "horizontal",
+          orientation: "horizontal", // defaults to the neck layout; the orientation toggle lets the user flip it
           labelMode: "interval",
-          controls: { orientation: false }, // CAGED chords are always the neck layout
         });
       }
       if (fretView) fretView.render(msg.diagram);

@@ -41,9 +41,9 @@ window.ChordFlowGuitarVoicings = (function () {
     Major6: "Major 6", Minor6: "Minor 6",
   };
 
-  // Per-cell FretR config: the grid owns orientation + label mode globally, so each cell hides its own orientation,
-  // label, fret-window and legend chrome — leaving just the title + id + copy header.
-  const CELL_CONTROLS = { orientation: false, label: false, fretWindow: false, legend: false };
+  // Per-cell FretR config: the grid owns orientation + label mode + theme globally, so each cell hides its own
+  // orientation, label, fret-window, legend and theme chrome — leaving just the title + id + copy header.
+  const CELL_CONTROLS = { orientation: false, label: false, fretWindow: false, legend: false, theme: false };
 
   let stylesInjected = false;
   function injectStyles() {
@@ -82,9 +82,10 @@ window.ChordFlowGuitarVoicings = (function () {
     let rootPc = Number.isInteger(opts.defaultRoot) ? opts.defaultRoot : 0;
     let orientation = opts.orientation === "horizontal" ? "horizontal" : "vertical";
     let labelMode = opts.labelMode === "note" ? "note" : "interval";
+    let theme = opts.theme === "light" ? "light" : "dark"; // grid defaults dark (matches the cell background)
 
-    let cellViews = []; // live FretR handles, so the global orientation/label toggles fan out without a re-fetch
-    let gridEl, orientBtn, labelBtn;
+    let cellViews = []; // live FretR handles, so the global orientation/label/theme toggles fan out without a re-fetch
+    let gridEl, orientBtn, labelBtn, themeBtn;
     let built = false;
     let registered = false;
 
@@ -129,6 +130,12 @@ window.ChordFlowGuitarVoicings = (function () {
       labelBtn.addEventListener("click", () => setLabelMode(labelMode === "note" ? "interval" : "note"));
       bar.appendChild(el("span", "gv-lbl", "Labels:"));
       bar.appendChild(labelBtn);
+
+      themeBtn = el("button", "gv-btn", theme === "dark" ? "Dark" : "Light");
+      themeBtn.type = "button";
+      themeBtn.addEventListener("click", () => setTheme(theme === "dark" ? "light" : "dark"));
+      bar.appendChild(el("span", "gv-lbl", "Theme:"));
+      bar.appendChild(themeBtn);
 
       wrap.appendChild(bar);
 
@@ -226,6 +233,7 @@ window.ChordFlowGuitarVoicings = (function () {
         const view = window.ChordFlowFretboard.create(box, {
           orientation,
           labelMode,
+          theme,
           title: cell.title,
           id: cell.id,
           controls: CELL_CONTROLS,
@@ -247,6 +255,12 @@ window.ChordFlowGuitarVoicings = (function () {
       for (const v of cellViews) v.setLabelMode(labelMode); // fan out — no re-fetch needed
     }
 
+    function setTheme(mode) {
+      theme = mode === "light" ? "light" : "dark";
+      if (themeBtn) themeBtn.textContent = theme === "dark" ? "Dark" : "Light";
+      for (const v of cellViews) v.setTheme(theme); // fan out — no re-fetch needed
+    }
+
     // Mount (idempotent), register the inbound handler once, and request the current grid.
     function show() {
       build();
@@ -263,7 +277,7 @@ window.ChordFlowGuitarVoicings = (function () {
       built = false;
     }
 
-    return { show, dispose, setOrientation, setLabelMode };
+    return { show, dispose, setOrientation, setLabelMode, setTheme };
   }
 
   return { create };

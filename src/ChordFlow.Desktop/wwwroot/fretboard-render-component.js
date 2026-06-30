@@ -20,6 +20,9 @@
 //     orientation: "vertical",  // "vertical" = chord box (strings as columns) | "horizontal" = neck (frets left→right).
 //     labelMode:   "interval",  // "interval" | "note" — toggled by the component's own toolbar.
 //     showLegend:  true,
+//     theme:       "light",     // "light" (default; dark lines on white) | "dark" (light lines, white fret numbers
+//                               //   + ✕ for a dark cell background). Chrome only — the marker palette is unchanged.
+//                               //   Toggle at runtime with setTheme("dark"); a grid drives it globally (see below).
 //     title:       null,        // optional per-cell heading (e.g. "Dominant 7 (shell) — E shape"); overrides the
 //                               //   diagram's model.title when set. A grid cell passes the voicing's display name here.
 //     id:          null,        // optional synthetic voicing id (e.g. "auto:shell:dom7:E"); shown with a copy-to-
@@ -27,7 +30,7 @@
 //     palette:     null,        // null = default 5-color function palette; or { "b3":"#…", "*":"#000" } keyed on
 //                               //   interval, with an optional "*" fallback color for any interval not listed.
 //     controls:    {},          // per-control visibility, all true by default; a consumer hides what it fixes:
-//                               //   { orientation, fretWindow, label, legend }. e.g. a scale page locks horizontal
+//                               //   { orientation, fretWindow, label, legend, theme }. e.g. a scale page locks horizontal
 //                               //   with controls:{ orientation:false }; inside a VoicingsR grid the cell locks
 //                               //   controls:{ orientation:false } so the grid's one global toggle drives every cell.
 //   });
@@ -56,6 +59,24 @@ window.ChordFlowFretboard = (function () {
     seventh: "7th",
     tension: "Tension",
   };
+  // Theme tables (NOT the marker palette — that reads on both backgrounds and is untouched). The component owns its
+  // whole render area: `bg` is the surface behind the toolbar + SVG + legend (so the theme actually changes the
+  // background, not just the strokes), `text`/`muted` are the toolbar/legend foreground, `ctrl*` styles the buttons +
+  // inputs, and the remaining keys are the SVG chrome (nut, lines, fret numbers, position label, muted ✕, barre).
+  // "light" = white surface + dark foreground; "dark" = dark-grey surface + light foreground.
+  const THEMES = {
+    light: {
+      bg: "#ffffff", text: "#222222", muted: "#5a5f64",
+      ctrlBg: "#eceef1", ctrlBorder: "#c4c8cd", ctrlText: "#222222",
+      nut: "#222", line: "#999", posLabel: "#555", fretNum: "#777", svgMuted: "#888", barre: "#33333355",
+    },
+    dark: {
+      bg: "#2a2a2d", text: "#e6e6e6", muted: "#9aa0a6",
+      ctrlBg: "#3a3a3d", ctrlBorder: "#4a4a4f", ctrlText: "#e6e6e6",
+      nut: "#cfcfd2", line: "#6b6b70", posLabel: "#e6e6e6", fretNum: "#ffffff", svgMuted: "#ffffff", barre: "#e6e6e655",
+    },
+  };
+
   const SHAPE_NAMES = ["circle", "square", "diamond", "ring"]; // MarkerShape ordinal → name
   // Sort weight for a legend entry: the interval's degree number, so the legend reads low→high (1, 3, 5, 6, 7, …)
   // instead of string-encounter order. "R" is the root (1); any token's degree is its first run of digits.
@@ -124,6 +145,7 @@ window.ChordFlowFretboard = (function () {
     const voicingId = opts.id || null; // optional synthetic voicing id, shown with copy-to-clipboard
     let labelMode = opts.labelMode === "note" ? "note" : "interval";
     let orientation = opts.orientation === "horizontal" ? "horizontal" : "vertical";
+    let theme = opts.theme === "dark" ? "dark" : "light";
     const showLegend = opts.showLegend !== false && controls.legend !== false;
     let userFretMin = null; // fret-window overrides set via the toolbar (null = honor the model / auto-fit)
     let userFretMax = null;
@@ -152,9 +174,15 @@ window.ChordFlowFretboard = (function () {
       container.innerHTML = "";
       if (!model || !model.markers) return;
 
-      container.appendChild(buildToolbar());
-      container.appendChild(orientation === "horizontal" ? buildSvgHorizontal() : buildSvg());
-      if (showLegend) container.appendChild(buildLegend());
+      // The component owns its own themed surface (a root wrapper) rather than inheriting the host container's
+      // background — that is what makes the light/dark toggle actually change the background, not just the strokes.
+      const t = THEMES[theme];
+      const root = document.createElement("div");
+      root.style.cssText = `background:${t.bg};color:${t.text};border-radius:6px;overflow:hidden;`;
+      root.appendChild(buildToolbar());
+      root.appendChild(orientation === "horizontal" ? buildSvgHorizontal() : buildSvg());
+      if (showLegend) root.appendChild(buildLegend());
+      container.appendChild(root);
     }
 
     // The fret window honored by both orientations: a toolbar override wins, else the model's, else auto-fit (null).
@@ -190,16 +218,18 @@ window.ChordFlowFretboard = (function () {
 
     // A small toolbar button (the shared style for the label/orientation toggles).
     function toolbarButton(text, onClick) {
+      const t = THEMES[theme];
       const btn = document.createElement("button");
       btn.type = "button";
       btn.textContent = text;
       btn.style.cssText =
-        "font:inherit;font-size:.75rem;padding:.15rem .55rem;border:1px solid #4a4a4f;border-radius:4px;background:#3a3a3d;color:#e6e6e6;cursor:pointer;";
+        `font:inherit;font-size:.75rem;padding:.15rem .55rem;border:1px solid ${t.ctrlBorder};border-radius:4px;background:${t.ctrlBg};color:${t.ctrlText};cursor:pointer;`;
       btn.addEventListener("click", onClick);
       return btn;
     }
 
     function buildToolbar() {
+      const t = THEMES[theme];
       const bar = document.createElement("div");
       bar.style.cssText = "padding:.4rem .5rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;";
       // Title: the per-cell heading (opts.title) wins over the diagram's own title (the chord symbol).
@@ -207,7 +237,7 @@ window.ChordFlowFretboard = (function () {
       if (titleText) {
         const title = document.createElement("span");
         title.textContent = titleText;
-        title.style.cssText = "font-size:.85rem;font-weight:600;color:#e6e6e6;";
+        title.style.cssText = `font-size:.85rem;font-weight:600;color:${t.text};`;
         bar.appendChild(title);
       }
       // Synthetic voicing id + copy-to-clipboard (the oracle/debug handle). Shown right after the title.
@@ -216,7 +246,7 @@ window.ChordFlowFretboard = (function () {
         idChip.textContent = voicingId;
         idChip.title = voicingId;
         idChip.style.cssText =
-          "font-size:.7rem;color:#9aa0a6;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;max-width:14rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+          `font-size:.7rem;color:${t.muted};font-family:ui-monospace,SFMono-Regular,Menlo,monospace;max-width:14rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
         bar.appendChild(idChip);
         bar.appendChild(toolbarButton("Copy id", (e) => copyToClipboard(voicingId, e.currentTarget)));
       }
@@ -236,7 +266,7 @@ window.ChordFlowFretboard = (function () {
           input.placeholder = placeholder;
           input.value = value != null ? String(value) : "";
           input.style.cssText =
-            "font:inherit;font-size:.75rem;width:3.2rem;padding:.1rem .3rem;border:1px solid #4a4a4f;border-radius:4px;background:#2c2c2f;color:#e6e6e6;";
+            `font:inherit;font-size:.75rem;width:3.2rem;padding:.1rem .3rem;border:1px solid ${t.ctrlBorder};border-radius:4px;background:${t.ctrlBg};color:${t.ctrlText};`;
           input.addEventListener("change", () => {
             const v = input.value.trim();
             set(v === "" ? null : Math.max(0, parseInt(v, 10) || 0));
@@ -246,7 +276,7 @@ window.ChordFlowFretboard = (function () {
         };
         const fretsLabel = document.createElement("span");
         fretsLabel.textContent = "Frets:";
-        fretsLabel.style.cssText = "font-size:.75rem;color:#9aa0a6;";
+        fretsLabel.style.cssText = `font-size:.75rem;color:${t.muted};`;
         bar.appendChild(fretsLabel);
         bar.appendChild(mk("min", shown.min, (v) => (userFretMin = v)));
         bar.appendChild(mk("max", shown.max, (v) => (userFretMax = v)));
@@ -263,17 +293,25 @@ window.ChordFlowFretboard = (function () {
       if (controls.label !== false) {
         const label = document.createElement("span");
         label.textContent = "Labels:";
-        label.style.cssText = "font-size:.75rem;color:#9aa0a6;";
+        label.style.cssText = `font-size:.75rem;color:${t.muted};`;
         bar.appendChild(label);
         bar.appendChild(toolbarButton(
           labelMode === "interval" ? "Intervals" : "Notes",
           () => setLabelMode(labelMode === "interval" ? "note" : "interval")));
+      }
+
+      // Theme toggle (light ↔ dark). Hidden inside a grid (controls.theme:false), where the grid drives it globally.
+      if (controls.theme !== false) {
+        bar.appendChild(toolbarButton(
+          theme === "dark" ? "Dark" : "Light",
+          () => setTheme(theme === "dark" ? "light" : "dark")));
       }
       return bar;
     }
 
     function buildSvg() {
       const muted = new Set(model.mutedStrings || []);
+      const t = THEMES[theme];
       const { showNut, topFret, fretCount: rows } = computeWindow();
 
       const boxLeft = colX(0);
@@ -305,37 +343,37 @@ window.ChordFlowFretboard = (function () {
       // Nut (thick if open position) or a position label.
       svg.appendChild(el("line", {
         x1: boxLeft, y1: nutY, x2: boxRight, y2: nutY,
-        stroke: "#222", "stroke-width": showNut ? 4 : 1.5,
+        stroke: t.nut, "stroke-width": showNut ? 4 : 1.5,
       }));
       if (!showNut) {
         svg.appendChild(el("text", {
-          x: boxLeft - 8, y: nutY + ROW_H * 0.7, "text-anchor": "end", "font-size": 10, fill: "#555",
+          x: boxLeft - 8, y: nutY + ROW_H * 0.7, "text-anchor": "end", "font-size": 11, fill: t.posLabel,
         }, `${topFret}fr`));
       }
 
       // Fret lines
       for (let r = 1; r <= rows; r++) {
         const y = nutY + r * ROW_H;
-        svg.appendChild(el("line", { x1: boxLeft, y1: y, x2: boxRight, y2: y, stroke: "#999", "stroke-width": 1 }));
+        svg.appendChild(el("line", { x1: boxLeft, y1: y, x2: boxRight, y2: y, stroke: t.line, "stroke-width": 1 }));
       }
       // String lines (column i = string number STRINGS - i: leftmost = low E)
       for (let i = 0; i < STRINGS; i++) {
         const x = colX(i);
-        svg.appendChild(el("line", { x1: x, y1: nutY, x2: x, y2: boxBottom, stroke: "#999", "stroke-width": 1 }));
+        svg.appendChild(el("line", { x1: x, y1: nutY, x2: x, y2: boxBottom, stroke: t.line, "stroke-width": 1 }));
       }
 
       // Optional barre across a fret.
       if (model.barreFret != null && model.barreFret >= topFret) {
         const y = nutY + (model.barreFret - topFret + 1 - 0.5) * ROW_H;
         svg.appendChild(el("rect", {
-          x: boxLeft - DOT_R, y: y - 6, width: boxRight - boxLeft + 2 * DOT_R, height: 12, rx: 6, fill: "#33333355",
+          x: boxLeft - DOT_R, y: y - 6, width: boxRight - boxLeft + 2 * DOT_R, height: 12, rx: 6, fill: t.barre,
         }));
       }
 
       // Muted strings (diagram chrome) → ✕ above the nut.
       for (const s of muted) {
         const x = colX(STRINGS - s);
-        svg.appendChild(el("text", { x, y: nutY - 8, "text-anchor": "middle", "font-size": 12, fill: "#888" }, "✕"));
+        svg.appendChild(el("text", { x, y: nutY - 8, "text-anchor": "middle", "font-size": 12, fill: t.svgMuted }, "✕"));
       }
 
       // Markers (many may share a string). The lowest-fret marker on each string also gets a bottom label.
@@ -369,6 +407,7 @@ window.ChordFlowFretboard = (function () {
     // The first many-per-string producer (scales) needs this; the marker model is orientation-agnostic.
     function buildSvgHorizontal() {
       const muted = new Set(model.mutedStrings || []);
+      const t = THEMES[theme];
       const { showNut, topFret, fretCount } = computeWindow();
 
       const stringGap = 22; // vertical spacing between strings
@@ -407,40 +446,40 @@ window.ChordFlowFretboard = (function () {
 
       // Nut (thick at the open position) or a position label above it.
       svg.appendChild(el("line", {
-        x1: nutX, y1: topY, x2: nutX, y2: bottomY, stroke: "#222", "stroke-width": showNut ? 4 : 1.5,
+        x1: nutX, y1: topY, x2: nutX, y2: bottomY, stroke: t.nut, "stroke-width": showNut ? 4 : 1.5,
       }));
       if (!showNut) {
-        svg.appendChild(el("text", { x: nutX, y: topY - 5, "text-anchor": "middle", "font-size": 10, fill: "#555" }, `${topFret}fr`));
+        svg.appendChild(el("text", { x: nutX, y: topY - 5, "text-anchor": "middle", "font-size": 11, fill: t.posLabel }, `${topFret}fr`));
       }
 
       // Fret lines (vertical) + a fret number under each cell.
       for (let k = 1; k <= fretCount; k++) {
         const x = nutX + k * fretW;
-        svg.appendChild(el("line", { x1: x, y1: topY, x2: x, y2: bottomY, stroke: "#999", "stroke-width": 1 }));
+        svg.appendChild(el("line", { x1: x, y1: topY, x2: x, y2: bottomY, stroke: t.line, "stroke-width": 1 }));
       }
       for (let k = 0; k < fretCount; k++) {
         svg.appendChild(el("text", {
-          x: nutX + (k + 0.5) * fretW, y: bottomY + 14, "text-anchor": "middle", "font-size": 9, fill: "#777",
+          x: nutX + (k + 0.5) * fretW, y: bottomY + 14, "text-anchor": "middle", "font-size": 11, fill: t.fretNum,
         }, String(topFret + k)));
       }
 
       // String lines (horizontal).
       for (let s = 1; s <= STRINGS; s++) {
         const y = stringY(s);
-        svg.appendChild(el("line", { x1: nutX, y1: y, x2: rightX, y2: y, stroke: "#999", "stroke-width": 1 }));
+        svg.appendChild(el("line", { x1: nutX, y1: y, x2: rightX, y2: y, stroke: t.line, "stroke-width": 1 }));
       }
 
       // Optional barre → a vertical bar at the fret column.
       if (model.barreFret != null && model.barreFret >= topFret && model.barreFret < topFret + fretCount) {
         const x = cellCenterX(model.barreFret);
         svg.appendChild(el("rect", {
-          x: x - 6, y: stringY(1) - DOT_R, width: 12, height: bottomY - topY + 2 * DOT_R, rx: 6, fill: "#33333355",
+          x: x - 6, y: stringY(1) - DOT_R, width: 12, height: bottomY - topY + 2 * DOT_R, rx: 6, fill: t.barre,
         }));
       }
 
       // Muted strings → ✕ left of the nut.
       for (const s of muted) {
-        svg.appendChild(el("text", { x: nutX - 16, y: stringY(s) + 4, "text-anchor": "middle", "font-size": 12, fill: "#888" }, "✕"));
+        svg.appendChild(el("text", { x: nutX - 16, y: stringY(s) + 4, "text-anchor": "middle", "font-size": 12, fill: t.svgMuted }, "✕"));
       }
 
       // Markers (many may share a string row). Open = a ringed dot left of the nut; out-of-window frets are clipped.
@@ -485,6 +524,7 @@ window.ChordFlowFretboard = (function () {
     }
 
     function buildLegend() {
+      const t = THEMES[theme];
       const wrap = document.createElement("div");
       wrap.style.cssText = "display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;padding:.3rem .5rem .6rem;";
       const seen = new Set();
@@ -498,7 +538,7 @@ window.ChordFlowFretboard = (function () {
       entries.sort((a, b) => a.rank - b.rank);
       for (const entry of entries) {
         const item = document.createElement("span");
-        item.style.cssText = "display:inline-flex;align-items:center;gap:.25rem;font-size:.7rem;color:#9aa0a6;";
+        item.style.cssText = `display:inline-flex;align-items:center;gap:.25rem;font-size:.7rem;color:${t.muted};`;
         const dot = document.createElement("span");
         dot.style.cssText = `width:10px;height:10px;border-radius:50%;background:${entry.color};display:inline-block;`;
         item.appendChild(dot);
@@ -518,12 +558,17 @@ window.ChordFlowFretboard = (function () {
       render();
     }
 
+    function setTheme(mode) {
+      theme = mode === "dark" ? "dark" : "light";
+      render();
+    }
+
     function dispose() {
       container.innerHTML = "";
       model = null;
     }
 
-    return { render, setLabelMode, setOrientation, dispose };
+    return { render, setLabelMode, setOrientation, setTheme, dispose };
   }
 
   return { create };

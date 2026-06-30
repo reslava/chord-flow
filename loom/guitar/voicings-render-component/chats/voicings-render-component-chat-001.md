@@ -9,7 +9,7 @@ version: 2
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 28
+last_ai_block: 32
 ---
 # voicings-render-component Chat
 
@@ -595,4 +595,24 @@ So I'd open a **design thread — "Voicings pages / information architecture"** 
 
 Commit
 Create (1) `fretr-theming-polish` (idea + design + req + plan)
-Create (2) a design-first thread for the pages with a draft idea 
+Create (2) a design-first thread for the pages with a draft idea
+
+## AI:
+
+All three done. ✅
+
+### 1. Committed
+`020ae4a` — **feat: GuitarVoicingsR — faceted voicings grid** (27 files: QualityFacets, the voicingGrid verb + handler, FretR additions, the component, the page, the oracle + handler tests, the thread docs, and the ref syncs). 767/767 green at commit.
+
+### 2. Thread `ui/fretr-theming-polish` — fully scaffolded (idea + design + req + plan)
+- **Idea** (`id_01KWC2NDD20PZTJ2ZY2YAX3MDF`) — done.
+- **Design** (`de_01KWC2P5FB9R739B0QT3PC118Z`) — done. Theme as a chrome color table behind a `theme` opt (default light ⇒ byte-identical), hideable per-cell toggle + `setTheme`, GuitarVoicingsR global Dark/Light fan-out, dark contrast + font, orientation un-locked on standalone pages.
+- **Req** (`rq_01KWC2PP01RQV5C2BZSY526HYP`) — **locked**. 7 Included (IN1–IN7), 3 Excluded, 3 Constraints.
+- **Plan** (`pl_01KWC2QFRF718R4ASGCCK3JSXX`) — **5 steps**, every IN/C cited: (1) FretR theme tables + `setTheme` + font → (2) per-cell theme toggle → (3) GuitarVoicingsR global toggle + fan-out · (4) un-lock orientation on standalone pages → (5) sandbox + dogfood + ref-sync. Ready to start on your go.
+
+### 3. Thread `ui/voicings-pages-ia` — draft idea (design-first)
+- **Idea** (`id_01KWC2S9272C3FF4CJH3J9MRR9`) — left **draft** on purpose. It frames the 4 open questions (rename CAGED → Octave shapes · CAGED-Chords retirement timing · Content↔Voicings hub · where the Voicings Engine page sits) with my leanings, but **decides nothing** — that's for the design conversation. Its own chat is the place to thrash it.
+
+The two new threads' planning docs are **uncommitted** (just created). Want them in a follow-up commit, or left in the tree until we start work on them?
+
+**Where next?** Two clean fronts: (a) start the `fretr-theming-polish` plan (Step 1 — FretR theme tables), or (b) open the `voicings-pages-ia` design conversation. Your pick.
