@@ -6,7 +6,7 @@ status: done
 created: 2026-06-13
 updated: 2026-06-13
 version: 1
-design_version: 1
+design_version: 11
 req_version: 1
 tags: []
 parent_id: de_01KTXERD54E8GFPPNE19GMCPB1
@@ -57,7 +57,7 @@ steps:
     blocked_by: []
     satisfies: [IN8]
 ---
-# Voicings — authored content pillar (slice 1)
+# Guitar voicings — authored content pillar (slice 1)
 
 ## Goal
 

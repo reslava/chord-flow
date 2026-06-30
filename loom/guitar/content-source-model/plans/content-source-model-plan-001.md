@@ -6,7 +6,7 @@ status: done
 created: 2026-06-25
 updated: 2026-06-25
 version: 1
-design_version: 1
+design_version: 4
 req_version: 1
 tags: []
 parent_id: de_01KVZ4XQ47ZZ3DWFR65Z5AW1RH
