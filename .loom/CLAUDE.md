@@ -30,10 +30,10 @@ Loom's contract loads first; your local rules load after and can augment or over
 |------|---------|
 | **Weave** | A project folder under `loom/`. The core domain entity. |
 | **Thread** | A workstream subfolder inside a Weave (`loom/{weave}/{thread}/`). Contains idea, design, plans, done docs, chats. |
-| **Plan** | An implementation plan doc (`*-plan-*.md`) with a steps table. Lives in `{thread}/plans/`. |
-| **Design** | A design doc (`*-design.md`). Contains the design conversation log. |
+| **Plan** | An implementation plan doc (`plan-NNN.md`) with a steps table. Lives in `{thread}/plans/`. |
+| **Design** | A design doc (`design.md`). Contains the design conversation log. |
 
-Thread layout: `loom/{weave-id}/{thread-id}/{thread-id}-idea.md`, `{thread-id}-design.md`, `plans/`, `done/`.
+Thread layout (flat canonical filenames — identity is the frontmatter ULID, so a folder rename rewrites no doc content): `loom/{weave}/{thread}/idea.md`, `design.md`, `req.md`, `thread.md`, `plans/plan-NNN.md`, `done/plan-NNN-done.md`, `chats/chat-NNN.md`.
 
 ---
 
@@ -109,7 +109,7 @@ interactively in the project root and approve the `loom` server, or use
 - **Chat Mode (default):** Respond naturally. Never modify frontmatter or files without explicit approval.
 - **Action Mode:** Only when the user explicitly asks. Respond with a JSON proposal per the handshake protocol.
 - **Never propose state changes** (version bumps, status transitions) without being asked.
-- **Chat docs are the conversation surface (always reply inside).** Whenever a chat doc (any file matching `*-chat.md` or `*-chat-NNN.md`, i.e. `type: chat` in frontmatter) is the active context of the session — the user asked you to read it, opened it in the IDE while discussing it, references a line/section inside it, or the previous turn was already written into it — every reply goes inside that doc, appended at the bottom under `## AI:`. This is not optional and does not require the user to repeat "reply inside" each turn. Once a chat doc is active, keep replying inside it for all follow-ups until the user explicitly says `close` or switches to a different chat doc. The terminal response should be a brief one-liner pointing at the appended reply, not a duplicate of the content.
+- **Chat docs are the conversation surface (always reply inside).** Whenever a chat doc (`chat-NNN.md`, i.e. `type: chat` in frontmatter) is the active context of the session — the user asked you to read it, opened it in the IDE while discussing it, references a line/section inside it, or the previous turn was already written into it — every reply goes inside that doc, appended at the bottom under `## AI:`. This is not optional and does not require the user to repeat "reply inside" each turn. Once a chat doc is active, keep replying inside it for all follow-ups until the user explicitly says `close` or switches to a different chat doc. The terminal response should be a brief one-liner pointing at the appended reply, not a duplicate of the content.
 - **Why this matters:** Chats are Loom's User↔AI collaboration medium and the durable context database. Replies that live only in the terminal disappear; replies inside the chat doc persist as part of the project's shared memory.
 - **MCP tools for ALL writes to `loom/**/*.md` (hard rule):** Every write to a Loom doc — frontmatter or body, new doc or existing, state mutation or prose edit — goes through a `loom_*` MCP tool. No exceptions for "small" edits, typo fixes, or appending a single line. If a `loom-mcp-gate` PreToolUse hook is installed in this workspace, direct `Edit`/`Write`/`MultiEdit` to `loom/**/*.md` is **physically blocked**; if you see a deny from the gate, switch to the right MCP tool — don't route around it.
   - Chats → `loom_append_to_chat`
@@ -145,9 +145,9 @@ When replying inside a chat doc that lives in a thread (`loom/{weave}/{thread}/c
 - **First reply for this thread in the current conversation** — read the thread context (idea + design + active plan + any `requires_load` docs) before responding. Emit one visibility line per doc:
   ```
   📡 MCP: loom://context/{chat-id}?mode=chat
-  📄 {thread}-idea.md — loaded for context
-  📄 {thread}-design.md — loaded for context
-  📄 {plan-id}.md — loaded for context  (only if an active plan exists)
+  📄 idea.md — loaded for context
+  📄 design.md — loaded for context
+  📄 plan-NNN.md — loaded for context  (only if an active plan exists)
   ```
   (The Unified Context Pipeline assembles global/weave/thread ctx + the chat's parent chain + requires_load; the chat itself is the target.)
 - **Same thread, no `refine` / `generate` since last reply** — context is already in the conversation transcript. Do NOT re-read. Emit only the tool-call visibility line:
@@ -175,8 +175,8 @@ The "is this thread already in transcript?" decision lives **in the AI**, not in
    ```
    (or `⚠️ loom-ctx not loaded — proceeding without global context` on failure).
 2. **Load the tool catalog** — read the `loom://catalog` resource so the grouped `loom_*` tool index is in context *before* any tool is needed. Emit `📡 MCP: loom://catalog` then `🗂️ loom-catalog loaded — tool index ready`. Mandatory and unconditional: it removes the "first `ToolSearch` runs blind" moment that causes the index to be skipped. Once loaded, never `ToolSearch` for a `loom_*` tool without first consulting this index — go straight from catalog → `ToolSearch select:<exact name>`.
-3. **Read active work from MCP** — `loom://state?status=active,implementing`. Emit `🧵 Active: <thread IDs>`. MCP is the only source of truth — do not maintain a hand-written active-work pointer.
-4. **Call `do-next-step` prompt** with the active planId. Bundles thread context (idea, design, current plan, requires_load docs), the next incomplete step, and a pre-filled `loom_complete_step` call.
+3. **Load the project map** — read `loom://state?shape=summary`: the cheap weave/thread skeleton + status (a few KB), **not** the full state graph (every plan's every step). Emit `📡 MCP: loom://state?shape=summary` then `🧵 Active: <active/implementing thread IDs>`. This always-loaded orientation read replaces both the old full-state read and any hand-written active-work pointer — never read the full `loom://state` at session start.
+4. **Load only the pointed thread deeply.** When the user pointed you at a chat/doc/thread, that pointer is the active-thread signal — scope the deep load to it: call the `do-next-step` prompt with that thread's active planId (or read `loom://context/thread/{weave}/{thread}`). Bundles thread context (idea, design, current plan, requires_load docs), the next incomplete step, and a pre-filled `loom_complete_step` call. Do not load other threads' content; with no pointer, use the step-3 map to pick.
 
 After the reads, output this block and **STOP**:
 
