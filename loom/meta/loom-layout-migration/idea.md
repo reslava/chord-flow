@@ -2,7 +2,7 @@
 type: idea
 id: id_01KWFV8SFG5EC7RYZARGHCYAQY
 title: Run migrate-layout — flatten to canonical filenames
-status: active
+status: done
 created: 2026-07-01
 updated: 2026-07-01
 version: 3

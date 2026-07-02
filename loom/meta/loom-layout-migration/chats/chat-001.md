@@ -2,7 +2,7 @@
 type: chat
 id: ch_01KWHQ88WR3WM1YJDPFWB4CQDF
 title: loom-layout-migration Chat
-status: active
+status: done
 created: 2026-07-02
 version: 1
 tags: []
