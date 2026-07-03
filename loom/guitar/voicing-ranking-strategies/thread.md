@@ -4,7 +4,7 @@ id: th_01KVZ4P94F5X6JSTG121RVSEB5
 title: Voicing ranking strategies (selectable comping-grip selection)
 status: active
 created: 2026-06-25
-updated: 2026-06-26
+updated: 2026-07-03
 version: 1
 tags: []
 parent_id: null

@@ -1,17 +1,17 @@
 ---
 type: thread
-id: th_01KV3X9Z0FV87YDJQHAYSFFS33
-title: Multi-bar Rhythm Patterns — per-bar timing variation
+id: th_01KWK6GXXFA7657QN357S1V6X8
+title: tempo-control
 status: active
-created: 2026-06-14
+created: 2026-07-03
 updated: 2026-07-03
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 60
+priority: 70
 depends_on: []
 ---
-# Multi-bar Rhythm Patterns — per-bar timing variation
+# tempo-control
 
 Thread manifest — authored roadmap metadata only (`priority` + `depends_on`). The thread's roadmap status and history are *derived* (`buildRoadmap`), never stored here.

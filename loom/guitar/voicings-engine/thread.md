@@ -4,11 +4,12 @@ id: th_01KWA2ZXK9QK7Q1JQ6JESGY38Y
 title: voicings-engine
 status: active
 created: 2026-06-29
+updated: 2026-07-03
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 1000
+priority: 20
 depends_on: []
 ---
 # voicings-engine
