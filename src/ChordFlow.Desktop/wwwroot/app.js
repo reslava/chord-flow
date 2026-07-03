@@ -249,6 +249,8 @@ const ChordFlow = (function () {
             voicingsView = window.ChordFlowGuitarVoicings.create($("voicings-mount"));
           if (voicingsView) voicingsView.show();
         } },
+      voicingsEngine: { nav: $("navVoicingsEngine"), el: $("voicings-engine-view"),
+        onShow: () => window.ChordFlowVoicingsEngine && window.ChordFlowVoicingsEngine.show() },
     };
 
     function show(viewName) {

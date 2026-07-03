@@ -34,7 +34,16 @@ public static class ShellDerivation
     /// <c>[<paramref name="minFret"/>, <paramref name="maxFret"/>]</c>. Throws if the quality is not shell-eligible
     /// (no 7th/6th) or the root has no anchor on the form's root string in the region.
     /// </summary>
-    public static ChordShape Derive(Quality quality, CagedShape form, PitchClass root, int minFret, int maxFret)
+    public static ChordShape Derive(Quality quality, CagedShape form, PitchClass root, int minFret, int maxFret) =>
+        DeriveVoicing(quality, form, root, minFret, maxFret).Grip;
+
+    /// <summary>
+    /// The introspectable form of <see cref="Derive"/>: the same 2-form shell pipeline, returning the full
+    /// <see cref="VoicingDerivation"/> — the abstract <see cref="ToneSelection"/> (root + 3rd + 7th|6th, i.e. every
+    /// chord tone except the Fifth) and the ordered <see cref="RealizationStep"/>s (guide-tone placement, the
+    /// compact-anchor choice, the anchor finger) — alongside the identical grip. Grip computation byte-identical.
+    /// </summary>
+    public static VoicingDerivation DeriveVoicing(Quality quality, CagedShape form, PitchClass root, int minFret, int maxFret)
     {
         if (form is not (CagedShape.C or CagedShape.E))
             throw new ArgumentOutOfRangeException(
@@ -62,18 +71,56 @@ public static class ShellDerivation
 
         // Lowest compact placement; fall back to the lowest if none is compact (e.g. a cramped region).
         ChordShape? fallback = null;
+        ChordShape? chosen = null;
+        int chosenRootFret = rootFrets[0];
+        bool compact = false;
         foreach (int rootFret in rootFrets)
         {
             ChordShape grip = Assemble(quality, form, root, rootString, rootFret, s4Interval, s3Interval, maxFret);
             if (Span(grip) <= MaxShellSpan)
             {
-                return grip;
+                chosen = grip;
+                chosenRootFret = rootFret;
+                compact = true;
+                break;
             }
 
             fallback ??= grip;
         }
 
-        return fallback!;
+        chosen ??= fallback!;   // fallback is the first (lowest) placement; its root fret is rootFrets[0]
+
+        return BuildDerivation(quality, form, root, third, guide, rootString, chosenRootFret, compact, chosen);
+    }
+
+    // Assemble the trace (ToneSelection = every chord tone except the Fifth; steps = guide tones, compact anchor,
+    // anchor finger) around the already-chosen grip.
+    private static VoicingDerivation BuildDerivation(
+        Quality quality, CagedShape form, PitchClass root, int third, int guide, int rootString,
+        int rootFret, bool compact, ChordShape grip)
+    {
+        int s4Fret = grip.Strings.First(s => s.String == LowGuideString).Fret ?? rootFret;
+        int s3Fret = grip.Strings.First(s => s.String == HighGuideString).Fret ?? rootFret;
+
+        var steps = new List<RealizationStep>
+        {
+            new(RealizationStepKind.GuideTones,
+                $"Guide tones for the {form} form: 3rd (interval {third}) and 7th/6th (interval {guide}) on strings 4/3, nearest the root fret ({s4Fret}, {s3Fret}).",
+                new[] { LowGuideString, HighGuideString }),
+            new(RealizationStepKind.Compaction,
+                $"Anchored root on string {rootString} at fret {rootFret} — lowest {(compact ? "compact" : "(no compact placement; lowest)")} placement (span {Span(grip)}).",
+                new[] { rootString }),
+            new(RealizationStepKind.AnchorFinger,
+                $"Anchor finger: {grip.AnchorFinger}."),
+        };
+
+        IReadOnlyList<ToneSelection> toneSelection = ChordTones.Of(new Chord(root, quality))
+            .Where(t => t.Function != ChordToneFunction.Fifth)
+            .Select(t => new ToneSelection(t.Interval, t.Function))
+            .ToList();
+
+        return new VoicingDerivation(
+            VoicingFamily.Shell, OperatorKind.DeriveFromFormula, Array.Empty<ResolvedParam>(), toneSelection, steps, grip);
     }
 
     private static ChordShape Assemble(

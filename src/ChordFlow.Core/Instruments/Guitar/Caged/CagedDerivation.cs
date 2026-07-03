@@ -42,8 +42,20 @@ public static class CagedDerivation
     /// (the region whose lowest occurrence of the root on the shape's primary string anchors the grip). Throws if
     /// the shape has no anchor in the region or no valid grip can be spelled.
     /// </summary>
-    public static ChordShape Derive(Quality quality, CagedShape shape, PitchClass root, int minFret, int maxFret)
+    public static ChordShape Derive(Quality quality, CagedShape shape, PitchClass root, int minFret, int maxFret) =>
+        DeriveVoicing(quality, shape, root, minFret, maxFret).Grip;
+
+    /// <summary>
+    /// The introspectable form of <see cref="Derive"/>: the same grip pipeline, but returning the full
+    /// <see cref="VoicingDerivation"/> — the abstract full-chord <see cref="ToneSelection"/> and the ordered
+    /// <see cref="RealizationStep"/>s narrating anchor / bass root / reach window / mutes / selection / anchor
+    /// finger — alongside the identical <see cref="VoicingDerivation.Grip"/> (voicings-engine design OD-2). The grip
+    /// computation is byte-identical to <see cref="Derive"/>; only trace recording is interleaved.
+    /// </summary>
+    public static VoicingDerivation DeriveVoicing(Quality quality, CagedShape shape, PitchClass root, int minFret, int maxFret)
     {
+        var steps = new List<RealizationStep>();
+
         IReadOnlyList<FretPosition> anchors = OctaveShape.AnchorsFor(root, shape, minFret, maxFret);
         if (anchors.Count == 0)
             throw new InvalidOperationException($"{shape} shape has no anchor for the root within [{minFret}, {maxFret}].");
@@ -58,6 +70,12 @@ public static class CagedDerivation
         // the HIGHEST (pinky-anchored — box stacks DOWN)? Derived from the anchors, not authored. Every authored
         // grip is root-in-the-bass and reaches only to the anchor finger's side, so the box stays on the shape.
         bool stacksUp = bassFret == anchors.Min(a => a.Fret);
+
+        steps.Add(new RealizationStep(RealizationStepKind.Anchor,
+            $"Anchored the {shape} shape for {root.Value}{quality} in [{minFret}, {maxFret}] (octave zone {zone.MinFret}-{zone.MaxFret})."));
+        steps.Add(new RealizationStep(RealizationStepKind.BassRoot,
+            $"Bass root on string {bassRoot} at fret {bassFret}; box stacks {(stacksUp ? "up (index-anchored)" : "down (pinky-anchored)")}.",
+            new[] { bassRoot }));
 
         // Reach window from the bass root: the box may extend in the anchor finger's reach direction only, as far
         // as the hand stretches — index reaches up (+ahead), pinky reaches down (−behind). This is where the reach
@@ -80,6 +98,14 @@ public static class CagedDerivation
         FretWindow window = stacksUp
             ? new FretWindow(Math.Max(0, bassFret - stretchBack), bassFret + reachAhead)
             : new FretWindow(Math.Max(0, bassFret - reachBehind), bassFret);
+
+        steps.Add(new RealizationStep(RealizationStepKind.ReachWindow,
+            $"Reach window frets [{window.MinFret}, {window.MaxFret}]{(allowStretchBack ? " (index stretch-back granted)" : "")}."));
+        if (eShapeException)
+        {
+            steps.Add(new RealizationStep(RealizationStepKind.Mute,
+                "E-shape colour-tone relocation: string 5 muted, index stretch-back granted.", new[] { 5 }));
+        }
 
         IReadOnlyList<int> distinctTones = QualityIntervals.Intervals(quality).Distinct().ToList();
 
@@ -153,6 +179,22 @@ public static class CagedDerivation
             }
         }
 
-        return new ChordShape(quality, shape, strings, anchorFinger, zone);
+        var grip = new ChordShape(quality, shape, strings, anchorFinger, zone);
+
+        IReadOnlyList<int> playedStrings = strings.Where(s => !s.IsMuted).Select(s => s.String).OrderByDescending(s => s).ToList();
+        IReadOnlyList<int> mutedStrings = strings.Where(s => s.IsMuted).Select(s => s.String).OrderByDescending(s => s).ToList();
+        steps.Add(new RealizationStep(RealizationStepKind.Select,
+            $"Selected one tone per played string: {grip.FretString()}.", playedStrings));
+        steps.Add(new RealizationStep(RealizationStepKind.Mute,
+            $"Muted string(s) {string.Join(", ", mutedStrings)}.", mutedStrings));
+        steps.Add(new RealizationStep(RealizationStepKind.AnchorFinger,
+            $"Anchor finger: {anchorFinger} (root's rank in the realized box)."));
+
+        IReadOnlyList<ToneSelection> toneSelection = ChordTones.Of(new Chord(root, quality))
+            .Select(t => new ToneSelection(t.Interval, t.Function))
+            .ToList();
+
+        return new VoicingDerivation(
+            VoicingFamily.Caged, OperatorKind.DeriveFromFormula, Array.Empty<ResolvedParam>(), toneSelection, steps, grip);
     }
 }

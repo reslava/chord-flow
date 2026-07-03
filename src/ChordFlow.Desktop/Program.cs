@@ -111,6 +111,7 @@ internal static class Program
                 var caged = new CagedShapesHandler();
                 var cagedChord = new CagedChordHandler();
                 var voicingGrid = new VoicingGridHandler();
+                var voicingDerive = new VoicingDeriveHandler();
 
                 // App-lifetime global-preference store (key/value over SQLite). Shared by the soundfont choice
                 // and the staff-display profile below.
@@ -315,6 +316,21 @@ internal static class Program
                 // GuitarVoicingsR page: resolve the whole filtered voicings grid in one round-trip. Unvoiceable
                 // combos are dropped inside the handler, so an over-narrow filter just yields fewer/zero cells.
                 router.VoicingGridRequested += filter => bridge.Send(voicingGrid.Build(filter));
+
+                // Voicings Engine inspector page: the operator catalog (schema-driven controls), and one derivation
+                // (abstract voicing + steps + grip) per request. Invalid input fails loud into a UI-safe error reply.
+                router.VoicingOperatorsRequested += () => bridge.Send(voicingDerive.Operators());
+                router.VoicingDeriveRequested += request =>
+                {
+                    try
+                    {
+                        bridge.Send(voicingDerive.Derive(request));
+                    }
+                    catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+                    {
+                        bridge.Send(new VoicingDeriveErrorEnvelope(ex.Message));
+                    }
+                };
 
                 // Playback soundfont: list (fonts + persisted selection) on request; persist a new global choice.
                 router.ListSoundFontsRequested += () => bridge.Send(soundFonts.ListWithSelection());

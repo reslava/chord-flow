@@ -4,8 +4,8 @@ id: rf_01KWAA8N1THKHZ7K9DB13VR17C
 title: Voicings Engine Rules
 status: active
 created: 2026-06-29
-updated: 2026-06-29
-version: 2
+updated: 2026-07-03
+version: 4
 tags: []
 parent_id: null
 requires_load: []
@@ -45,7 +45,7 @@ Every operator decomposes into two steps along an axis that maps onto the projec
 **Namespace placement (confirmed against the architecture ref — signed off):**
 - New **abstract operators** (tone-selection / arrangement that produces ordered `Pitch`es or intervals) are authored in **`ChordFlow.Music.Harmony`** — `Music/` is provably instrument-agnostic, and ordered `Pitch`es are already inside its output vocabulary.
 - **Realization** stays in **`ChordFlow.Instruments.Guitar`** (`VoicingRealizer`, `OctaveShape`, `IntervalLattice`, `HandReach`, `CandidateSelector`, `AnchorFinger`).
-- The **three current families compute grips directly and live wholly in `Instruments/Guitar` today** (tone-selection and realization are entangled in one class each). The split becomes a *physical* namespace move when the first **re-voice** operator (Drop2) or a **second instrument** forces it — at which point the agnostic core is extracted from ≥2 real cases, never guessed from one. A cross-instrument engine interface (`IVoicingsE`) is deferred for the same reason.
+- The **three current families are now first-class `IVoicingOperator`s** (`CagedOperator`, `ShellOperator`, `DoubledShellOperator`) behind the `FamilyVoicing` grip shim + the `VoicingOperators` registry. Each declares a typed `ParameterSchema` and emits a `VoicingDerivation` whose **`ToneSelection` carries the tone-selection axis as explicit data** (which chord tones, by function) alongside the ordered `RealizationStep`s and the grip. But this is *introspection in place*: the tone-selection representation still lives in `Instruments/Guitar` — the **physical** namespace move (tone-selection → `Music.Harmony`) becomes real only when the first **re-voice** operator (Drop2) or a **second instrument** forces it, extracted from ≥2 real cases, never guessed from one. A cross-instrument engine interface (`IVoicingsE`) is deferred for the same reason.
 
 ---
 
@@ -66,6 +66,8 @@ Operators do not author fret tables — they stand on these primitives:
 ---
 
 ## 4. The current families (exact rules + order)
+
+Each family is a registered `IVoicingOperator` (`VoicingOperators.All`), dispatched behind `FamilyVoicing`: `FamilyVoicing.Derive(...)` returns `operator.Derive(request).Grip` (the byte-identical grip the comping resolver + grid consume), while `FamilyVoicing.Voicing(...)` / `operator.Derive(...)` return the full `VoicingDerivation` (tone selection + realization steps + grip). The derivers below (`CagedDerivation`/`ShellDerivation`/`ShellReduction`) are unchanged in their grip logic — they now additionally *emit* the trace (`DeriveVoicing`), and the `*Operator` types wrap them with the declared `ParameterSchema`.
 
 ### 4.1 CAGED — `CagedDerivation.Derive(quality, shape, root, minFret, maxFret)`
 **Kind:** derive-from-formula. **Output:** the full chord in a CAGED shape.

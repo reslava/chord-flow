@@ -211,6 +211,7 @@
       <button id="navCaged" type="button">CAGED</button>
       <button id="navCagedChords" type="button">CAGED Chords</button>
       <button id="navVoicings" type="button">Voicings</button>
+      <button id="navVoicingsEngine" type="button">Voicings Engine</button>
     </nav>
     <span id="status">starting…</span>
   </header>
@@ -314,6 +315,32 @@
     <div id="voicings-mount" style="padding:1rem;"></div>
   </div>
 
+  <!-- Voicings Engine view: the introspectable operator inspector (voicings-engine.js). Pick an operator + quality +
+       root + its declared params → the host derives ONE voicing and returns the abstract tone selection, the ordered
+       "show your work" steps, and the realized grip. The engine's explainability dogfood surface. Controls are
+       schema-driven from the voicingOperators catalog. -->
+  <div id="voicings-engine-view" hidden>
+    <section class="toolbar" id="veBuilder">
+      <label for="veOperator">Operator</label>
+      <select id="veOperator"></select>
+      <label for="veQuality">Quality</label>
+      <select id="veQuality"></select>
+      <label for="veRoot">Root</label>
+      <select id="veRoot"></select>
+      <label for="veShape">Shape</label>
+      <select id="veShape"></select>
+      <label for="veMinFret">Frets</label>
+      <input type="number" id="veMinFret" min="0" max="24" value="0" style="width:3.5rem" title="Lowest fret" />
+      <input type="number" id="veMaxFret" min="0" max="24" value="15" style="width:3.5rem" title="Highest fret" />
+      <span class="cc-help">The engine <em>derives</em> the grip — see the abstract voicing and every derivation step.</span>
+    </section>
+    <div id="veError" class="cc-error" style="padding:.2rem 1rem;"></div>
+    <div id="ve-layout" style="display:flex; gap:1rem; flex-wrap:wrap; margin:0 1rem 1rem; align-items:flex-start;">
+      <div id="ve-abstract" style="flex:1 1 320px; min-width:280px;"></div>
+      <div id="ve-diagram" class="cc-preview" style="flex:1 1 320px; min-width:280px;"></div>
+    </div>
+  </div>
+
   <!-- Bundled alphaTab JS build (constraint C6) — loaded from disk, offline. -->
   <script src="alphaTab.min.js"></script>
   <script src="bridge.js"></script>
@@ -325,6 +352,7 @@
   <script src="caged-shapes.js"></script>
   <script src="caged-chords.js"></script>
   <script src="guitar-voicings-render-component.js"></script>
+  <script src="voicings-engine.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

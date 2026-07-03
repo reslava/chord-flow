@@ -31,6 +31,15 @@ public sealed record VoicingGridFilter(
     IReadOnlyList<string>? Sevenths);
 
 /// <summary>
+/// One <c>voicingDerive</c> request from the Voicings Engine inspector page: the operator <see cref="Family"/>
+/// (caged/dshell/shell), the <see cref="Quality"/> enum name, the <see cref="Root"/> pitch class, the CAGED
+/// shape / shell form (<see cref="Shape"/>), and the optional neck window (<see cref="MinFret"/>/<see cref="MaxFret"/>,
+/// absent ⇒ the full-neck default).
+/// </summary>
+public sealed record VoicingDeriveRequest(
+    string? Family, string? Quality, int Root, string? Shape, int? MinFret, int? MaxFret);
+
+/// <summary>
 /// Parses inbound JSON envelopes from the WebView (JS→C#) and raises typed
 /// events for feature slices to subscribe to. The envelope <c>type</c> string is
 /// the only contract surface. Inbound vocabulary: <c>ready</c> /
@@ -40,7 +49,8 @@ public sealed record VoicingGridFilter(
 /// <c>entityList</c> / <c>entityGet</c> / <c>entityPreview</c> / <c>entitySave</c> /
 /// <c>entityDelete</c> (each carrying an <c>entity</c> discriminator) / the playback-soundfont pair
 /// <c>listSoundFonts</c> / <c>setSoundFont</c> / the staff-display-profile pair <c>getStaffProfile</c> /
-/// <c>setStaffProfile</c> / <c>scalePreview</c> / <c>cagedPreview</c> / <c>cagedChordPreview</c> / <c>voicingGrid</c>.
+/// <c>setStaffProfile</c> / <c>scalePreview</c> / <c>cagedPreview</c> / <c>cagedChordPreview</c> / <c>voicingGrid</c> /
+/// <c>voicingDerive</c> / <c>voicingOperators</c>.
 /// </summary>
 public sealed class WebMessageRouter
 {
@@ -119,6 +129,12 @@ public sealed class WebMessageRouter
 
     /// <summary>Resolve the whole filtered voicings grid in one round-trip (GuitarVoicingsR) — <c>(filter)</c>.</summary>
     public event Action<VoicingGridFilter>? VoicingGridRequested;
+
+    /// <summary>Derive one voicing (+ its trace) for the Voicings Engine inspector page — <c>(request)</c>.</summary>
+    public event Action<VoicingDeriveRequest>? VoicingDeriveRequested;
+
+    /// <summary>Send the operator catalog (registry + declared schemas) to the Voicings Engine page.</summary>
+    public event Action? VoicingOperatorsRequested;
 
     /// <summary>Deserialize one inbound message string and dispatch it to subscribers.</summary>
     public void Dispatch(string message)
@@ -264,6 +280,14 @@ public sealed class WebMessageRouter
                     envelope.RootPitchClass ?? 0,
                     envelope.Sources, envelope.Families, envelope.Thirds, envelope.Fifths, envelope.Sevenths));
                 break;
+            case "voicingDerive":
+                VoicingDeriveRequested?.Invoke(new VoicingDeriveRequest(
+                    envelope.Family, envelope.Quality, envelope.RootPitchClass ?? 0,
+                    envelope.Shape, envelope.MinFret, envelope.MaxFret));
+                break;
+            case "voicingOperators":
+                VoicingOperatorsRequested?.Invoke();
+                break;
             // Unknown / null types are ignored — forward-compatible.
         }
     }
@@ -324,6 +348,8 @@ public sealed class WebMessageRouter
         // multi-select enabled-token sets per level (absent ⇒ null ⇒ that level is unconstrained).
         IReadOnlyList<string>? Sources, IReadOnlyList<string>? Families, IReadOnlyList<string>? Thirds,
         IReadOnlyList<string>? Fifths, IReadOnlyList<string>? Sevenths,
+        // voicingDerive: the neck window for a single-operator derivation (reuses Family/Quality/Shape/RootPitchClass).
+        int? MinFret, int? MaxFret,
         // Optional render-time presentation options on the render-producing verbs (generate/loadExercise/entityPreview).
         InboundRenderOptions? RenderOptions);
 
