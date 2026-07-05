@@ -2,7 +2,7 @@
 type: chat
 id: ch_01KWA305ZBNH8MB9PPR58090JP
 title: voicings-engine initial Chat
-status: active
+status: done
 created: 2026-06-29
 updated: 2026-07-03
 version: 1

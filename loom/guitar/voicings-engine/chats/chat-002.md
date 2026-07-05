@@ -2,7 +2,7 @@
 type: chat
 id: ch_01KWK7RX7W1WVJ5R015ZWZHM8P
 title: voicings-engine Chat
-status: active
+status: done
 created: 2026-07-03
 version: 1
 tags: []
@@ -280,3 +280,7 @@ Before I spin up the thread, three genuine questions (they change the idea's sco
 And yes — I'd **spin this up as a new thread building on this one** (`depends_on: voicings-engine`, since it stands on the operator model we just built). Working name idea: `guitar/real-song-voicings` (discovery-driven) or `guitar/voicing-pipeline` (builder-driven) — depends on your answer to #3.
 
 Give me your reads on 1–3 (and a thread-name preference) and I'll create the thread + draft its idea over this base. **Committing the engine work now.**
+
+## Rafa:
+
+Okey, lets continue builiding for real songs, no need to open any new thread
