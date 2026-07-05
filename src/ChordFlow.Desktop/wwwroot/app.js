@@ -112,6 +112,23 @@ const ChordFlow = (function () {
     keyEl.value = String(pc);
   }
 
+  // Seed the transport's feel picker from the selected harmony: a song → its DefaultFeel (carried on the catalog
+  // item, song-default-feel IN4), else straight ("None"). Like seedKeyForHarmony this fires on a harmony *switch*
+  // only, so a manual feel edit for the current selection survives until the next switch (C6); it never re-renders
+  // (generate carries the seeded value). A song with no `feel` directive (defaultFeel null) seeds straight.
+  function seedFeelForHarmony() {
+    if (!view) return;
+    const sel = $("harmony");
+    if (!sel) return;
+    const [entity, id] = (sel.value || "").split(/:(.*)/s);
+    let feel = "None"; // the feel-independent / progression / no-directive default
+    if (entity === "song") {
+      const song = catalog.song.find((s) => s.id === id);
+      if (song && song.defaultFeel != null) feel = song.defaultFeel;
+    }
+    view.seedTripletFeel(feel);
+  }
+
   // Rebuild the harmony picker from songs + progressions; each option's value is "<entity>:<id>" so generate
   // sends the right discriminator. Default to the boot blues progression when present.
   function rebuildHarmonyPicker() {
@@ -193,8 +210,10 @@ const ChordFlow = (function () {
     const harmony = $("harmony");
 
     if (harmony) {
-      // Switching the harmony adopts that piece's key (song → its InitialKey, progression → C).
+      // Switching the harmony adopts that piece's key (song → its InitialKey, progression → C) and feel
+      // (song → its DefaultFeel, else None).
       harmony.addEventListener("change", seedKeyForHarmony);
+      harmony.addEventListener("change", seedFeelForHarmony);
     }
     if (gen) {
       gen.addEventListener("click", () => sendScoreRequest({ type: "generate", ...selections() }));

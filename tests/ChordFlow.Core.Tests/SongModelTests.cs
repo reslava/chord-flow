@@ -82,6 +82,40 @@ public class SongModelTests
         Assert.Equal(3, song.Items.Count);
     }
 
+    // --- DefaultFeel (content property, peer of InitialKey) ---
+
+    [Fact]
+    public void FromSections_DefaultFeel_DefaultsToNull()
+    {
+        var parts = new Dictionary<string, Part> { ["A"] = Inline("A") };
+        var items = new ArrangementItem[] { new PartPlay("A", 1) };
+
+        Song song = Song.FromSections("s", "S", CMajor, parts, items);
+
+        Assert.Null(song.DefaultFeel);
+    }
+
+    [Fact]
+    public void FromSections_CarriesDefaultFeel()
+    {
+        var parts = new Dictionary<string, Part> { ["A"] = Inline("A") };
+        var items = new ArrangementItem[] { new PartPlay("A", 1) };
+
+        Song song = Song.FromSections("s", "S", CMajor, parts, items, TripletFeel.Triplet8th);
+
+        Assert.Equal(TripletFeel.Triplet8th, song.DefaultFeel);
+    }
+
+    [Fact]
+    public void OfProgression_HasNullDefaultFeel()
+    {
+        Progression prog = ProgressionParser.Parse("p", "P", "1 4 5 1", TimeSignature.FourFour);
+
+        Song song = Song.OfProgression(prog, CMajor);
+
+        Assert.Null(song.DefaultFeel);   // a lifted bare progression carries no feel (req EX1)
+    }
+
     // --- Guards ---
 
     [Fact]

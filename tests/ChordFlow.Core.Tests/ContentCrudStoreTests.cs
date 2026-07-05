@@ -267,6 +267,25 @@ public class ContentCrudStoreTests
         Assert.Equal(0, byId["no_key"].InitialKey);  // no key line → the Song DSL C default
     }
 
+    // ---- Song: list surfaces DefaultFeel so the transport feel control can seed from it (song-default-feel IN4) ----
+
+    [Fact]
+    public void SongList_SurfacesDefaultFeel_FromTheSongsOwnFeelDirective()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        db.Songs.Add(new SongEntity { Id = "swing", Name = "Swing", Dsl = "feel triplet8th\nhead = 1 4 5 1\nhead", Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow });
+        db.Songs.Add(new SongEntity { Id = "straight", Name = "Straight", Dsl = "feel none\nhead = 1 4 5 1\nhead", Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow });
+        db.Songs.Add(new SongEntity { Id = "no_feel", Name = "No Feel", Dsl = "head = 1 4 5 1\nhead", Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow });
+        db.SaveChanges();
+
+        var byId = new SongStore(db).List().ToDictionary(s => s.Id);
+
+        Assert.Equal("Triplet8th", byId["swing"].DefaultFeel);   // `feel triplet8th` → the enum-name ident the UI seeds with
+        Assert.Equal("None", byId["straight"].DefaultFeel);      // explicit `feel none` → "None" (a straight tune), not null (IN7)
+        Assert.Null(byId["no_feel"].DefaultFeel);                // no directive → null (no opinion)
+    }
+
     [Fact]
     public void ProgressionList_HasNullInitialKey_BecauseProgressionsAreKeyIndependent()
     {

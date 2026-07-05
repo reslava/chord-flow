@@ -4,8 +4,8 @@ id: rf_01KTSAQ6990GY3J4CZ7HPVPW6K
 title: ChordFlow DSL
 status: active
 created: 2026-06-10
-updated: 2026-06-25
-version: 23
+updated: 2026-07-05
+version: 24
 tags: []
 parent_id: null
 requires_load: []
@@ -165,9 +165,11 @@ After the definitions, list the parts in playing order — one instruction per l
 | `NAME @op(args)` | apply a **progression transform** to that play (e.g. `verse @take(4)`) — see *Progression transforms* below |
 | `key <note>` | set or reset the key (e.g. `key C`, `key Eb`, `key Am`) |
 | `mod <spec>` | **modulate** — shift the key from here onward |
+| `feel <token>` | the song's **default triplet feel** (swing) — `feel none`, `feel triplet8th`, `feel triplet16th` |
 
 ```
 key C
+feel triplet8th   # a swing tune — the Feel control pre-selects Triplet8th when you pick this song
 
 intro
 verse x2
@@ -179,6 +181,7 @@ verse
 - A `key` line **before** the stream sets the **starting key** (defaults to **C major** if omitted).
 - A `key` line **inside** the stream is an absolute **reset** — the escape hatch to return home.
 - `mod` is **relative and accumulates**: two `mod V` in a row move up two fifths.
+- `feel` is a **whole-song default** (position-independent, at most once) — it only **pre-selects** the play-time Feel control when you pick the song; you can still change the feel in the transport, and the swing itself still happens at play time (it never changes the notated rhythm). Omitting `feel` means "no preference" (the control stays straight); an explicit `feel none` says "this is a straight tune." It is a **Song-only** directive — progressions are pure chords/bars and carry no `feel` (or `key`). Uses a space keyword (`feel triplet8th`), **not** a colon (`feel:` is reserved for a stored-progression reference).
 
 ### Modulation specs
 

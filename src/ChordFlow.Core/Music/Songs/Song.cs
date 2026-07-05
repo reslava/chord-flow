@@ -1,6 +1,7 @@
 using ChordFlow.Music.Progressions;
 using ChordFlow.Music.Progressions.Transforms;
 using ChordFlow.Music.Harmony;
+using ChordFlow.Music.Rhythm;
 namespace ChordFlow.Music.Songs;
 
 /// <summary>
@@ -70,6 +71,15 @@ public sealed record Song
     /// <summary>The key the realization fold starts from; modulations accumulate from here (decision C/E).</summary>
     public Key InitialKey { get; }
 
+    /// <summary>
+    /// The Song's suggested play-time triplet feel (swing), or <c>null</c> when it expresses no preference. A
+    /// content property that <b>seeds</b> the play-time feel — the exact peer of <see cref="InitialKey"/> /
+    /// <c>Exercise.KeyOverride</c>: it never bakes feel into the realized <c>RhythmPattern</c> (ctx C4), and the
+    /// ScoreR transport overrides it. <c>null</c> (no directive) is distinct from an explicit
+    /// <see cref="TripletFeel.None"/> ("this is a straight tune").
+    /// </summary>
+    public TripletFeel? DefaultFeel { get; }
+
     /// <summary>Local part definitions, keyed by name (inline progressions and stored references alike).</summary>
     public IReadOnlyDictionary<string, Part> Parts { get; }
 
@@ -82,13 +92,15 @@ public sealed record Song
         string name,
         Key initialKey,
         IReadOnlyDictionary<string, Part> parts,
-        IReadOnlyList<ArrangementItem> items)
+        IReadOnlyList<ArrangementItem> items,
+        TripletFeel? defaultFeel)
     {
         Id = id;
         Name = name;
         InitialKey = initialKey;
         Parts = parts;
         Items = items;
+        DefaultFeel = defaultFeel;
     }
 
     /// <summary>
@@ -107,7 +119,8 @@ public sealed record Song
         string name,
         Key initialKey,
         IReadOnlyDictionary<string, Part> parts,
-        IReadOnlyList<ArrangementItem> items)
+        IReadOnlyList<ArrangementItem> items,
+        TripletFeel? defaultFeel = null)
     {
         ArgumentNullException.ThrowIfNull(initialKey);
         ArgumentNullException.ThrowIfNull(parts);
@@ -150,7 +163,7 @@ public sealed record Song
             throw new ArgumentException("A Song must play at least one part.", nameof(items));
         }
 
-        return new Song(id, name, initialKey, parts, items);
+        return new Song(id, name, initialKey, parts, items, defaultFeel);
     }
 
     /// <summary>

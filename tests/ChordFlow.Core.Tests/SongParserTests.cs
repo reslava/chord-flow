@@ -131,6 +131,73 @@ public class SongParserTests
         Assert.Throws<FormatException>(() => Parse("key H\nA = 1 4 5 1\nA"));
     }
 
+    // --- feel directive (Song.DefaultFeel) ---
+
+    [Theory]
+    [InlineData("none", TripletFeel.None)]
+    [InlineData("triplet8th", TripletFeel.Triplet8th)]
+    [InlineData("triplet16th", TripletFeel.Triplet16th)]
+    [InlineData("Triplet8th", TripletFeel.Triplet8th)]   // idents are case-insensitive
+    public void Parse_FeelDirective_SetsDefaultFeel(string token, TripletFeel expected)
+    {
+        Song song = Parse($"feel {token}\nA = 1 4 5 1\nA");
+        Assert.Equal(expected, song.DefaultFeel);
+    }
+
+    [Fact]
+    public void Parse_NoFeelDirective_DefaultFeelIsNull()
+    {
+        // Absent (no opinion) is distinct from an explicit `feel none` (req IN7).
+        Song song = Parse("A = 1 4 5 1\nA");
+        Assert.Null(song.DefaultFeel);
+    }
+
+    [Fact]
+    public void Parse_FeelNone_IsNoneNotNull()
+    {
+        Song song = Parse("feel none\nA = 1 4 5 1\nA");
+        Assert.Equal(TripletFeel.None, song.DefaultFeel);
+        Assert.NotNull(song.DefaultFeel);
+    }
+
+    [Fact]
+    public void Parse_FeelDirective_IsPositionIndependent()
+    {
+        // A whole-song directive: valid after the stream, not only before it.
+        Song song = Parse("A = 1 4 5 1\nA\nfeel triplet8th");
+        Assert.Equal(TripletFeel.Triplet8th, song.DefaultFeel);
+    }
+
+    [Fact]
+    public void Parse_UnknownFeelToken_ThrowsFormat()
+    {
+        FormatException ex = Assert.Throws<FormatException>(() => Parse("feel swingish\nA = 1 4 5 1\nA"));
+        Assert.Contains("swingish", ex.Message);
+    }
+
+    [Fact]
+    public void Parse_DuplicateFeel_ThrowsFormat()
+    {
+        Assert.Throws<FormatException>(() => Parse("feel triplet8th\nfeel none\nA = 1 4 5 1\nA"));
+    }
+
+    [Fact]
+    public void Parse_FeelAsPartName_ThrowsFormat()
+    {
+        // `feel` is a reserved keyword — it cannot name a part.
+        Assert.Throws<FormatException>(() => Parse("feel = 1 4 5 1\nfeel"));
+    }
+
+    [Fact]
+    public void Parse_FeelDirective_SurvivesTextualRoundTrip()
+    {
+        // No structural Song→DSL emitter exists; the DSL string is stored verbatim, so re-parsing the same
+        // authored text preserves the feel (req IN6/C4 — this is what carries it across packs by construction).
+        const string dsl = "feel triplet8th\nA = 1 4 5 1\nA";
+        Assert.Equal(Parse(dsl).DefaultFeel, Parse(dsl).DefaultFeel);
+        Assert.Equal(TripletFeel.Triplet8th, Parse(dsl).DefaultFeel);
+    }
+
     private static (string Name, int Repeat) AsPlay(ArrangementItem item)
     {
         PartPlay play = Assert.IsType<PartPlay>(item);

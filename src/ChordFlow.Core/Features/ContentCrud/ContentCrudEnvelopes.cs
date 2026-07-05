@@ -15,8 +15,11 @@ namespace ChordFlow.Features.ContentCrud;
 /// <c>"automatic"</c>), and — when <see cref="Source"/> is <c>"package"</c> — the source pack's display
 /// <see cref="PackName"/> (else null). The UI tags + filters on source/packName (content-source-model).
 /// <see cref="InitialKey"/> is the song's starting-key tonic pitch class (0..11) for seeding the Practice key
-/// picker (play-ui-key-init IN1); null for the key-independent entities.</summary>
-public sealed record ContentItem(string Id, string Name, string Source, string? PackName, int? InitialKey = null);
+/// picker (play-ui-key-init IN1); null for the key-independent entities. <see cref="DefaultFeel"/> is the
+/// song's feel ident ("None"/"Triplet8th"/"Triplet16th") for seeding the feel control (song-default-feel IN4);
+/// null when the song declares no feel or for the feel-independent entities.</summary>
+public sealed record ContentItem(
+    string Id, string Name, string Source, string? PackName, int? InitialKey = null, string? DefaultFeel = null);
 
 /// <summary>The definitions of one entity type, for the list pane: <c>{"type":"entityList","entity":"…","items":[…]}</c>.</summary>
 public sealed record EntityListEnvelope(string Entity, IReadOnlyList<ContentItem> Items, string Type = "entityList");

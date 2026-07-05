@@ -81,7 +81,8 @@ public sealed class ContentCrudHandler
         s.Name,
         SourceLabel(s.Source),
         s.Source == ContentSource.Package ? PackName(s.PackId) : null,
-        s.InitialKey);
+        s.InitialKey,
+        s.DefaultFeel);
 
     private static string SourceLabel(ContentSource source) => source switch
     {

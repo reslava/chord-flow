@@ -14,6 +14,7 @@ namespace ChordFlow.Music.Songs;
 /// <item><c>NAME = &lt;prog-dsl&gt;</c> — an inline part; the RHS is parsed verbatim by <see cref="ProgressionParser"/>.</item>
 /// <item><c>NAME: &lt;stored-id&gt;</c> — a reference to a stored progression (resolved later by <see cref="SongExpander"/>).</item>
 /// <item><c>key &lt;token&gt;</c> — sets <see cref="Song.InitialKey"/> when it precedes the stream; an <see cref="AbsoluteKey"/> reset once in the stream.</item>
+/// <item><c>feel &lt;token&gt;</c> — sets <see cref="Song.DefaultFeel"/> (the whole-song groove default: <c>none</c>/<c>triplet8th</c>/<c>triplet16th</c>), at most once; position-independent.</item>
 /// <item><c>NAME</c> / <c>NAME x&lt;n&gt;</c> — a <see cref="PartPlay"/> (<c>n</c> defaults to 1). The name must be a defined part.</item>
 /// <item><c>mod &lt;spec&gt;</c> — a relative <see cref="RelativeMod"/> (<c>+n</c>/<c>-n</c> or a roman degree).</item>
 /// </list>
@@ -28,6 +29,17 @@ public static class SongParser
 {
     private const string KeyKeyword = "key";
     private const string ModKeyword = "mod";
+    private const string FeelKeyword = "feel";
+
+    // Whole-song `feel <token>` idents → TripletFeel. Only the offered set is accepted (req IN2); the
+    // reserved (dotted/scottish) enum members are deliberately not parseable yet.
+    private static readonly IReadOnlyDictionary<string, TripletFeel> FeelTokens =
+        new Dictionary<string, TripletFeel>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["none"] = TripletFeel.None,
+            ["triplet8th"] = TripletFeel.Triplet8th,
+            ["triplet16th"] = TripletFeel.Triplet16th,
+        };
 
     /// <summary>Parse <paramref name="dsl"/> (header-stripped Song body) into a validated <see cref="Song"/>.</summary>
     public static Song Parse(string id, string name, string dsl, TimeSignature ts)
@@ -66,6 +78,7 @@ public static class SongParser
         // Pass 2 — the order-significant stream.
         Key initialKey = new(new PitchClass(0), false);   // default C major (constraint C6)
         bool initialKeySet = false;
+        TripletFeel? defaultFeel = null;                  // whole-song groove default; null = no preference (req IN7)
         var items = new List<ArrangementItem>();
 
         foreach (string line in streamLines)
@@ -92,6 +105,27 @@ public static class SongParser
                 {
                     items.Add(new AbsoluteKey(key));
                 }
+            }
+            else if (head == FeelKeyword)
+            {
+                // `feel <token>` is a whole-song groove default (not a stream item; position is irrelevant).
+                if (tokens.Length != 2)
+                {
+                    throw new FormatException($"Song DSL \"feel\" line must be \"feel <token>\": \"{line}\".");
+                }
+
+                if (defaultFeel is not null)
+                {
+                    throw new FormatException($"Song DSL sets \"feel\" more than once: \"{line}\".");
+                }
+
+                if (!FeelTokens.TryGetValue(tokens[1], out TripletFeel feel))
+                {
+                    throw new FormatException(
+                        $"Song DSL \"feel\" token \"{tokens[1]}\" is unknown (expected none, triplet8th, or triplet16th).");
+                }
+
+                defaultFeel = feel;
             }
             else if (head == ModKeyword)
             {
@@ -138,7 +172,7 @@ public static class SongParser
             }
         }
 
-        return Song.FromSections(id, name, initialKey, parts, items);
+        return Song.FromSections(id, name, initialKey, parts, items, defaultFeel);
     }
 
     private static string StripComment(string line)
@@ -178,7 +212,7 @@ public static class SongParser
             throw new FormatException($"Song DSL definition has an invalid part name in \"{line}\".");
         }
 
-        if (name is KeyKeyword or ModKeyword)
+        if (name is KeyKeyword or ModKeyword or FeelKeyword)
         {
             throw new FormatException($"Song DSL cannot define a part named \"{name}\" (reserved keyword).");
         }

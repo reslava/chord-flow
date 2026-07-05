@@ -28,36 +28,43 @@ public sealed class SongStore : IContentStore
     }
 
     /// <inheritdoc/>
-    /// <remarks>Unlike the other stores, the song summary carries <see cref="ContentSummary.InitialKey"/> — the
-    /// winning tier's parsed <see cref="Song.InitialKey"/> tonic — so the Practice key picker can seed from a
-    /// song's authored key (play-ui-key-init IN1).</remarks>
+    /// <remarks>Unlike the other stores, the song summary carries the play-time seeds parsed from the winning
+    /// tier's own DSL: <see cref="ContentSummary.InitialKey"/> (the <see cref="Song.InitialKey"/> tonic, so the
+    /// Practice key picker can seed — play-ui-key-init IN1) and <see cref="ContentSummary.DefaultFeel"/> (the
+    /// <see cref="Song.DefaultFeel"/> ident, so the feel control can seed — song-default-feel IN4).</remarks>
     public IReadOnlyList<ContentSummary> List()
     {
         List<SongEntity> rows = _db.Songs.AsNoTracking().ToList();
         return ContentSummaries.Build(rows.Select(s => (s.Id, s.Name, s.Origin, s.PackId)))
-            .Select(summary => summary with { InitialKey = InitialKeyTonic(rows, summary.Id) })
+            .Select(summary =>
+            {
+                (int? key, string? feel) = SeedsOf(rows, summary.Id);
+                return summary with { InitialKey = key, DefaultFeel = feel };
+            })
             .ToList();
     }
 
-    // The winning tier's Song.InitialKey tonic pitch class (0..11), derived from the song's own DSL (the same
-    // value ExerciseRendering falls back to when no KeyOverride is set — never a second stored key, C5). Null if
-    // the row can't be resolved or parsed, so a malformed song still lists (just without a key seed).
-    private int? InitialKeyTonic(IReadOnlyList<SongEntity> rows, string id)
+    // The winning tier's play-time seeds derived from its own DSL: the Song.InitialKey tonic (0..11) and the
+    // Song.DefaultFeel ident ("None"/"Triplet8th"/"Triplet16th", or null when the song declares no feel) — both
+    // the values ExerciseRendering / the transport fall back to, never a second stored copy (C5). A malformed or
+    // unresolved song yields (null, null) so it still lists, just without seeds.
+    private (int? Key, string? Feel) SeedsOf(IReadOnlyList<SongEntity> rows, string id)
     {
         SongEntity? winner = OriginResolver.ResolveOne(rows.Where(r => r.Id == id).ToList(), id);
         if (winner is null)
         {
-            return null;
+            return (null, null);
         }
 
         try
         {
             (_, string body) = CatalogHeader.Parse(winner.Dsl);
-            return SongParser.Parse(winner.Id, winner.Name, body, _ts).InitialKey.Tonic.Value;
+            Song song = SongParser.Parse(winner.Id, winner.Name, body, _ts);
+            return (song.InitialKey.Tonic.Value, song.DefaultFeel?.ToString());
         }
         catch (FormatException)
         {
-            return null;
+            return (null, null);
         }
     }
 

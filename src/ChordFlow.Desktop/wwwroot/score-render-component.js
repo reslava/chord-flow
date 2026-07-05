@@ -405,6 +405,13 @@ window.ChordFlowScore = (function () {
         tripletFeel = value;
         cb.onNeedsRerender(handle.getRenderOptions());
       },
+      // Seed the feel from selected content WITHOUT re-rendering (the twin of the key-picker seed): updates the
+      // component-owned value + the picker UI so the next generate carries it, but no \tf re-emit yet. Song
+      // selection calls this (song-default-feel IN4); a manual change afterwards still wins (C6).
+      seedTripletFeel(value) {
+        tripletFeel = value;
+        if (ui.tripletFeel) ui.tripletFeel.value = value;
+      },
       dispose() {
         disposed = true;   // a late soundFontsListed fan-out must not touch a destroyed api
         try { api.destroy(); } catch (_) { /* already torn down */ }

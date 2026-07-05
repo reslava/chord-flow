@@ -55,8 +55,12 @@ public enum ContentSource
 /// <see cref="Source"/> is <see cref="ContentSource.Package"/>) the source pack's <see cref="PackId"/> (else
 /// null). <paramref name="InitialKey"/> is the song's starting-key tonic pitch class (0..11) — set only by
 /// <see cref="SongStore"/> so the Practice key picker can seed from it (play-ui-key-init IN1); null for the
-/// key-independent entities (progression/rhythm/voicing).</summary>
-public sealed record ContentSummary(string Id, string Name, ContentSource Source, string? PackId, int? InitialKey = null);
+/// key-independent entities (progression/rhythm/voicing). <paramref name="DefaultFeel"/> is the song's
+/// <see cref="Song.DefaultFeel"/> ident ("None"/"Triplet8th"/"Triplet16th") — also set only by
+/// <see cref="SongStore"/> so the feel control can seed (song-default-feel IN4); null when the song declares
+/// no feel or for the feel-independent entities.</summary>
+public sealed record ContentSummary(
+    string Id, string Name, ContentSource Source, string? PackId, int? InitialKey = null, string? DefaultFeel = null);
 
 /// <summary>The editable payload of one definition: id, display name, and the header-stripped DSL body.</summary>
 public sealed record ContentDoc(string Id, string Name, string Dsl);

@@ -2,7 +2,7 @@
 type: idea
 id: id_01KVRK4H1NJAAYE5K377BJXEQK
 title: Default triplet feel as Song catalog metadata
-status: draft
+status: done
 created: 2026-06-22
 version: 1
 tags: []
