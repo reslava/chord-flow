@@ -4,7 +4,7 @@ id: th_01KVZYBWDRE24DDAR9MW02N093
 title: Explicit per-chord voicing references in the DSL
 status: active
 created: 2026-06-25
-updated: 2026-07-03
+updated: 2026-07-05
 version: 1
 tags: []
 parent_id: null

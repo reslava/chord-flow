@@ -4,11 +4,12 @@ id: th_01KWT430KE7YPZW3GV32MWKT3D
 title: ScoreR owns render params (key/tempo/feel) — seeded + live
 status: active
 created: 2026-07-05
+updated: 2026-07-05
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 45
+priority: 10
 depends_on: []
 ---
 # ScoreR owns render params (key/tempo/feel) — seeded + live

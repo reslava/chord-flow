@@ -4,12 +4,12 @@ id: th_01KW4093K4MD4BMBVG4Q86X6PQ
 title: Scale & arpeggio tone functions
 status: active
 created: 2026-06-27
-updated: 2026-07-03
+updated: 2026-07-05
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 120
+priority: 110
 depends_on: []
 ---
 # Scale & arpeggio tone functions
