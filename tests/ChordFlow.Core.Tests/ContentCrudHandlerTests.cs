@@ -222,6 +222,44 @@ public class ContentCrudHandlerTests
     }
 
     [Fact]
+    public void Preview_KeyPitchClass_TransposesTheScore() // scorer-render-params IN7: the preview renders in the seeded/chosen key
+    {
+        var (handler, conn) = NewHandler(withDefaultPack: true);
+        using (conn)
+        {
+            string inC = handler.Preview("progression", "17 47 17 57", keyPitchClass: 0).Tex!;
+            string inF = handler.Preview("progression", "17 47 17 57", keyPitchClass: 5).Tex!;
+            Assert.NotEqual(inC, inF); // a different key transposes the realized pitches
+        }
+    }
+
+    [Fact]
+    public void Preview_Tempo_DrivesTheEnvelopeTempo() // the seeded tempo rides back so playback matches the control
+    {
+        var (handler, conn) = NewHandler(withDefaultPack: true);
+        using (conn)
+        {
+            Assert.Equal(132, handler.Preview("progression", "17 47 17 57", tempo: 132).Tempo);
+            Assert.Equal(80, handler.Preview("progression", "17 47 17 57").Tempo); // absent → the 80 default
+        }
+    }
+
+    [Fact]
+    public void Preview_Song_AbsentKey_KeepsItsOwnInitialKey() // a null key never forces a Song to C (it keeps its DSL key)
+    {
+        var (handler, conn) = NewHandler(withDefaultPack: true);
+        using (conn)
+        {
+            const string songInF = "key F\nverse = 17 47 17 57\nverse";
+            string noKey = handler.Preview("song", songInF).Tex!;               // no override → renders in F
+            string forcedF = handler.Preview("song", songInF, keyPitchClass: 5).Tex!; // explicit F (pc 5)
+            string forcedC = handler.Preview("song", songInF, keyPitchClass: 0).Tex!; // explicit C (pc 0)
+            Assert.Equal(forcedF, noKey);      // absent key == the song's own F, NOT C
+            Assert.NotEqual(forcedC, noKey);   // and C is a real transpose away
+        }
+    }
+
+    [Fact]
     public void Preview_UnknownComping_ThrowsFormatException() // IN6: a non-blank id that does not resolve fails loud
     {
         var (handler, conn) = NewHandler(withDefaultPack: true);

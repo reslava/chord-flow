@@ -85,8 +85,12 @@ public sealed class WebMessageRouter
     /// <summary>Send the saved-exercise list back to the WebView.</summary>
     public event Action? ListExercisesRequested;
 
-    /// <summary>Reload a saved exercise by id and push its regenerated score — <c>(id, renderOptions)</c>.</summary>
-    public event Action<int, RenderOptions>? LoadExerciseRequested;
+    /// <summary>
+    /// Reload a saved exercise by id and push its regenerated score — <c>(id, keyOverride?, tripletFeel?, renderOptions)</c>.
+    /// The key/feel overrides are absent on a plain library click (⇒ the stored params seed ScoreR, C2) and present
+    /// only on a live Key/Feel change ScoreR replays through onNeedsRerender (scorer-render-params IN4).
+    /// </summary>
+    public event Action<int, int?, TripletFeel?, RenderOptions>? LoadExerciseRequested;
 
     /// <summary>Record a practice event for the active exercise.</summary>
     public event Action? MarkPracticedRequested;
@@ -97,8 +101,12 @@ public sealed class WebMessageRouter
     /// <summary>Open one content definition for editing — <c>(entity, id)</c>.</summary>
     public event Action<string, string>? EntityGetRequested;
 
-    /// <summary>Live-preview an unsaved content DSL — <c>(entity, dsl, renderOptions, tripletFeel, compingPatternId)</c>.</summary>
-    public event Action<string, string, RenderOptions, TripletFeel, string?>? EntityPreviewRequested;
+    /// <summary>
+    /// Live-preview an unsaved content DSL — <c>(entity, dsl, renderOptions, tripletFeel, compingPatternId, keyPitchClass?, tempo?)</c>.
+    /// Key/tempo are the ScoreR render params carried on the preview so the editor renders in the seeded key/tempo
+    /// and a live change re-voices it, symmetric with Practice (scorer-render-params IN7); absent ⇒ the C / 80 default.
+    /// </summary>
+    public event Action<string, string, RenderOptions, TripletFeel, string?, int?, int?>? EntityPreviewRequested;
 
     /// <summary>Create/update a content definition — <c>(entity, id?, name, dsl)</c> (null id = create).</summary>
     public event Action<string, string?, string, string>? EntitySaveRequested;
@@ -201,7 +209,9 @@ public sealed class WebMessageRouter
             case "loadExercise":
                 if (envelope.Id is int id)
                 {
-                    LoadExerciseRequested?.Invoke(id, ToRenderOptions(envelope.RenderOptions));
+                    LoadExerciseRequested?.Invoke(
+                        id, envelope.KeyPitchClass, ParseNullableEnum<TripletFeel>(envelope.TripletFeel),
+                        ToRenderOptions(envelope.RenderOptions));
                 }
                 break;
             case "markPracticed":
@@ -222,7 +232,10 @@ public sealed class WebMessageRouter
             case "entityPreview":
                 if (envelope.Entity is { } prevEntity && envelope.Dsl is { } prevDsl)
                 {
-                    EntityPreviewRequested?.Invoke(prevEntity, prevDsl, ToRenderOptions(envelope.RenderOptions), ParseEnum(envelope.TripletFeel, TripletFeel.None), envelope.CompingPatternId);
+                    EntityPreviewRequested?.Invoke(
+                        prevEntity, prevDsl, ToRenderOptions(envelope.RenderOptions),
+                        ParseEnum(envelope.TripletFeel, TripletFeel.None), envelope.CompingPatternId,
+                        envelope.KeyPitchClass, envelope.Tempo);
                 }
                 break;
             case "entitySave":
@@ -324,6 +337,11 @@ public sealed class WebMessageRouter
     // back to the supplied default (forward-compatible — a new value the host doesn't know is ignored).
     private static T ParseEnum<T>(string? value, T fallback) where T : struct, Enum =>
         Enum.TryParse(value, ignoreCase: true, out T parsed) && Enum.IsDefined(parsed) ? parsed : fallback;
+
+    // Nullable enum parse for an OPTIONAL override param: absent/unrecognized ⇒ null (distinct from a default),
+    // so a plain loadExercise (no override) leaves the stored value in force while a replayed live change wins.
+    private static T? ParseNullableEnum<T>(string? value) where T : struct, Enum =>
+        Enum.TryParse(value, ignoreCase: true, out T parsed) && Enum.IsDefined(parsed) ? parsed : (T?)null;
 
     private sealed record InboundEnvelope(
         string? Type, int? Bar, int? Beat, int? Id,

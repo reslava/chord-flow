@@ -22,11 +22,15 @@
 //     controls: "full",        // "full" | "mini" | "none"
 //     debugPanel: true,        // adds a collapsed editable alphaTex panel under the staff (default false)
 //     tripletFeel: true,       // adds a whole-song feel (swing) select to the transport (default false)
+//     key: true,               // adds a Key select to the transport — ScoreR owns key/tempo/feel (default false)
 //     options: { metronome:false, countIn:false, chordNames:false, diagrams:false, voicing:"byDifficulty" },
 //     onBeat:(bar,beat)=>…, onStateChange:(playing)=>…, onFinished:()=>…, onNeedsRerender:(ro)=>…,
 //   });
 //   view.load(tex, { tempo }); view.play(); view.stop(); view.setTempo(bpm);
-//   view.setOption("chordNames", true); view.getRenderOptions(); view.getTripletFeel(); view.dispose();
+//   // Render params (ScoreR-owned, seeded per content): key + feel re-emit via onNeedsRerender; tempo is local.
+//   view.getKey(); view.seedKey(pc); view.setKey(pc);  view.getTempo(); view.seedTempo(bpm);
+//   view.getTripletFeel(); view.seedTripletFeel(v); view.setTripletFeel(v);
+//   view.setOption("chordNames", true); view.getRenderOptions(); view.dispose();
 "use strict";
 
 window.ChordFlowScore = (function () {
@@ -73,6 +77,12 @@ window.ChordFlowScore = (function () {
     { value: "Triplet8th", label: "Triplet 8th (swing)" },
     { value: "Triplet16th", label: "Triplet 16th" },
   ];
+
+  // Key names per tonic pitch class (0 = C .. 11 = B), spelled to match the renderer's \ks (mirrors app.js).
+  // The Key control is a render/interpretation param like feel: changing it re-emits the alphaTex in a new key
+  // (a transpose), so it's content-kind and routes through onNeedsRerender. Shown for key-independent content
+  // (progression/rhythm) too, defaulted to C — transposing just realizes the degrees into that key.
+  const KEY_NAMES = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
 
   // Bars-per-row control. The score's authored `defaultSystemsLayout` only takes effect on multi-track scores
   // (and needs UseModelLayout), so it's unreliable as the single knob. `display.barsPerRow` on the Page layout
@@ -129,6 +139,8 @@ window.ChordFlowScore = (function () {
     const debugPanel = !!opts.debugPanel;                 // opt-in alphaTex scratchpad, default off
     const tripletFeelEnabled = !!opts.tripletFeel;        // opt-in feel select (Practice only), default off
     let tripletFeel = "None";                             // current whole-song feel (C# TripletFeel name)
+    const keyEnabled = !!opts.key;                        // opt-in Key control (Practice + Content preview), default off
+    let key = 0;                                          // current key tonic pitch class (0 = C); ScoreR-owned
     const options = Object.assign({}, DEFAULT_OPTIONS, opts.options || {});
     const cb = {
       onBeat: opts.onBeat || function () {},
@@ -262,7 +274,7 @@ window.ChordFlowScore = (function () {
     });
 
     // Control refs, populated by buildControls when a strip is rendered.
-    const ui = { play: null, stop: null, tempo: null, soundFont: null, tripletFeel: null, staffProfile: null, toggles: {} };
+    const ui = { play: null, stop: null, tempo: null, key: null, soundFont: null, tripletFeel: null, staffProfile: null, toggles: {} };
     // Debug-panel refs, populated by buildDebugPanel when debugPanel is on.
     const debugUi = { textarea: null, hint: null };
 
@@ -336,6 +348,14 @@ window.ChordFlowScore = (function () {
       stop() { api.stop(); },
       // Translate absolute BPM into alphaTab's playbackSpeed multiplier (1.0 = authored tempo) — no re-render.
       setTempo(bpm) { if (bpm && baseTempo) api.playbackSpeed = bpm / baseTempo; },
+      // Seed the tempo from selected content WITHOUT re-rendering (the twin of seedTripletFeel/seedKey): tempo is
+      // a LOCAL playback-speed param, never a C# re-emit (unlike key/feel). Sets baseTempo + the input so the next
+      // render/generate carries it and getTempo() returns it. The following load(tex,{tempo}) re-bases as usual.
+      seedTempo(bpm) {
+        if (!bpm) return;
+        baseTempo = bpm;
+        if (ui.tempo) ui.tempo.value = String(bpm);
+      },
       // Per-track playback volume (0..1). which = "rhythm" | "lead"; lead is a no-op on a single-track score.
       setTrackVolume(which, value) {
         trackVolumes[which] = value;
@@ -412,6 +432,23 @@ window.ChordFlowScore = (function () {
         tripletFeel = value;
         if (ui.tripletFeel) ui.tripletFeel.value = value;
       },
+      // The current key tonic pitch class (0..11). ScoreR owns the key now (moved off the Practice page); the
+      // consumer reads it with getKey() to author the next generate/render request.
+      getKey() { return key; },
+      // Seed the key from selected content WITHOUT re-rendering (the twin of seedTripletFeel): updates the
+      // component-owned value + the picker so the next generate carries it, but no transpose re-emit yet. A song
+      // seeds its InitialKey, a key-independent progression/rhythm seeds C; a manual change afterwards still wins.
+      seedKey(pc) {
+        key = ((pc % 12) + 12) % 12;
+        if (ui.key) ui.key.value = String(key);
+      },
+      // Set the key and ask the consumer to re-render: a new key changes the realized pitches (the alphaTex), so
+      // this is content-kind — the exact peer of setTripletFeel (harmony unchanged → a cheap transpose re-emit,
+      // not a regenerate).
+      setKey(pc) {
+        key = ((pc % 12) + 12) % 12;
+        cb.onNeedsRerender(handle.getRenderOptions());
+      },
       dispose() {
         disposed = true;   // a late soundFontsListed fan-out must not touch a destroyed api
         try { api.destroy(); } catch (_) { /* already torn down */ }
@@ -472,6 +509,7 @@ window.ChordFlowScore = (function () {
     const strip = buildControls(player, controls, options, handle, ui, tripletFeelEnabled, {
       scrollMode,
       nowNextToggle: !!opts.onToggleNowNext,
+      keyEnabled,
     });
     if (strip) container.appendChild(strip);
     container.appendChild(surface);
@@ -562,6 +600,10 @@ window.ChordFlowScore = (function () {
         if (bpm) handle.setTempo(bpm);
       });
       strip.append(tempoLabel, ui.tempo, span("BPM"));
+    }
+
+    if (extra.keyEnabled) {
+      strip.append(keyPicker(handle, ui));
     }
 
     if (tripletFeelEnabled) {
@@ -665,6 +707,26 @@ window.ChordFlowScore = (function () {
     input.addEventListener("change", () => handle.toggleNowNext(input.checked));
     wrap.append(input, document.createTextNode(" Now/Next"));
     ui.toggles.nowNext = input;
+    return wrap;
+  }
+
+  // The Key picker (tonic pitch class 0..11). Content-kind: a change re-emits the alphaTex in the new key via
+  // handle.setKey (a transpose). The consumer reads the choice with handle.getKey(); ScoreR owns the key now.
+  function keyPicker(handle, ui) {
+    const wrap = document.createElement("label");
+    wrap.className = "cf-toggle";
+    const select = document.createElement("select");
+    select.className = "cf-key";
+    KEY_NAMES.forEach((name, pc) => {
+      const o = document.createElement("option");
+      o.value = String(pc);
+      o.textContent = name;
+      select.appendChild(o);
+    });
+    select.value = String(handle.getKey());
+    select.addEventListener("change", () => handle.setKey(parseInt(select.value, 10) || 0));
+    wrap.append(document.createTextNode("Key "), select);
+    ui.key = select;
     return wrap;
   }
 

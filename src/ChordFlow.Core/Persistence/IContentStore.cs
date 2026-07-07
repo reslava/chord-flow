@@ -58,9 +58,12 @@ public enum ContentSource
 /// key-independent entities (progression/rhythm/voicing). <paramref name="DefaultFeel"/> is the song's
 /// <see cref="Song.DefaultFeel"/> ident ("None"/"Triplet8th"/"Triplet16th") — also set only by
 /// <see cref="SongStore"/> so the feel control can seed (song-default-feel IN4); null when the song declares
-/// no feel or for the feel-independent entities.</summary>
+/// no feel or for the feel-independent entities. <paramref name="DefaultTempo"/> is the song's
+/// <see cref="Song.DefaultTempo"/> (BPM) — also set only by <see cref="SongStore"/> so the tempo control can
+/// seed (scorer-render-params IN1); null when the song declares no tempo or for the other entities.</summary>
 public sealed record ContentSummary(
-    string Id, string Name, ContentSource Source, string? PackId, int? InitialKey = null, string? DefaultFeel = null);
+    string Id, string Name, ContentSource Source, string? PackId, int? InitialKey = null, string? DefaultFeel = null,
+    int? DefaultTempo = null);
 
 /// <summary>The editable payload of one definition: id, display name, and the header-stripped DSL body.</summary>
 public sealed record ContentDoc(string Id, string Name, string Dsl);

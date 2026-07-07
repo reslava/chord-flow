@@ -38,33 +38,34 @@ public sealed class SongStore : IContentStore
         return ContentSummaries.Build(rows.Select(s => (s.Id, s.Name, s.Origin, s.PackId)))
             .Select(summary =>
             {
-                (int? key, string? feel) = SeedsOf(rows, summary.Id);
-                return summary with { InitialKey = key, DefaultFeel = feel };
+                (int? key, string? feel, int? tempo) = SeedsOf(rows, summary.Id);
+                return summary with { InitialKey = key, DefaultFeel = feel, DefaultTempo = tempo };
             })
             .ToList();
     }
 
-    // The winning tier's play-time seeds derived from its own DSL: the Song.InitialKey tonic (0..11) and the
-    // Song.DefaultFeel ident ("None"/"Triplet8th"/"Triplet16th", or null when the song declares no feel) — both
-    // the values ExerciseRendering / the transport fall back to, never a second stored copy (C5). A malformed or
-    // unresolved song yields (null, null) so it still lists, just without seeds.
-    private (int? Key, string? Feel) SeedsOf(IReadOnlyList<SongEntity> rows, string id)
+    // The winning tier's play-time seeds derived from its own DSL: the Song.InitialKey tonic (0..11), the
+    // Song.DefaultFeel ident ("None"/"Triplet8th"/"Triplet16th", or null when the song declares no feel), and the
+    // Song.DefaultTempo BPM (or null when the song declares no tempo) — all values ExerciseRendering / the
+    // transport fall back to, never a second stored copy (C5). A malformed or unresolved song yields all-null so
+    // it still lists, just without seeds.
+    private (int? Key, string? Feel, int? Tempo) SeedsOf(IReadOnlyList<SongEntity> rows, string id)
     {
         SongEntity? winner = OriginResolver.ResolveOne(rows.Where(r => r.Id == id).ToList(), id);
         if (winner is null)
         {
-            return (null, null);
+            return (null, null, null);
         }
 
         try
         {
             (_, string body) = CatalogHeader.Parse(winner.Dsl);
             Song song = SongParser.Parse(winner.Id, winner.Name, body, _ts);
-            return (song.InitialKey.Tonic.Value, song.DefaultFeel?.ToString());
+            return (song.InitialKey.Tonic.Value, song.DefaultFeel?.ToString(), song.DefaultTempo);
         }
         catch (FormatException)
         {
-            return (null, null);
+            return (null, null, null);
         }
     }
 

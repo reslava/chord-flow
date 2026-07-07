@@ -198,6 +198,58 @@ public class SongParserTests
         Assert.Equal(TripletFeel.Triplet8th, Parse(dsl).DefaultFeel);
     }
 
+    // --- tempo directive (Song.DefaultTempo) ---
+
+    [Theory]
+    [InlineData("40", 40)]
+    [InlineData("120", 120)]
+    [InlineData("240", 240)]
+    public void Parse_TempoDirective_SetsDefaultTempo(string token, int expected)
+    {
+        Song song = Parse($"tempo {token}\nA = 1 4 5 1\nA");
+        Assert.Equal(expected, song.DefaultTempo);
+    }
+
+    [Fact]
+    public void Parse_NoTempoDirective_DefaultTempoIsNull()
+    {
+        // Absent (no opinion) is distinct from any explicit value — the 80 default is applied downstream.
+        Song song = Parse("A = 1 4 5 1\nA");
+        Assert.Null(song.DefaultTempo);
+    }
+
+    [Fact]
+    public void Parse_TempoDirective_IsPositionIndependent()
+    {
+        // A whole-song directive: valid after the stream, not only before it.
+        Song song = Parse("A = 1 4 5 1\nA\ntempo 132");
+        Assert.Equal(132, song.DefaultTempo);
+    }
+
+    [Theory]
+    [InlineData("39")]     // below the 40–240 window
+    [InlineData("241")]    // above it
+    [InlineData("fast")]   // not an integer
+    [InlineData("-120")]   // NumberStyles.None rejects the sign
+    [InlineData("120.5")]  // not an integer
+    public void Parse_OutOfRangeOrMalformedTempo_ThrowsFormat(string token)
+    {
+        Assert.Throws<FormatException>(() => Parse($"tempo {token}\nA = 1 4 5 1\nA"));
+    }
+
+    [Fact]
+    public void Parse_DuplicateTempo_ThrowsFormat()
+    {
+        Assert.Throws<FormatException>(() => Parse("tempo 120\ntempo 90\nA = 1 4 5 1\nA"));
+    }
+
+    [Fact]
+    public void Parse_TempoAsPartName_ThrowsFormat()
+    {
+        // `tempo` is a reserved keyword — it cannot name a part.
+        Assert.Throws<FormatException>(() => Parse("tempo = 1 4 5 1\ntempo"));
+    }
+
     private static (string Name, int Repeat) AsPlay(ArrangementItem item)
     {
         PartPlay play = Assert.IsType<PartPlay>(item);

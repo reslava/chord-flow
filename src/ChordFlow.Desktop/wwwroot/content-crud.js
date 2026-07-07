@@ -52,6 +52,11 @@ window.ChordFlowContent = (function () {
   let scoreView = null;        // lazy ChordFlowScore handle (full player + toggles) for the score strategy
   let diagramView = null;      // lazy ChordFlowFretboard handle for the voicing fret-box strategy
   let debounceTimer = null;
+  // The selected item's render-param seeds (scorer-render-params IN7): captured on entityLoaded and applied to
+  // ScoreR — either now (if it exists) or right after its lazy creation. requestPreview also reads these as the
+  // pre-ScoreR fallback so the FIRST preview already renders in the seeded key/tempo/feel (not the C/80/straight
+  // default), which is what fixed the "preview always Straight" bug.
+  let pendingSeeds = { key: 0, tempo: 80, feel: "None" };
 
   // DOM refs (set in buildDom)
   let root, tabsEl, listEl, filterEl, nameEl, dslEl, helpEl, errorEl;
@@ -216,13 +221,16 @@ window.ChordFlowContent = (function () {
       clearPreview();
       return;
     }
-    // Carry the preview component's current toggles + feel so the re-rendered score reflects them (undefined
-    // before the score component exists ⇒ omitted ⇒ host defaults).
+    // Carry the preview component's current toggles + render params so the re-rendered score reflects them. Before
+    // the score component exists we fall back to the selected item's seeds (pendingSeeds) so even the FIRST preview
+    // renders in the right key/tempo/feel (scorer-render-params IN7); renderOptions still omits ⇒ host defaults.
     const renderOptions = scoreView ? scoreView.getRenderOptions() : undefined;
-    const tripletFeel = scoreView ? scoreView.getTripletFeel() : undefined;
+    const tripletFeel = scoreView ? scoreView.getTripletFeel() : pendingSeeds.feel;
+    const keyPitchClass = scoreView ? scoreView.getKey() : pendingSeeds.key;
+    const tempo = scoreView ? scoreView.getTempo() : pendingSeeds.tempo;
     // Comping is a progression/song-only content knob; omitted elsewhere ⇒ host applies the beat_1_3 default.
     const compingPatternId = current.comping ? (compingEl.value || DEFAULT_COMPING) : undefined;
-    Bridge.send({ type: "entityPreview", entity: current.key, dsl: dslEl.value, renderOptions, tripletFeel, compingPatternId });
+    Bridge.send({ type: "entityPreview", entity: current.key, dsl: dslEl.value, renderOptions, tripletFeel, keyPitchClass, tempo, compingPatternId });
   }
 
   // Fill the comping <select> from the rhythm catalog. Keep the current pick if it survived a catalog refresh,
@@ -273,6 +281,15 @@ window.ChordFlowContent = (function () {
         editingId = src === "user" ? msg.id : null;
         setEditorMode(src === "user" ? "user" : src);
         highlightSelected();
+        // Capture the item's render-param seeds (song → its InitialKey/DefaultTempo/DefaultFeel; a key/feel-
+        // independent progression/rhythm → C/80/None) and apply them to ScoreR before previewing (IN7). This is
+        // what fixes the preview rendering "always Straight" (feel never seeded) and never-seeded key/tempo.
+        pendingSeeds = {
+          key: it && it.initialKey != null ? it.initialKey : 0,
+          tempo: it && it.defaultTempo != null ? it.defaultTempo : 80,
+          feel: it && it.defaultFeel != null ? it.defaultFeel : "None",
+        };
+        applySeeds();
         requestPreview();
         break;
       }
@@ -431,13 +448,22 @@ window.ChordFlowContent = (function () {
     // score
     diagramEl.hidden = true;
     scoreEl.hidden = false;
-    renderScore(msg.tex);
+    renderScore(msg.tex, msg.tempo);
+  }
+
+  // Push the captured item seeds onto ScoreR (no-op until it exists — renderScore re-applies on lazy creation).
+  // Seeds only, never a re-render: the score the host already sent is in the seeded key/tempo/feel.
+  function applySeeds() {
+    if (!scoreView) return;
+    scoreView.seedKey(pendingSeeds.key);
+    scoreView.seedTempo(pendingSeeds.tempo);
+    scoreView.seedTripletFeel(pendingSeeds.feel);
   }
 
   // Reuse the shared render component (full player + toggles) so progression/song/rhythm previews get the
   // same transport + metronome/count-in/chord-name/diagram options as Practice, off one alphaTab
   // integration. A content-toggle change re-requests the preview with the new renderOptions.
-  function renderScore(tex) {
+  function renderScore(tex, tempo) {
     if (!tex || !window.ChordFlowScore) return;
     if (!scoreView) {
       scoreView = window.ChordFlowScore.create(scoreEl, {
@@ -445,10 +471,14 @@ window.ChordFlowContent = (function () {
         controls: "full",
         debugPanel: true,   // the alphaTex scratchpad is available on every score-rendering page
         tripletFeel: true,  // preview progression/song/rhythm with a chosen swing (carried on entityPreview)
+        key: true,          // Key/Tempo/Feel are seeded per content + live like Practice (scorer-render-params IN7)
         onNeedsRerender: () => requestPreview(),
       });
+      applySeeds();   // the component was just created — reflect the selected item's seeds on its controls
     }
-    scoreView.load(tex);
+    // Pass the host's rendered tempo so baseTempo matches the alphaTex \tempo (playback stays in sync); the tempo
+    // control was already seeded, but a fresh load re-bases it (twin of the Practice loadScore path).
+    scoreView.load(tex, { tempo });
   }
 
   function clearPreview() {

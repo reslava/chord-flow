@@ -17,9 +17,12 @@ namespace ChordFlow.Features.ContentCrud;
 /// <see cref="InitialKey"/> is the song's starting-key tonic pitch class (0..11) for seeding the Practice key
 /// picker (play-ui-key-init IN1); null for the key-independent entities. <see cref="DefaultFeel"/> is the
 /// song's feel ident ("None"/"Triplet8th"/"Triplet16th") for seeding the feel control (song-default-feel IN4);
-/// null when the song declares no feel or for the feel-independent entities.</summary>
+/// null when the song declares no feel or for the feel-independent entities. <see cref="DefaultTempo"/> is the
+/// song's <see cref="Song.DefaultTempo"/> (BPM) for seeding the tempo control (scorer-render-params IN1); null
+/// when the song declares no tempo or for the other entities.</summary>
 public sealed record ContentItem(
-    string Id, string Name, string Source, string? PackName, int? InitialKey = null, string? DefaultFeel = null);
+    string Id, string Name, string Source, string? PackName, int? InitialKey = null, string? DefaultFeel = null,
+    int? DefaultTempo = null);
 
 /// <summary>The definitions of one entity type, for the list pane: <c>{"type":"entityList","entity":"…","items":[…]}</c>.</summary>
 public sealed record EntityListEnvelope(string Entity, IReadOnlyList<ContentItem> Items, string Type = "entityList");

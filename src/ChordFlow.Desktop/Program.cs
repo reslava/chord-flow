@@ -205,12 +205,14 @@ internal static class Program
 
                 router.ListExercisesRequested += () => bridge.Send(library.List());
 
-                // Reload a saved exercise: regenerated score + becomes the active definition.
-                router.LoadExerciseRequested += (id, renderOptions) =>
+                // Reload a saved exercise: regenerated score + becomes the active definition. A live Key/Feel
+                // change ScoreR replays carries a transient keyOverride/tripletFeel that re-voices the displayed
+                // piece without touching the stored definition (scorer-render-params IN4/C2).
+                router.LoadExerciseRequested += (id, keyOverride, tripletFeel, renderOptions) =>
                 {
                     try
                     {
-                        LoadedExercise? loaded = library.Load(id, renderOptions);
+                        LoadedExercise? loaded = library.Load(id, renderOptions, keyOverride, tripletFeel);
                         if (loaded is not null)
                         {
                             currentExercise = loaded.Exercise;
@@ -267,9 +269,9 @@ internal static class Program
                     }
                     catch (FormatException ex) { bridge.Send(new StatusEnvelope(ex.Message, true)); }
                 };
-                router.EntityPreviewRequested += (entity, dsl, renderOptions, tripletFeel, compingPatternId) =>
+                router.EntityPreviewRequested += (entity, dsl, renderOptions, tripletFeel, compingPatternId, keyPitchClass, tempo) =>
                 {
-                    try { bridge.Send(contentCrud.Preview(entity, dsl, renderOptions, tripletFeel, compingPatternId)); }
+                    try { bridge.Send(contentCrud.Preview(entity, dsl, renderOptions, tripletFeel, compingPatternId, keyPitchClass, tempo)); }
                     catch (FormatException ex) { bridge.Send(new EntityParseErrorEnvelope(entity, ex.Message)); }
                 };
                 router.EntitySaveRequested += (entity, id, name, dsl) =>

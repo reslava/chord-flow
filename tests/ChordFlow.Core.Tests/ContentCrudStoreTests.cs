@@ -286,6 +286,23 @@ public class ContentCrudStoreTests
         Assert.Null(byId["no_feel"].DefaultFeel);                // no directive → null (no opinion)
     }
 
+    // ---- Song: list surfaces DefaultTempo so the transport tempo control can seed from it (scorer-render-params IN1) ----
+
+    [Fact]
+    public void SongList_SurfacesDefaultTempo_FromTheSongsOwnTempoDirective()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        db.Songs.Add(new SongEntity { Id = "fast", Name = "Fast", Dsl = "tempo 132\nhead = 1 4 5 1\nhead", Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow });
+        db.Songs.Add(new SongEntity { Id = "no_tempo", Name = "No Tempo", Dsl = "head = 1 4 5 1\nhead", Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow });
+        db.SaveChanges();
+
+        var byId = new SongStore(db).List().ToDictionary(s => s.Id);
+
+        Assert.Equal(132, byId["fast"].DefaultTempo);   // `tempo 132` → the BPM the tempo control seeds with
+        Assert.Null(byId["no_tempo"].DefaultTempo);      // no directive → null (the 80 default applies downstream)
+    }
+
     [Fact]
     public void ProgressionList_HasNullInitialKey_BecauseProgressionsAreKeyIndependent()
     {

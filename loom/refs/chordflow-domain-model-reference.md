@@ -4,8 +4,8 @@ id: rf_01KTM41K36DYJ0CE44FE7TMCGH
 title: ChordFlow Domain Model
 status: active
 created: 2026-06-08
-updated: 2026-07-05
-version: 100
+updated: 2026-07-07
+version: 102
 tags: []
 parent_id: null
 requires_load: []
@@ -175,7 +175,7 @@ The old sequential `Beat(Duration, IsHit)` model was **removed**; rhythm is now 
 
 ## 7. The unifying object & pipeline
 
-`Exercise(Song Song, RhythmPattern Comping, RhythmPattern? Lead, Key? KeyOverride, int Tempo, Difficulty, Feel = Straight)` — the **one canonical play-unit** (merge decision (a), `exercises-definition-ui`): it superseded both the old `Exercise(Key, Progression, …)` and the `SongExercise(Song, …)`, both **deleted**. Definition = references (a `Song` — a bare `Progression` is lifted via `Song.OfProgression`, so there's no Progression-vs-Song branch downstream; a required `Comping` pattern; an optional `Lead` pattern). Params = `KeyOverride` (null → `Song.InitialKey`; else a whole-song transpose), `Tempo`, `Difficulty`, `Feel` (a play-time choice; its **initial value is seeded** from `Song.DefaultFeel` when a song is selected — song-default-feel). SQLite (`ExerciseEntity`) stores the references + the `KeyOverride` **token** + params only; alphaTex is regenerated on load, never stored.
+`Exercise(Song Song, RhythmPattern Comping, RhythmPattern? Lead, Key? KeyOverride, int Tempo, Difficulty, Feel = Straight)` — the **one canonical play-unit** (merge decision (a), `exercises-definition-ui`): it superseded both the old `Exercise(Key, Progression, …)` and the `SongExercise(Song, …)`, both **deleted**. Definition = references (a `Song` — a bare `Progression` is lifted via `Song.OfProgression`, so there's no Progression-vs-Song branch downstream; a required `Comping` pattern; an optional `Lead` pattern). Params = `KeyOverride` (null → `Song.InitialKey`; else a whole-song transpose), `Tempo` (its initial value is seeded from `Song.DefaultTempo`, else 80 — scorer-render-params), `Difficulty`, `Feel` (a play-time choice; its **initial value is seeded** from `Song.DefaultFeel` when a song is selected — song-default-feel). SQLite (`ExerciseEntity`) stores the references + the `KeyOverride` **token** + params only; alphaTex is regenerated on load, never stored.
 
 Realization is **one path**, and the single I/O seam — expanding the Song against an `IProgressionStore` — lives in the **Features layer** (`Features/ExerciseRendering.RenderToTex`), never the renderer. `AlphaTexRenderer` is pure/store-free and only ever sees a `RealizedSong`; there is **no `Render(Exercise)` overload** (decision (a)).
 
@@ -199,6 +199,7 @@ Exercise
 
 - **C1** PPQ fixed at 48. **C2** only `AlphaTexRenderer` knows alphaTex; quantizer + spelling live in the Music/Rendering seam. **C3** the Music kernel pure + unit-tested. **C4** `TripletFeel` never stored in a pattern — a play-time choice (delegated to alphaTab's `\tf` at render); spelling never stored — both derived. **C5** the 11 quality interval sets (all derived from `QualityFormulas`; chord-tone **function** also reads the formula degree — C6).
 - **Feel is content-*suggested*, not content-*baked* (song-default-feel):** a `Song` may carry a nullable `DefaultFeel` — a `feel <token>` DSL directive (`none`/`triplet8th`/`triplet16th`), the peer of `key`/`InitialKey`, parsed by `SongParser` onto the pure `Song` record. It only **seeds** the play-time feel control when the song is selected (via `ContentSummary.DefaultFeel` → `ContentItem` → the transport); the transport still overrides. This does **not** weaken **C4** — C4 forbids feel in the realized `RhythmPattern`/tick grid, never on the Song (exactly as `InitialKey` is content without baking a key into the pattern); swing still happens at render via `\tf`. Song-only — progressions (pure bars/chords), rhythms, and voicings carry no feel. `null` (no directive) is distinct from an explicit `feel none`.
+- **Tempo is content-*suggested*, not content-*baked* (scorer-render-params):** the exact peer of `DefaultFeel` — a `Song` may carry a nullable `DefaultTempo` (`int?`), a `tempo <bpm>` DSL directive (40–240) parsed by `SongParser` onto the pure `Song` record and surfaced via `ContentSummary.DefaultTempo` → `ContentItem` → the transport. It only **seeds** the play-time tempo control (which then overrides); it is never baked into the realized content. `null` (no directive) is distinct from any explicit BPM — the ChordFlow default **80** is applied downstream, never stored on the Song.
 - **Timing/harmony separation:** `RomanDegree` is always timing-free. Chord-change timing lives exclusively on `ChordSpan.DurationTicks` on the 48-PPQ grid.
 - **Two degree frames:** `RomanDegree`/`ScaleDegree` (key-relative) vs `ChordTone` (chord-relative). Don't conflate.
 - **v1 render constraint:** only quarter-aligned span boundaries (durations ∈ {48, 96, 144, 192} in 4/4). Sub-quarter and off-beat (syncopated) boundaries are domain-legal but deferred.

@@ -15,6 +15,7 @@ namespace ChordFlow.Music.Songs;
 /// <item><c>NAME: &lt;stored-id&gt;</c> — a reference to a stored progression (resolved later by <see cref="SongExpander"/>).</item>
 /// <item><c>key &lt;token&gt;</c> — sets <see cref="Song.InitialKey"/> when it precedes the stream; an <see cref="AbsoluteKey"/> reset once in the stream.</item>
 /// <item><c>feel &lt;token&gt;</c> — sets <see cref="Song.DefaultFeel"/> (the whole-song groove default: <c>none</c>/<c>triplet8th</c>/<c>triplet16th</c>), at most once; position-independent.</item>
+/// <item><c>tempo &lt;bpm&gt;</c> — sets <see cref="Song.DefaultTempo"/> (the play-time tempo seed, 40–240), at most once; position-independent.</item>
 /// <item><c>NAME</c> / <c>NAME x&lt;n&gt;</c> — a <see cref="PartPlay"/> (<c>n</c> defaults to 1). The name must be a defined part.</item>
 /// <item><c>mod &lt;spec&gt;</c> — a relative <see cref="RelativeMod"/> (<c>+n</c>/<c>-n</c> or a roman degree).</item>
 /// </list>
@@ -30,6 +31,11 @@ public static class SongParser
     private const string KeyKeyword = "key";
     private const string ModKeyword = "mod";
     private const string FeelKeyword = "feel";
+    private const string TempoKeyword = "tempo";
+
+    // The play-time tempo seed accepts the same BPM window as the ScoreR transport's tempo input (40–240).
+    private const int MinTempo = 40;
+    private const int MaxTempo = 240;
 
     // Whole-song `feel <token>` idents → TripletFeel. Only the offered set is accepted (req IN2); the
     // reserved (dotted/scottish) enum members are deliberately not parseable yet.
@@ -79,6 +85,7 @@ public static class SongParser
         Key initialKey = new(new PitchClass(0), false);   // default C major (constraint C6)
         bool initialKeySet = false;
         TripletFeel? defaultFeel = null;                  // whole-song groove default; null = no preference (req IN7)
+        int? defaultTempo = null;                         // play-time tempo seed; null = no preference (ChordFlow default 80 downstream)
         var items = new List<ArrangementItem>();
 
         foreach (string line in streamLines)
@@ -127,6 +134,28 @@ public static class SongParser
 
                 defaultFeel = feel;
             }
+            else if (head == TempoKeyword)
+            {
+                // `tempo <bpm>` is a whole-song play-time seed (not a stream item; position is irrelevant).
+                if (tokens.Length != 2)
+                {
+                    throw new FormatException($"Song DSL \"tempo\" line must be \"tempo <bpm>\": \"{line}\".");
+                }
+
+                if (defaultTempo is not null)
+                {
+                    throw new FormatException($"Song DSL sets \"tempo\" more than once: \"{line}\".");
+                }
+
+                if (!int.TryParse(tokens[1], NumberStyles.None, CultureInfo.InvariantCulture, out int bpm)
+                    || bpm < MinTempo || bpm > MaxTempo)
+                {
+                    throw new FormatException(
+                        $"Song DSL \"tempo\" value \"{tokens[1]}\" must be an integer BPM in {MinTempo}–{MaxTempo}.");
+                }
+
+                defaultTempo = bpm;
+            }
             else if (head == ModKeyword)
             {
                 if (tokens.Length != 2)
@@ -172,7 +201,7 @@ public static class SongParser
             }
         }
 
-        return Song.FromSections(id, name, initialKey, parts, items, defaultFeel);
+        return Song.FromSections(id, name, initialKey, parts, items, defaultFeel, defaultTempo);
     }
 
     private static string StripComment(string line)
@@ -212,7 +241,7 @@ public static class SongParser
             throw new FormatException($"Song DSL definition has an invalid part name in \"{line}\".");
         }
 
-        if (name is KeyKeyword or ModKeyword or FeelKeyword)
+        if (name is KeyKeyword or ModKeyword or FeelKeyword or TempoKeyword)
         {
             throw new FormatException($"Song DSL cannot define a part named \"{name}\" (reserved keyword).");
         }

@@ -80,6 +80,15 @@ public sealed record Song
     /// </summary>
     public TripletFeel? DefaultFeel { get; }
 
+    /// <summary>
+    /// The Song's suggested play-time tempo (BPM), or <c>null</c> when it expresses no preference. The exact
+    /// peer of <see cref="DefaultFeel"/> / <see cref="InitialKey"/>: a content property that <b>seeds</b> the
+    /// play-time tempo control and is overridden by the ScoreR transport; it never bakes tempo into the
+    /// realized content. <c>null</c> (no <c>tempo</c> directive) is distinct from any explicit value — the
+    /// ChordFlow default (80) is applied downstream, never stored here.
+    /// </summary>
+    public int? DefaultTempo { get; }
+
     /// <summary>Local part definitions, keyed by name (inline progressions and stored references alike).</summary>
     public IReadOnlyDictionary<string, Part> Parts { get; }
 
@@ -93,7 +102,8 @@ public sealed record Song
         Key initialKey,
         IReadOnlyDictionary<string, Part> parts,
         IReadOnlyList<ArrangementItem> items,
-        TripletFeel? defaultFeel)
+        TripletFeel? defaultFeel,
+        int? defaultTempo)
     {
         Id = id;
         Name = name;
@@ -101,6 +111,7 @@ public sealed record Song
         Parts = parts;
         Items = items;
         DefaultFeel = defaultFeel;
+        DefaultTempo = defaultTempo;
     }
 
     /// <summary>
@@ -120,7 +131,8 @@ public sealed record Song
         Key initialKey,
         IReadOnlyDictionary<string, Part> parts,
         IReadOnlyList<ArrangementItem> items,
-        TripletFeel? defaultFeel = null)
+        TripletFeel? defaultFeel = null,
+        int? defaultTempo = null)
     {
         ArgumentNullException.ThrowIfNull(initialKey);
         ArgumentNullException.ThrowIfNull(parts);
@@ -163,7 +175,7 @@ public sealed record Song
             throw new ArgumentException("A Song must play at least one part.", nameof(items));
         }
 
-        return new Song(id, name, initialKey, parts, items, defaultFeel);
+        return new Song(id, name, initialKey, parts, items, defaultFeel, defaultTempo);
     }
 
     /// <summary>

@@ -42,7 +42,7 @@ public class WebMessageRouterContentTests
     {
         var router = new WebMessageRouter();
         (string Entity, string Dsl)? got = null;
-        router.EntityPreviewRequested += (e, dsl, _, _, _) => got = (e, dsl);
+        router.EntityPreviewRequested += (e, dsl, _, _, _, _, _) => got = (e, dsl);
 
         router.Dispatch("""{"type":"entityPreview","entity":"rhythm","dsl":"X...X...X...X..."}""");
 
@@ -54,7 +54,7 @@ public class WebMessageRouterContentTests
     {
         var router = new WebMessageRouter();
         TripletFeel got = TripletFeel.None;
-        router.EntityPreviewRequested += (_, _, _, feel, _) => got = feel;
+        router.EntityPreviewRequested += (_, _, _, feel, _, _, _) => got = feel;
 
         router.Dispatch("""{"type":"entityPreview","entity":"progression","dsl":"1 4 5","tripletFeel":"Triplet8th"}""");
 
@@ -66,7 +66,7 @@ public class WebMessageRouterContentTests
     {
         var router = new WebMessageRouter();
         string? got = "unset";
-        router.EntityPreviewRequested += (_, _, _, _, compingPatternId) => got = compingPatternId;
+        router.EntityPreviewRequested += (_, _, _, _, compingPatternId, _, _) => got = compingPatternId;
 
         router.Dispatch("""{"type":"entityPreview","entity":"progression","dsl":"1 4 5","compingPatternId":"driving"}""");
 
@@ -78,11 +78,38 @@ public class WebMessageRouterContentTests
     {
         var router = new WebMessageRouter();
         string? got = "unset";
-        router.EntityPreviewRequested += (_, _, _, _, compingPatternId) => got = compingPatternId;
+        router.EntityPreviewRequested += (_, _, _, _, compingPatternId, _, _) => got = compingPatternId;
 
         router.Dispatch("""{"type":"entityPreview","entity":"progression","dsl":"1 4 5"}""");
 
         Assert.Null(got); // absent → null; the handler applies the beat_1_3 default
+    }
+
+    [Fact]
+    public void EntityPreview_CarriesKeyAndTempo()
+    {
+        // The preview's Key/Tempo render params ride the entityPreview envelope so the editor renders in the
+        // seeded key/tempo and a live change re-voices it (scorer-render-params IN7).
+        var router = new WebMessageRouter();
+        (int? key, int? tempo) got = (-1, -1);
+        router.EntityPreviewRequested += (_, _, _, _, _, key, tempo) => got = (key, tempo);
+
+        router.Dispatch("""{"type":"entityPreview","entity":"song","dsl":"A = 1 4 5 1\nA","keyPitchClass":5,"tempo":132}""");
+
+        Assert.Equal((5, 132), got);
+    }
+
+    [Fact]
+    public void EntityPreview_AbsentKeyAndTempo_AreNull()
+    {
+        // No ScoreR yet / key-independent content ⇒ absent ⇒ null ⇒ the handler's C / 80 preview default.
+        var router = new WebMessageRouter();
+        (int? key, int? tempo) got = (-1, -1);
+        router.EntityPreviewRequested += (_, _, _, _, _, key, tempo) => got = (key, tempo);
+
+        router.Dispatch("""{"type":"entityPreview","entity":"progression","dsl":"1 4 5"}""");
+
+        Assert.Equal((null, null), got);
     }
 
     [Fact]
@@ -203,7 +230,7 @@ public class WebMessageRouterContentTests
     {
         var router = new WebMessageRouter();
         RenderOptions? got = null;
-        router.EntityPreviewRequested += (_, _, opts, _, _) => got = opts;
+        router.EntityPreviewRequested += (_, _, opts, _, _, _, _) => got = opts;
 
         router.Dispatch("""{"type":"entityPreview","entity":"progression","dsl":"1 4 5 1","renderOptions":{"showChordNames":true}}""");
 
@@ -218,12 +245,42 @@ public class WebMessageRouterContentTests
     {
         var router = new WebMessageRouter();
         RenderOptions? got = null;
-        router.LoadExerciseRequested += (_, opts) => got = opts;
+        router.LoadExerciseRequested += (_, _, _, opts) => got = opts;
 
         router.Dispatch("""{"type":"loadExercise","id":7,"renderOptions":{"showChordDiagramsOnTop":true}}""");
 
         Assert.NotNull(got);
         Assert.True(got!.ShowChordDiagramsOnTop);
+    }
+
+    [Fact]
+    public void LoadExercise_PlainClick_HasNoKeyOrFeelOverride()
+    {
+        // A library click sends no key/feel → the overrides are null so the stored exercise's own params win (C2).
+        var router = new WebMessageRouter();
+        int? gotKey = -1;
+        TripletFeel? gotFeel = TripletFeel.Triplet8th;
+        router.LoadExerciseRequested += (_, key, feel, _) => { gotKey = key; gotFeel = feel; };
+
+        router.Dispatch("""{"type":"loadExercise","id":7}""");
+
+        Assert.Null(gotKey);
+        Assert.Null(gotFeel);
+    }
+
+    [Fact]
+    public void LoadExercise_WithReplayedKeyAndFeel_ParsesOverrides()
+    {
+        // A live Key/Feel change ScoreR replays carries keyPitchClass + tripletFeel → transient overrides (IN4).
+        var router = new WebMessageRouter();
+        int? gotKey = null;
+        TripletFeel? gotFeel = null;
+        router.LoadExerciseRequested += (_, key, feel, _) => { gotKey = key; gotFeel = feel; };
+
+        router.Dispatch("""{"type":"loadExercise","id":7,"keyPitchClass":5,"tripletFeel":"Triplet8th"}""");
+
+        Assert.Equal(5, gotKey);
+        Assert.Equal(TripletFeel.Triplet8th, gotFeel);
     }
 
     [Fact]

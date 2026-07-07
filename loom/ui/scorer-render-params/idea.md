@@ -2,7 +2,7 @@
 type: idea
 id: id_01KWT44ARF3MY1ZQKT472FHYGV
 title: ScoreR owns render params (key/tempo/feel) — seeded + live
-status: draft
+status: done
 created: 2026-07-05
 version: 1
 tags: []

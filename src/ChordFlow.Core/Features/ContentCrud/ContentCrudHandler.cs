@@ -82,7 +82,8 @@ public sealed class ContentCrudHandler
         SourceLabel(s.Source),
         s.Source == ContentSource.Package ? PackName(s.PackId) : null,
         s.InitialKey,
-        s.DefaultFeel);
+        s.DefaultFeel,
+        s.DefaultTempo);
 
     private static string SourceLabel(ContentSource source) => source switch
     {
@@ -144,20 +145,26 @@ public sealed class ContentCrudHandler
     /// progression/song preview comps with <paramref name="compingPatternId"/> resolved against the rhythm
     /// catalog (blank → the app default <c>beat_1_3</c>); rhythm/voicing previews ignore it.
     /// </summary>
-    public EntityPreviewEnvelope Preview(string entity, string dsl, RenderOptions? options = null, TripletFeel tripletFeel = TripletFeel.None, string? compingPatternId = null)
+    public EntityPreviewEnvelope Preview(string entity, string dsl, RenderOptions? options = null, TripletFeel tripletFeel = TripletFeel.None, string? compingPatternId = null, int? keyPitchClass = null, int? tempo = null)
     {
         ContentEntity kind = ContentEntities.Parse(entity);
         ArgumentNullException.ThrowIfNull(dsl);
         RenderOptions opts = options ?? RenderOptions.Default;
+
+        // ScoreR-seeded render params (scorer-render-params IN7): the key the preview renders in (a live transpose)
+        // and the tempo it carries. A null key means "no opinion" — a lifted progression/rhythm falls back to C,
+        // but a Song keeps its OWN authored InitialKey (never forced to C). Absent tempo ⇒ the 80 preview default.
+        Key? overrideKey = keyPitchClass is int pc ? new Key(new PitchClass(pc), IsMinor: false) : null;
+        int previewTempo = tempo ?? PreviewTempo;
 
         try
         {
             using var db = new ChordFlowDbContext(_dbOptions);
             return kind switch
             {
-                ContentEntity.Progression => ScorePreview(entity, ProgressionPreview(dsl, tripletFeel, ResolveComping(compingPatternId, db)), db, opts),
-                ContentEntity.Rhythm => ScorePreview(entity, RhythmPreview(dsl, tripletFeel), db, opts),
-                ContentEntity.Song => SongPreview(entity, dsl, db, opts, tripletFeel, ResolveComping(compingPatternId, db)),
+                ContentEntity.Progression => ScorePreview(entity, ProgressionPreview(dsl, tripletFeel, ResolveComping(compingPatternId, db), overrideKey ?? PreviewKey, previewTempo), db, opts),
+                ContentEntity.Rhythm => ScorePreview(entity, RhythmPreview(dsl, tripletFeel, overrideKey ?? PreviewKey, previewTempo), db, opts),
+                ContentEntity.Song => SongPreview(entity, dsl, db, opts, tripletFeel, ResolveComping(compingPatternId, db), overrideKey, previewTempo),
                 ContentEntity.Voicing => VoicingPreview(entity, dsl),
                 _ => throw new FormatException($"Cannot preview entity \"{entity}\"."),
             };
@@ -185,31 +192,33 @@ public sealed class ContentCrudHandler
     private static RhythmPattern ResolveComping(string? compingPatternId, ChordFlowDbContext db) =>
         ExerciseRefs.ResolvePattern(string.IsNullOrWhiteSpace(compingPatternId) ? "beat_1_3" : compingPatternId, db);
 
-    private static Exercise ProgressionPreview(string dsl, TripletFeel tripletFeel, RhythmPattern comping)
+    private static Exercise ProgressionPreview(string dsl, TripletFeel tripletFeel, RhythmPattern comping, Key liftKey, int tempo)
     {
         Progression progression = ProgressionParser.Parse("preview", "Preview", dsl, TimeSignature.FourFour);
         return new Exercise(
-            Song.OfProgression(progression, PreviewKey), comping, Lead: null, KeyOverride: null,
-            PreviewTempo, Difficulty.Beginner, tripletFeel);
+            Song.OfProgression(progression, liftKey), comping, Lead: null, KeyOverride: null,
+            tempo, Difficulty.Beginner, tripletFeel);
     }
 
-    private static Exercise RhythmPreview(string dsl, TripletFeel tripletFeel)
+    private static Exercise RhythmPreview(string dsl, TripletFeel tripletFeel, Key liftKey, int tempo)
     {
         // Preview a bare rhythm on a single I chord so the focus is the timing, not the harmony.
         Progression oneChord = ProgressionParser.Parse("preview", "Preview", "1", TimeSignature.FourFour);
         RhythmPattern rhythm = RhythmPatternParser.Parse("preview", "Preview", dsl, TimeSignature.FourFour);
         return new Exercise(
-            Song.OfProgression(oneChord, PreviewKey), rhythm, Lead: null, KeyOverride: null,
-            PreviewTempo, Difficulty.Beginner, tripletFeel);
+            Song.OfProgression(oneChord, liftKey), rhythm, Lead: null, KeyOverride: null,
+            tempo, Difficulty.Beginner, tripletFeel);
     }
 
-    private EntityPreviewEnvelope SongPreview(string entity, string dsl, ChordFlowDbContext db, RenderOptions options, TripletFeel tripletFeel, RhythmPattern comping)
+    // startKey null ⇒ the Song renders in its OWN authored InitialKey (the preview's no-key default); a supplied
+    // key transposes it live (scorer-render-params IN4). tempo drives the rendered \tempo so playback matches the seed.
+    private EntityPreviewEnvelope SongPreview(string entity, string dsl, ChordFlowDbContext db, RenderOptions options, TripletFeel tripletFeel, RhythmPattern comping, Key? startKey, int tempo)
     {
         Song song = SongParser.Parse("preview", "Preview", dsl, TimeSignature.FourFour);
-        RealizedSong realized = SongExpander.Expand(song, new ProgressionStore(db));
+        RealizedSong realized = SongExpander.Expand(song, new ProgressionStore(db), startKey);
         CompingPlan plan = CompingResolver.Resolve(realized, options.VoicingOrDefault, StoredVoicingSource.From(new VoicingStore(db)));
-        string tex = _renderer.Render(realized, comping, PreviewTempo, Difficulty.Beginner, plan, tripletFeel, options: options).Tex;
-        return new EntityPreviewEnvelope(entity, "score", tex, PreviewTempo);
+        string tex = _renderer.Render(realized, comping, tempo, Difficulty.Beginner, plan, tripletFeel, options: options).Tex;
+        return new EntityPreviewEnvelope(entity, "score", tex, tempo);
     }
 
     private static EntityPreviewEnvelope VoicingPreview(string entity, string dsl)

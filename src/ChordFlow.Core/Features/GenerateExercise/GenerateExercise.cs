@@ -11,11 +11,14 @@ namespace ChordFlow.Features.GenerateExercise;
 
 /// <summary>
 /// Outbound bridge envelope: load a freshly rendered score into the WebView.
-/// Serializes to <c>{"type":"loadScore","tex":"…","tempo":N,"schedule":[…]}</c>. The alphaTex string is the
-/// real payload; tempo rides along for the transport controls, and <see cref="Schedule"/> (one entry per chord
-/// change, each with a fretboard diagram of the comped voicing) feeds the now/next fretboards.
+/// Serializes to <c>{"type":"loadScore","tex":"…","tempo":N,"key":P,"tripletFeel":"…","schedule":[…]}</c>. The
+/// alphaTex string is the real payload; <see cref="Tempo"/>/<see cref="Key"/>/<see cref="TripletFeel"/> ride
+/// along so ScoreR can <b>seed</b> its render-param controls from the piece (scorer-render-params IN6 — a
+/// stored exercise's persisted params win over content defaults, C2), and <see cref="Schedule"/> (one entry per
+/// chord change, each with a fretboard diagram of the comped voicing) feeds the now/next fretboards.
 /// </summary>
-public sealed record LoadScoreEnvelope(string Type, string Tex, int Tempo, IReadOnlyList<ChordChange> Schedule)
+public sealed record LoadScoreEnvelope(
+    string Type, string Tex, int Tempo, int Key, string TripletFeel, IReadOnlyList<ChordChange> Schedule)
 {
     /// <summary>
     /// Render an <see cref="Exercise"/> to alphaTex + chord schedule and wrap it for the bridge. The single
@@ -28,7 +31,10 @@ public sealed record LoadScoreEnvelope(string Type, string Tex, int Tempo, IRead
         RenderOptions? options = null)
     {
         RenderResult result = ExerciseRendering.Render(exercise, store, renderer, voicings, options);
-        return new("loadScore", result.Tex, exercise.Tempo, result.Schedule);
+        // The effective key the piece renders in: an explicit override, else the Song's own initial key. ScoreR
+        // seeds its Key control from this so a loaded exercise shows the key it was saved in (C2).
+        int keyPc = (exercise.KeyOverride ?? exercise.Song.InitialKey).Tonic.Value;
+        return new("loadScore", result.Tex, exercise.Tempo, keyPc, exercise.TripletFeel.ToString(), result.Schedule);
     }
 }
 

@@ -97,10 +97,13 @@ public sealed class ExerciseLibraryHandler
     }
 
     /// <summary>
-    /// Reload a saved exercise: reconstruct the definition from seed data and regenerate
-    /// its alphaTex. Returns <c>null</c> if the id is unknown.
+    /// Reload a saved exercise: reconstruct the definition from seed data and regenerate its alphaTex. Returns
+    /// <c>null</c> if the id is unknown. <paramref name="keyOverride"/>/<paramref name="tripletFeel"/> are the
+    /// transient render-param overrides ScoreR replays on a live Key/Feel change (scorer-render-params IN4): when
+    /// present they re-voice the <i>displayed</i> exercise (a transpose / a new <c>\tf</c>) without touching the
+    /// stored definition — the saved exercise's own params still seed the controls on a plain load (C2).
     /// </summary>
-    public LoadedExercise? Load(int id, RenderOptions? options = null)
+    public LoadedExercise? Load(int id, RenderOptions? options = null, int? keyOverride = null, TripletFeel? tripletFeel = null)
     {
         using var db = new ChordFlowDbContext(_dbOptions);
         ExerciseEntity? entity = db.Exercises.AsNoTracking().FirstOrDefault(e => e.Id == id);
@@ -110,6 +113,14 @@ public sealed class ExerciseLibraryHandler
         }
 
         Exercise exercise = ToExercise(entity, db);
+        if (keyOverride is int pc)
+        {
+            exercise = exercise with { KeyOverride = new Key(new PitchClass(pc), IsMinor: false) };
+        }
+        if (tripletFeel is TripletFeel feel)
+        {
+            exercise = exercise with { TripletFeel = feel };
+        }
         return new LoadedExercise(exercise, LoadScoreEnvelope.From(
             exercise, new ProgressionStore(db), _renderer, StoredVoicingSource.From(new VoicingStore(db)), options));
     }

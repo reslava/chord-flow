@@ -18,9 +18,6 @@
 const Bridge = window.ChordFlowBridge;
 
 const ChordFlow = (function () {
-  // Key names per tonic pitch class (0 = C .. 11 = B), spelled to match the renderer's \ks. Key picker only.
-  const KEY_NAMES = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
-
   // Param enums — stable Domain enums; enumerated here rather than over a bridge. Triplet feel (swing) is NOT
   // here: it's a render/playback knob owned by the ChordFlowScore component (its transport), carried onto the
   // render request via view.getTripletFeel() — see selections() and onNeedsRerender.
@@ -90,26 +87,42 @@ const ChordFlow = (function () {
   // The static param pickers (key/difficulty) — built once. Harmony/comping/lead come from the catalog; feel
   // lives on the score component's transport.
   function populateStaticPickers() {
-    // C default — the key-independent boot progression; a song re-seeds this via seedKeyForHarmony().
-    fillSelect($("key"), KEY_NAMES.map((name, pc) => ({ value: String(pc), label: name })), "0");
+    // Key now lives on the ScoreR transport (scorer-render-params) — seeded per content via seedKeyForHarmony().
     fillSelect($("difficulty"), DIFFICULTIES.map((d) => ({ value: d, label: d })), "Beginner");
   }
 
-  // Seed the key picker from the selected harmony so a piece plays in its authored key by default: a song →
+  // Seed ScoreR's key from the selected harmony so a piece plays in its authored key by default: a song →
   // its InitialKey (carried on the catalog item, play-ui-key-init IN1/IN2), a key-independent progression → C.
   // Fires on a harmony *switch* only (IN4), so a manual key edit for the current selection survives until the
   // next switch. The saved-exercise load path never calls this, so a stored KeyOverride still wins (C2).
   function seedKeyForHarmony() {
+    if (!view) return;
     const sel = $("harmony");
-    const keyEl = $("key");
-    if (!sel || !keyEl) return;
+    if (!sel) return;
     const [entity, id] = (sel.value || "").split(/:(.*)/s);
     let pc = 0; // C — the key-independent / progression default
     if (entity === "song") {
       const song = catalog.song.find((s) => s.id === id);
       if (song && song.initialKey != null) pc = song.initialKey;
     }
-    keyEl.value = String(pc);
+    view.seedKey(pc);
+  }
+
+  // Seed ScoreR's tempo from the selected harmony: a song → its DefaultTempo (carried on the catalog item,
+  // scorer-render-params IN1), else the ChordFlow default 80. The twin of seedKeyForHarmony/seedFeelForHarmony —
+  // fires on a harmony *switch* only, so a manual tempo edit survives until the next switch (C2); it never
+  // re-renders (tempo is a local playback-speed param, and generate carries the seeded value).
+  function seedTempoForHarmony() {
+    if (!view) return;
+    const sel = $("harmony");
+    if (!sel) return;
+    const [entity, id] = (sel.value || "").split(/:(.*)/s);
+    let tempo = 80; // the tempo-independent / progression / no-directive default
+    if (entity === "song") {
+      const song = catalog.song.find((s) => s.id === id);
+      if (song && song.defaultTempo != null) tempo = song.defaultTempo;
+    }
+    view.seedTempo(tempo);
   }
 
   // Seed the transport's feel picker from the selected harmony: a song → its DefaultFeel (carried on the catalog
@@ -174,7 +187,7 @@ const ChordFlow = (function () {
       harmonyId,
       compingPatternId: $("comping").value || "beat_1_3",
       leadPatternId: lead || null,
-      keyPitchClass: parseInt($("key").value, 10) || 0,
+      keyPitchClass: view ? view.getKey() : 0,
       tempo: view ? view.getTempo() : 80,
       difficulty: $("difficulty").value || "Beginner",
       tripletFeel: view ? view.getTripletFeel() : "None",
@@ -210,9 +223,10 @@ const ChordFlow = (function () {
     const harmony = $("harmony");
 
     if (harmony) {
-      // Switching the harmony adopts that piece's key (song → its InitialKey, progression → C) and feel
-      // (song → its DefaultFeel, else None).
+      // Switching the harmony adopts that piece's render params (song → its InitialKey / DefaultTempo /
+      // DefaultFeel, progression → C / 80 / None) onto ScoreR — a seed only, no re-render (Generate applies them).
       harmony.addEventListener("change", seedKeyForHarmony);
+      harmony.addEventListener("change", seedTempoForHarmony);
       harmony.addEventListener("change", seedFeelForHarmony);
     }
     if (gen) {
@@ -348,6 +362,11 @@ const ChordFlow = (function () {
     switch (msg.type) {
       case "loadScore":
         view.load(msg.tex, { tempo: msg.tempo });
+        // Seed ScoreR's render-param controls from the piece the host rendered (scorer-render-params IN6): a
+        // loaded exercise shows its persisted key/tempo/feel (override wins over content defaults, C2). Seeds
+        // only — no re-render. load({tempo}) already seeded the tempo input; key + feel are seeded here.
+        if (msg.key != null) view.seedKey(msg.key);
+        if (msg.tripletFeel) view.seedTripletFeel(msg.tripletFeel);
         if (nowNext) nowNext.setSchedule(msg.schedule);
         setStatus("score loaded");
         break;
@@ -387,6 +406,7 @@ const ChordFlow = (function () {
       scroll: true,       // auto-follow the cursor: bound the staff + scroll it so the played bar stays under Now/Next
       debugPanel: true,   // the alphaTex scratchpad lives on the score component now (replaces the Debug view)
       tripletFeel: true,  // the whole-song feel (swing) select lives on the transport — see getTripletFeel()
+      key: true,          // the Key control lives on the transport now (scorer-render-params) — see getKey()
       onBeat: (bar, beat) => {
         // The score component reports 1-based (bar, beat); the chord schedule is 0-based (alphaTab raw), so
         // step the now/next boards down by one.
@@ -404,9 +424,14 @@ const ChordFlow = (function () {
       },
       onNeedsRerender: (renderOptions) => {
         if (Bridge.available && lastScoreRequest) {
-          // Carry the component's current feel too (a feel change routes through here) — it's a first-class
-          // request param, not a renderOption.
-          Bridge.send({ ...lastScoreRequest, tripletFeel: view.getTripletFeel(), renderOptions });
+          // Carry the component's current key + feel too (a key/feel change routes through here) — both are
+          // first-class request params, not renderOptions. Key is a transpose re-emit; feel is the \tf line.
+          Bridge.send({
+            ...lastScoreRequest,
+            keyPitchClass: view.getKey(),
+            tripletFeel: view.getTripletFeel(),
+            renderOptions,
+          });
         }
       },
     });
