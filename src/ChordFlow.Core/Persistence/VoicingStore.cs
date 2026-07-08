@@ -115,6 +115,21 @@ public sealed class VoicingStore : IContentStore
                 v.PackId))
             .ToList();
 
+    /// <summary>
+    /// Every stored voicing parsed into a <see cref="VoicingShape"/> tagged with its <b>id</b>, content source,
+    /// and pack id — the id-carrying peer of <see cref="LoadShapesBySource"/> that the explicit-voicing
+    /// reference resolver (<c>IVoicingReferenceSource</c>) needs to resolve a <c>{u: id}</c>/<c>{pkg: id}</c>
+    /// reference. No tier collapse (a user and a package row of the same id are distinct reference targets).
+    /// </summary>
+    public IReadOnlyList<(string Id, VoicingShape Shape, ContentSource Source, string? PackId)> LoadShapesWithIds() =>
+        _db.Voicings.AsNoTracking().OrderBy(v => v.Id).ToList()
+            .Select(v => (
+                v.Id,
+                Shape: VoicingDslParser.Parse(StripHeader(v.Dsl)),
+                Source: ContentSummaries.SourceOf(v.Origin),
+                v.PackId))
+            .ToList();
+
     /// <summary>Find a stored voicing by id (resolving the highest tier) and parse it into a <see cref="VoicingShape"/>, or null if absent.</summary>
     public VoicingShape? Find(string id)
     {

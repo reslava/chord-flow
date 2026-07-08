@@ -1,6 +1,7 @@
 using ChordFlow.Music.Rhythm;
 using ChordFlow.Music.Harmony;
 using System.Globalization;
+using System.Text;
 
 namespace ChordFlow.Music.Progressions;
 
@@ -47,11 +48,15 @@ public static class ProgressionParser
     /// Parse <paramref name="dsl"/> into a validated <see cref="Progression"/> in
     /// <paramref name="ts"/>. Throws <see cref="FormatException"/> on malformed input.
     /// </summary>
-    public static Progression Parse(string id, string name, string dsl, TimeSignature ts)
+    /// <param name="allowVoicingAnnotations">When <c>false</c> (the default, for a stored/standalone
+    /// progression) a per-chord <c>{…}</c> voicing annotation is rejected — progressions stay pure
+    /// harmony (req <c>IN7</c>). A Song passes <c>true</c> when parsing an <b>inline</b> progression, where
+    /// the annotation is an arrangement concern.</param>
+    public static Progression Parse(string id, string name, string dsl, TimeSignature ts, bool allowVoicingAnnotations = false)
     {
         ArgumentNullException.ThrowIfNull(dsl);
 
-        string[] barTokens = dsl.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        string[] barTokens = TokenizeBars(dsl);
         if (barTokens.Length == 0)
         {
             throw new FormatException("Progression DSL is empty.");
@@ -60,14 +65,109 @@ public static class ProgressionParser
         var bars = new HarmonicBar[barTokens.Length];
         for (int i = 0; i < barTokens.Length; i++)
         {
-            bars[i] = ParseBar(barTokens[i], ts);
+            bars[i] = ParseBar(barTokens[i], ts, allowVoicingAnnotations);
         }
 
         // Re-uses Step 1's per-bar validation (sum == BarTicks, > 0, quarter-aligned).
         return Progression.FromBars(id, name, bars, ts);
     }
 
-    private static HarmonicBar ParseBar(string barToken, TimeSignature ts)
+    /// <summary>
+    /// Parse a single chord symbol — <c>[accidental]&lt;degree&gt;&lt;quality&gt;</c> (<c>17</c>, <c>#4dim7</c>,
+    /// <c>2-7</c>) — into a <see cref="RomanDegree"/>, with no <c>:slots</c> or annotation. Shared with the
+    /// Song <c>voice</c> directive's degree-scoped selector so that selector grammar is exactly a chord token.
+    /// </summary>
+    public static RomanDegree ParseChordSymbol(string token)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+        return ParseDegreeQuality(token, token);
+    }
+
+    /// <summary>
+    /// Map a bare quality suffix (<c>""</c> Major, <c>7</c>, <c>m7</c>/<c>-7</c>, <c>dim7</c>, …) to its
+    /// <see cref="Quality"/>. Shared with the Song <c>voice</c> directive's <c>*&lt;quality&gt;</c> wildcard
+    /// selector. Throws <see cref="FormatException"/> on an unknown suffix.
+    /// </summary>
+    public static Quality ParseQualitySuffix(string suffix)
+    {
+        ArgumentNullException.ThrowIfNull(suffix);
+        return QualitySuffixes.TryGetValue(suffix, out Quality quality)
+            ? quality
+            : throw new FormatException($"Unknown quality suffix \"{suffix}\".");
+    }
+
+    // Split the DSL into space-separated bar tokens while keeping a `{…}` voicing annotation atomic (its
+    // grip carries internal spaces). An annotation-only token (starts with '{') binds to the immediately
+    // preceding chord token, whether or not a space separated them — `{` can never begin a bar/chord.
+    private static string[] TokenizeBars(string dsl)
+    {
+        var tokens = new List<string>();
+        var current = new StringBuilder();
+        int depth = 0;
+
+        foreach (char c in dsl)
+        {
+            if (c == '{')
+            {
+                depth++;
+                current.Append(c);
+            }
+            else if (c == '}')
+            {
+                if (depth == 0)
+                {
+                    throw new FormatException("Progression DSL has an unmatched '}'.");
+                }
+
+                depth--;
+                current.Append(c);
+            }
+            else if (char.IsWhiteSpace(c) && depth == 0)
+            {
+                if (current.Length > 0)
+                {
+                    tokens.Add(current.ToString());
+                    current.Clear();
+                }
+            }
+            else
+            {
+                current.Append(c);
+            }
+        }
+
+        if (depth != 0)
+        {
+            throw new FormatException("Progression DSL has an unclosed '{'.");
+        }
+
+        if (current.Length > 0)
+        {
+            tokens.Add(current.ToString());
+        }
+
+        var folded = new List<string>();
+        foreach (string tok in tokens)
+        {
+            if (tok.StartsWith('{'))
+            {
+                if (folded.Count == 0)
+                {
+                    throw new FormatException($"Voicing annotation \"{tok}\" has no chord to attach to.");
+                }
+
+                folded[^1] += tok;
+            }
+            else
+            {
+                folded.Add(tok);
+            }
+        }
+
+        return folded.ToArray();
+    }
+
+    private static HarmonicBar ParseBar(string barToken, TimeSignature ts, bool allowVoicingAnnotations)
     {
         string[] chordTokens = barToken.Split('_');
         if (chordTokens.Any(string.IsNullOrEmpty))
@@ -75,12 +175,13 @@ public static class ProgressionParser
             throw new FormatException($"Bar \"{barToken}\" has an empty chord (a stray or trailing '_').");
         }
 
-        // Parse each chord's degree/quality and optional explicit slot count.
+        // Parse each chord's degree/quality, optional explicit slot count, and optional voicing annotation.
         var degrees = new RomanDegree[chordTokens.Length];
         var slots = new int?[chordTokens.Length];
+        var annotations = new string?[chordTokens.Length];
         for (int i = 0; i < chordTokens.Length; i++)
         {
-            (degrees[i], slots[i]) = ParseChord(chordTokens[i]);
+            (degrees[i], slots[i], annotations[i]) = ParseChord(chordTokens[i], allowVoicingAnnotations);
         }
 
         int beatsPerBar = ts.BarTicks / ts.BeatTicks;
@@ -104,7 +205,7 @@ public static class ProgressionParser
         var spans = new ChordSpan[chordTokens.Length];
         for (int i = 0; i < chordTokens.Length; i++)
         {
-            spans[i] = new ChordSpan(degrees[i], tickDurations[i]);
+            spans[i] = new ChordSpan(degrees[i], tickDurations[i], annotations[i]);
         }
 
         return new HarmonicBar(spans);
@@ -154,9 +255,41 @@ public static class ProgressionParser
         return ticks;
     }
 
-    private static (RomanDegree Degree, int? Slots) ParseChord(string chordToken)
+    private static (RomanDegree Degree, int? Slots, string? Annotation) ParseChord(string chordToken, bool allowVoicingAnnotations)
     {
-        string[] parts = chordToken.Split(':');
+        // Peel off a trailing `{…}` voicing annotation first — it may hold ':' (root:6@8) and spaces, so it
+        // must come off before the ':slots' split. It is the last element of the chord token.
+        string core = chordToken;
+        string? annotation = null;
+        int brace = chordToken.IndexOf('{');
+        if (brace >= 0)
+        {
+            if (chordToken[^1] != '}')
+            {
+                throw new FormatException($"Chord \"{chordToken}\" — a voicing annotation must be the last part of the chord.");
+            }
+
+            core = chordToken[..brace];
+            annotation = chordToken[(brace + 1)..^1].Trim();
+
+            if (core.Length == 0)
+            {
+                throw new FormatException($"Voicing annotation \"{chordToken}\" has no chord to attach to.");
+            }
+
+            if (annotation.Length == 0 || annotation.Contains('{') || annotation.Contains('}'))
+            {
+                throw new FormatException($"Chord \"{chordToken}\" has a malformed voicing annotation.");
+            }
+
+            if (!allowVoicingAnnotations)
+            {
+                throw new FormatException(
+                    "Voicing annotations are a Song-level concern — a stored progression carries pure harmony only.");
+            }
+        }
+
+        string[] parts = core.Split(':');
         if (parts.Length > 2)
         {
             throw new FormatException($"Chord \"{chordToken}\" has more than one ':slots' suffix.");
@@ -175,7 +308,7 @@ public static class ProgressionParser
             slots = s;
         }
 
-        return (degree, slots);
+        return (degree, slots, annotation);
     }
 
     private static RomanDegree ParseDegreeQuality(string text, string chordToken)

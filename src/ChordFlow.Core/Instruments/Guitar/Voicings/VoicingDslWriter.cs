@@ -1,4 +1,5 @@
 using ChordFlow.Music.Harmony;
+using System.Globalization;
 using System.Text;
 
 
@@ -53,6 +54,54 @@ public static class VoicingDslWriter
 
         string anchor = shape.Anchor is { } a ? $"anchor:{AnchorLetter(a)} " : string.Empty;
         return $"voicing C{Suffixes[shape.Quality]} shape:{shape.Shape} root:{shape.RootString} {anchor}frets: {frets}";
+    }
+
+    /// <summary>
+    /// Serialize a <see cref="VoicingSpec"/> to its canonical inner text — the value that sits inside a
+    /// per-chord <c>{…}</c> annotation or after <c>voice &lt;selector&gt; =</c> (req <c>IN8</c>). A grip emits
+    /// its six frets (bare, low-E→high-E) plus any <c>root:</c> anchor; a reference emits <c>&lt;source&gt;: &lt;id&gt;</c>.
+    /// Round-trips: <c>ParseSpec(SpecToDsl(spec))</c> reproduces <paramref name="spec"/>.
+    /// </summary>
+    public static string SpecToDsl(VoicingSpec spec)
+    {
+        ArgumentNullException.ThrowIfNull(spec);
+
+        return spec switch
+        {
+            ReferenceSpec r => $"{r.Source}: {r.Id}",
+            GripSpec g => GripToDsl(g),
+            _ => throw new ArgumentOutOfRangeException(nameof(spec), spec, "Unknown voicing-spec form."),
+        };
+    }
+
+    private static string GripToDsl(GripSpec grip)
+    {
+        var muted = new HashSet<int>(grip.MutedStrings);
+        var fretByString = grip.Positions.ToDictionary(p => p.String, p => p.Fret);
+
+        var sb = new StringBuilder();
+        for (int stringNumber = Fretboard.StringCount; stringNumber >= 1; stringNumber--) // s6 → s1
+        {
+            if (stringNumber < Fretboard.StringCount)
+            {
+                sb.Append(' ');
+            }
+
+            sb.Append(muted.Contains(stringNumber) || !fretByString.ContainsKey(stringNumber)
+                ? "x"
+                : fretByString[stringNumber].ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (grip.Anchor is { } a)
+        {
+            sb.Append(" root:").Append(a.String.ToString(CultureInfo.InvariantCulture));
+            if (a.Fret is { } f)
+            {
+                sb.Append('@').Append(f.ToString(CultureInfo.InvariantCulture));
+            }
+        }
+
+        return sb.ToString();
     }
 
     private static char AnchorLetter(Finger finger) => finger switch

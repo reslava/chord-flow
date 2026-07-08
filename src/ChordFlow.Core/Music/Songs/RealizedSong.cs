@@ -15,4 +15,14 @@ public sealed record RealizedSection(string Label, Key Key, IReadOnlyList<Realiz
 /// (references resolved, modulations folded, repeats expanded). Holds no alphaTex and is never persisted —
 /// it is regenerated from the Song DSL on load (constraint C4) and consumed section-by-section by the renderer.
 /// </summary>
-public sealed record RealizedSong(IReadOnlyList<RealizedSection> Sections);
+public sealed record RealizedSong(IReadOnlyList<RealizedSection> Sections)
+{
+    private static readonly IReadOnlyDictionary<VoiceSelector, string> NoVoices = new Dictionary<VoiceSelector, string>();
+
+    /// <summary>
+    /// The Song's <c>voice</c> defaults (<see cref="Song.Voices"/>) carried through to realization so the
+    /// Features-layer comping resolver can apply them per chord — <see cref="VoiceSelector"/> → raw spec text
+    /// (opaque, design D9). Empty for a bare progression or any Song without <c>voice</c> directives.
+    /// </summary>
+    public IReadOnlyDictionary<VoiceSelector, string> Voices { get; init; } = NoVoices;
+}

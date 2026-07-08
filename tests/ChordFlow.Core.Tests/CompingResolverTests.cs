@@ -154,4 +154,102 @@ public class CompingResolverTests
         public IReadOnlyList<Voicing> Candidates(Chord chord, ContentSource source, string? packageId) =>
             source == _source && chord.Equals(_chord) ? new[] { _grip } : Array.Empty<Voicing>();
     }
+
+    // ---- The explicit-voicing cascade: {…} annotations + `voice` defaults (IN1/IN5/IN6) ----
+
+    private sealed class NullStore : IProgressionStore
+    {
+        public Progression? Find(string id) => null;
+    }
+
+    private static RealizedSong RealizeSong(string songDsl, Key key) =>
+        SongExpander.Expand(SongParser.Parse("t", "T", songDsl, TimeSignature.FourFour), new NullStore(), key);
+
+    private static RealizedSpan SpanAt(RealizedSong song, int barIndex, int spanIndex = 0) =>
+        song.Sections[0].Bars[barIndex].Spans[spanIndex];
+
+    private static int? Fret(Voicing v, int stringNumber) =>
+        v.Positions.Where(p => p.String == stringNumber).Select(p => (int?)p.Fret).SingleOrDefault();
+
+    private static CompingPlan ResolveSong(RealizedSong song) =>
+        CompingResolver.Resolve(song, VoicingSource.Default, StoredVoicingSource.Empty);
+
+    [Fact]
+    public void PerChordAnnotation_OverridesOnlyThatOccurrence()
+    {
+        // First I7 pinned; the second I7 (same chord value) is left to the fill → they comp differently.
+        RealizedSong song = RealizeSong("A = 17 {8 x 7 9 8 x} 17\nA", C);
+        CompingPlan plan = ResolveSong(song);
+
+        Voicing pinned = plan.For(SpanAt(song, 0));
+        Voicing filled = plan.For(SpanAt(song, 1));
+
+        Assert.Equal(8, Fret(pinned, 6));   // grip verbatim at C7 (bass low-E fret 8 = C)
+        Assert.NotEqual(
+            pinned.Positions.OrderBy(p => p.String),
+            filled.Positions.OrderBy(p => p.String));
+    }
+
+    [Fact]
+    public void DegreeScopedVoiceDefault_AppliesToEveryOccurrenceOfThatDegree()
+    {
+        RealizedSong song = RealizeSong("voice 17 = 8 x 7 9 8 x\nA = 17 47 17\nA", C);
+        CompingPlan plan = ResolveSong(song);
+
+        Assert.Equal(8, Fret(plan.For(SpanAt(song, 0)), 6));   // I7 → default
+        Assert.Equal(8, Fret(plan.For(SpanAt(song, 2)), 6));   // the other I7 → same default
+        // IV7 (F7) is a different degree → the fill, not the default.
+        Assert.NotEqual(
+            plan.For(SpanAt(song, 0)).Positions.OrderBy(p => p.String),
+            plan.For(SpanAt(song, 1)).Positions.OrderBy(p => p.String));
+    }
+
+    [Fact]
+    public void QualityScopedVoiceDefault_TransposesToEachChordRoot()
+    {
+        // `voice *7` = a movable dom7 grip (bass C): at C7 verbatim (fret6=8), at F7 it slides up to fret6=1.
+        RealizedSong song = RealizeSong("voice *7 = 8 x 7 9 8 x\nA = 17 47\nA", C);
+        CompingPlan plan = ResolveSong(song);
+
+        Assert.Equal(8, Fret(plan.For(SpanAt(song, 0)), 6));   // C7
+        Assert.Equal(1, Fret(plan.For(SpanAt(song, 1)), 6));   // F7 (shape shifted +5, octave-folded)
+    }
+
+    [Fact]
+    public void DegreeScopedDefault_BeatsQualityScopedDefault()
+    {
+        RealizedSong song = RealizeSong("voice *7 = 8 x 7 9 8 x\nvoice 17 = x 3 2 3 1 x\nA = 17 47\nA", C);
+        CompingPlan plan = ResolveSong(song);
+
+        // C7 (degree 1) takes the degree default `x 3 2 3 1 x` (low-E muted), not the *7 grip.
+        Assert.Null(Fret(plan.For(SpanAt(song, 0)), 6));
+        Assert.Equal(3, Fret(plan.For(SpanAt(song, 0)), 5));
+        // F7 (degree 4) has no degree default → the *7 quality default, transposed (fret6=1).
+        Assert.Equal(1, Fret(plan.For(SpanAt(song, 1)), 6));
+    }
+
+    [Fact]
+    public void PerChordAnnotation_BeatsVoiceDefault()
+    {
+        RealizedSong song = RealizeSong("voice 17 = 8 x 7 9 8 x\nA = 17 {x 3 2 3 1 x} 17\nA", C);
+        CompingPlan plan = ResolveSong(song);
+
+        Assert.Null(Fret(plan.For(SpanAt(song, 0)), 6));   // annotated occurrence → the {…} grip
+        Assert.Equal(8, Fret(plan.For(SpanAt(song, 1)), 6));   // the other I7 → the degree default
+    }
+
+    [Fact]
+    public void UnresolvableReferenceAnnotation_FailsLoud()
+    {
+        RealizedSong song = RealizeSong("A = 17 {u: nope}\nA", C);
+        Assert.Throws<InvalidOperationException>(() => ResolveSong(song));
+    }
+
+    [Fact]
+    public void MalformedGripAnnotation_FailsLoudAtResolution()
+    {
+        // Five frets, not six — the opaque spec is only validated when the Features layer parses it.
+        RealizedSong song = RealizeSong("A = 17 {8 x 7 9 8}\nA", C);
+        Assert.Throws<FormatException>(() => ResolveSong(song));
+    }
 }

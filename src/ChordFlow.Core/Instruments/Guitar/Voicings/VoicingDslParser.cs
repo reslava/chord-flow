@@ -30,6 +30,10 @@ public static class VoicingDslParser
     private const string AnchorPrefix = "anchor:";
     private const string FretsPrefix = "frets:";
 
+    // Voicing-spec markers (ParseSpec): the literal-grip prefix and the root-anchor word.
+    private const string CustomMarker = "c";
+    private const string RootMarker = "root";
+
     // Optional anchor-finger token (req IN7): one letter i/m/r/p for the finger that anchors the shape's root.
     private static readonly IReadOnlyDictionary<string, Finger> AnchorFingers =
         new Dictionary<string, Finger>(StringComparer.OrdinalIgnoreCase)
@@ -165,6 +169,148 @@ public static class VoicingDslParser
         Voicing canonical = NormalizeToC(positions, muted, anchorRoot);
 
         return new VoicingShape(quality, shape.Value, rootString.Value, canonical, anchor);
+    }
+
+    /// <summary>
+    /// Parse a <b>voicing-spec</b> — the shared value grammar of a per-chord <c>{…}</c> annotation and a
+    /// <c>voice &lt;selector&gt; = …</c> default (req <c>IN1</c>–<c>IN4</c>). Either a literal grip
+    /// (<c>8 x 7 9 8 x</c>, with an optional <c>c:</c> prefix and a <c>root:&lt;string&gt;[@&lt;fret&gt;]</c>
+    /// anchor) or a source-qualified reference (<c>u: C6</c>, <c>a: shell-C6</c>, <c>swing: C6</c>). Frets are
+    /// kept verbatim — the movable normalize-to-C is a realization concern. Throws
+    /// <see cref="FormatException"/> on malformed input.
+    /// </summary>
+    public static VoicingSpec ParseSpec(string spec)
+    {
+        ArgumentNullException.ThrowIfNull(spec);
+
+        string text = spec;
+        int hash = text.IndexOf('#');
+        if (hash >= 0)
+        {
+            text = text[..hash];
+        }
+
+        text = text.Trim();
+        if (text.Length == 0)
+        {
+            throw new FormatException("Voicing spec is empty.");
+        }
+
+        string[] tokens = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        (string? prefix, string firstRest) = SplitPrefix(tokens[0]);
+
+        // A leading `<word>:` that is neither the custom-grip marker (`c`) nor the root anchor (`root`) is a
+        // source-qualified reference — the colon distinguishes it from a bare grip (fret tokens carry no colon).
+        if (prefix is not null
+            && !prefix.Equals(CustomMarker, StringComparison.OrdinalIgnoreCase)
+            && !prefix.Equals(RootMarker, StringComparison.OrdinalIgnoreCase))
+        {
+            return ParseReference(prefix, firstRest, tokens, spec);
+        }
+
+        return ParseGrip(tokens, prefix, firstRest, spec);
+    }
+
+    private static VoicingSpec ParseReference(string source, string firstRest, string[] tokens, string spec)
+    {
+        string id;
+        if (firstRest.Length > 0)
+        {
+            if (tokens.Length > 1)
+            {
+                throw new FormatException($"Voicing spec \"{spec}\" reference has an unexpected token \"{tokens[1]}\".");
+            }
+
+            id = firstRest;
+        }
+        else
+        {
+            if (tokens.Length != 2)
+            {
+                throw new FormatException($"Voicing spec \"{spec}\" reference must be '<source>: <id>'.");
+            }
+
+            id = tokens[1];
+        }
+
+        if (id.Length == 0)
+        {
+            throw new FormatException($"Voicing spec \"{spec}\" reference is missing an id.");
+        }
+
+        return new ReferenceSpec(source, id);
+    }
+
+    private static VoicingSpec ParseGrip(string[] tokens, string? prefix, string firstRest, string spec)
+    {
+        var gripTokens = new List<string>();
+        GripAnchor? anchor = null;
+        int start = 0;
+
+        // Strip an optional leading `c:` marker (bare grip == `c:` grip).
+        if (prefix is not null && prefix.Equals(CustomMarker, StringComparison.OrdinalIgnoreCase))
+        {
+            if (firstRest.Length > 0)
+            {
+                gripTokens.Add(firstRest);
+            }
+
+            start = 1;
+        }
+
+        for (int i = start; i < tokens.Length; i++)
+        {
+            string tok = tokens[i];
+            if (tok.StartsWith(RootPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                if (anchor is not null)
+                {
+                    throw new FormatException($"Voicing spec \"{spec}\" has more than one root: clause.");
+                }
+
+                anchor = ParseGripAnchor(tok[RootPrefix.Length..], spec);
+            }
+            else
+            {
+                gripTokens.Add(tok);
+            }
+        }
+
+        (IReadOnlyList<FretPosition> positions, IReadOnlyList<int> muted) = ParseFrets(string.Join(' ', gripTokens), spec);
+        return new GripSpec(positions, muted, anchor);
+    }
+
+    // Parse a root: clause payload — "6" (voiced) or "6@8" (phantom root on a muted string).
+    private static GripAnchor ParseGripAnchor(string text, string spec)
+    {
+        int at = text.IndexOf('@');
+        string stringPart = at < 0 ? text : text[..at];
+        string? fretPart = at < 0 ? null : text[(at + 1)..];
+
+        if (!int.TryParse(stringPart, NumberStyles.None, CultureInfo.InvariantCulture, out int s) || s < 1 || s > Fretboard.StringCount)
+        {
+            throw new FormatException($"Voicing spec \"{spec}\" has root string \"{stringPart}\" outside 1..{Fretboard.StringCount}.");
+        }
+
+        int? fret = null;
+        if (fretPart is not null)
+        {
+            if (!int.TryParse(fretPart, NumberStyles.None, CultureInfo.InvariantCulture, out int f) || f < 0)
+            {
+                throw new FormatException($"Voicing spec \"{spec}\" has an invalid phantom fret \"{fretPart}\" (use a non-negative number).");
+            }
+
+            fret = f;
+        }
+
+        return new GripAnchor(s, fret);
+    }
+
+    // Split a token at its first ':' into (prefixWord, rest). No colon → (null, wholeToken).
+    private static (string? Prefix, string Remainder) SplitPrefix(string token)
+    {
+        int colon = token.IndexOf(':');
+        return colon < 0 ? (null, token) : (token[..colon], token[(colon + 1)..]);
     }
 
     // Transpose every fretted string so the anchor sits at C, then octave-fold uniformly so the lowest

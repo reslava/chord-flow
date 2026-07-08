@@ -23,7 +23,7 @@ public static class ExerciseRendering
     /// </summary>
     public static RenderResult Render(
         Exercise exercise, IProgressionStore store, IScoreRenderer renderer, IStoredVoicingSource voicings,
-        RenderOptions? options = null)
+        RenderOptions? options = null, IVoicingReferenceSource? references = null)
     {
         ArgumentNullException.ThrowIfNull(exercise);
         ArgumentNullException.ThrowIfNull(store);
@@ -33,7 +33,9 @@ public static class ExerciseRendering
         Key baseKey = exercise.KeyOverride ?? exercise.Song.InitialKey;
         RealizedSong realized = SongExpander.Expand(exercise.Song, store, startKey: baseKey);
         // Resolve the comping grips here (the I/O seam), so the renderer stays a pure formatter (D4=(B)).
-        CompingPlan plan = CompingResolver.Resolve(realized, (options ?? RenderOptions.Default).VoicingOrDefault, voicings);
+        // `references` supplies the source-qualified voicing references (u:/a:/pkg:); null ⇒ engine-only.
+        CompingPlan plan = CompingResolver.Resolve(
+            realized, (options ?? RenderOptions.Default).VoicingOrDefault, voicings, references);
         return renderer.Render(
             realized, exercise.Comping, exercise.Tempo, exercise.Difficulty, plan, exercise.TripletFeel,
             lead: exercise.Lead, options: options);
@@ -42,6 +44,6 @@ public static class ExerciseRendering
     /// <summary>The alphaTex string only — for callers that don't need the chord schedule (e.g. Content preview).</summary>
     public static string RenderToTex(
         Exercise exercise, IProgressionStore store, IScoreRenderer renderer, IStoredVoicingSource voicings,
-        RenderOptions? options = null) =>
-        Render(exercise, store, renderer, voicings, options).Tex;
+        RenderOptions? options = null, IVoicingReferenceSource? references = null) =>
+        Render(exercise, store, renderer, voicings, options, references).Tex;
 }

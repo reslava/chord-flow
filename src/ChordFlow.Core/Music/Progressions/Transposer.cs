@@ -5,7 +5,20 @@ namespace ChordFlow.Music.Progressions;
 /// One realized chord span: a concrete <see cref="Chord"/> placed at <see cref="StartTick"/> for
 /// <see cref="DurationTicks"/> on the 48-PPQ grid. The key-resolved counterpart of <see cref="ChordSpan"/>.
 /// </summary>
-public readonly record struct RealizedSpan(Chord Chord, int StartTick, int DurationTicks);
+/// <param name="Chord">The concrete, key-resolved chord.</param>
+/// <param name="StartTick">Bar-relative start on the 48-PPQ grid.</param>
+/// <param name="DurationTicks">Span length in ticks.</param>
+/// <param name="Degree">The originating key-independent <see cref="RomanDegree"/>, preserved so a Song's
+/// degree-scoped <c>voice</c> default can match after transposition (the concrete chord alone has lost the
+/// degree). Defaults to <c>default</c> for the legacy render paths that don't need it.</param>
+/// <param name="VoicingAnnotation">The per-chord <c>{…}</c> annotation carried verbatim from
+/// <see cref="ChordSpan.VoicingAnnotation"/> — opaque raw spec text (design D9), consumed by the Features layer.</param>
+public readonly record struct RealizedSpan(
+    Chord Chord,
+    int StartTick,
+    int DurationTicks,
+    RomanDegree Degree = default,
+    string? VoicingAnnotation = null);
 
 /// <summary>
 /// One realized bar: the ordered <see cref="RealizedSpan"/>s for a <see cref="HarmonicBar"/> after
@@ -14,13 +27,20 @@ public readonly record struct RealizedSpan(Chord Chord, int StartTick, int Durat
 public sealed record RealizedBar(IReadOnlyList<RealizedSpan> Spans)
 {
     /// <summary>The chord whose span's <c>[StartTick, StartTick + DurationTicks)</c> contains <paramref name="tick"/>.</summary>
-    public Chord ChordCovering(int tick)
+    public Chord ChordCovering(int tick) => SpanCovering(tick).Chord;
+
+    /// <summary>
+    /// The <see cref="RealizedSpan"/> whose <c>[StartTick, StartTick + DurationTicks)</c> contains
+    /// <paramref name="tick"/> — the per-occurrence peer of <see cref="ChordCovering"/> that carries the span's
+    /// voicing annotation, so the renderer can resolve a per-chord <c>{…}</c> override (not just the chord value).
+    /// </summary>
+    public RealizedSpan SpanCovering(int tick)
     {
         foreach (RealizedSpan span in Spans)
         {
             if (tick >= span.StartTick && tick < span.StartTick + span.DurationTicks)
             {
-                return span.Chord;
+                return span;
             }
         }
 
@@ -95,7 +115,8 @@ public static class Transposer
             for (int j = 0; j < bar.Spans.Count; j++)
             {
                 ChordSpan span = bar.Spans[j];
-                spans[j] = new RealizedSpan(ChordFor(span.Degree, scale, key), start, span.DurationTicks);
+                spans[j] = new RealizedSpan(
+                    ChordFor(span.Degree, scale, key), start, span.DurationTicks, span.Degree, span.VoicingAnnotation);
                 start += span.DurationTicks;
             }
 

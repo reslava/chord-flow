@@ -4,8 +4,8 @@ id: rf_01KTSAQ6990GY3J4CZ7HPVPW6K
 title: ChordFlow DSL
 status: active
 created: 2026-06-10
-updated: 2026-07-07
-version: 27
+updated: 2026-07-08
+version: 29
 tags: []
 parent_id: null
 requires_load: []
@@ -238,6 +238,45 @@ verse
 
 Intro, two verses (the 12-bar blues), then up a fifth for the chorus and a final verse — all from one reusable definition. The optional `genre:`/`subgenre:`/`tags:` header at the top is catalog metadata for filtering; it isn't part of the arrangement.
 
+### Pinning voicings — per-chord `{…}` and the `voice` default
+
+By default ChordFlow **derives** the fretboard grip for each chord (lowest, most-common shape). You can override that and **pin a specific voicing** — a grip you fingered yourself, or a listed one — in two places. Both are **Song-level** (harmony stays pure — a stored progression on its own carries no voicings).
+
+**The voicing value** (the same in both places) is either a **literal grip** or a **reference**:
+
+| Value | Meaning |
+|-------|---------|
+| `8 x 7 9 8 x` | a **literal grip** — six frets low-E→high-E (`x` = muted, `0` = open). Optionally written `c: 8 x 7 9 8 x`. |
+| `8 x 7 9 8 x root:6` | a grip with an explicit **root anchor** — string 6 sounds the root. Needed only when the root isn't the lowest sounded string. |
+| `x 3 2 3 1 x root:6@8` | a **rootless** grip — the root (low E) isn't played; `root:6@8` names where it *would* be (string 6, fret 8) so the shape still transposes. |
+| `u: C6` | a **reference** to your **user** voicing with id `C6`. |
+| `a: auto:shell:dom7:E` | a reference to an **engine** voicing (the `auto:…` catalog id). |
+| `swing: C6` | a reference to voicing `C6` from the **package** `swing`. |
+
+A grip is a **movable shape**: you write it once (as it looks at that chord) and ChordFlow slides it to the actual root when you change key or modulate — so a pinned voicing never breaks on transposition. A missing/filtered reference **fails loud** when the song is realized (never a silent fallback).
+
+**1. Per-chord `{…}` — pin one chord.** Attach a `{value}` to a chord inside an **inline** progression:
+
+```
+head = 17 {8 x 7 9 8 x} 47 17 67 2-7 {u: C6} 57 17
+```
+
+The annotation binds to the chord just before it (a space is optional: `17{…}` works too). It overrides **only that occurrence** — other `17`s keep the automatic fill.
+
+**2. `voice <selector> = <value>` — a whole-song default.** A definition-section line (a peer of `key`/`feel`/`tempo`) that pins **every** matching chord:
+
+```
+voice *7   = 3 3 2 3 1 x      # every dominant-7 chord, transposed to each root
+voice 17   = 8 x 7 9 8 x      # …but the I7 specifically uses this
+voice #4dim7 = 8 x 7 8 7 x    # the chromatic passing dim7
+voice *m7  = u: my-m7-shell   # every minor-7 chord uses a user voicing
+```
+
+- `*<quality>` matches **any degree** of that quality (`*7`, `*m7`, `*maj7`, bare `*` = every major triad).
+- `<degree><quality>` (a chord symbol — `17`, `#4dim7`, `2-7`) matches just that degree.
+
+**Which one wins** (most specific first): a per-chord `{…}` › a degree `voice 17` › a quality `voice *7` › the automatic fill.
+
 ### Common errors
 
 - **"plays undefined part"** — a stream line names a part you never defined (add a `NAME =` or `NAME:` line).
@@ -247,6 +286,9 @@ Intro, two verses (the 12-bar blues), then up a fifth for the chorus and a final
 - **"Unknown progression transform"** — an `@op` name isn't a known transform (only `@take` today).
 - **"must look like @name(args)"** / **"requires a positive integer argument"** — a malformed transform token (missing parens) or a bad `@take` argument.
 - **"more than one repeat token"** — a play line has two `x<n>` repeats.
+- **"voicing annotations are a Song-level concern"** — a `{…}` appeared in a **stored** progression; pin voicings inside a Song (an inline part or a `voice` line) instead.
+- **"defines voicing for … more than once"** — two `voice` lines share a selector.
+- **"could not be resolved"** — a `{…}`/`voice` reference names a voicing that doesn't exist in that source (or a grip that doesn't fit the neck) — a fail-loud realization error.
 
 ### Notes
 

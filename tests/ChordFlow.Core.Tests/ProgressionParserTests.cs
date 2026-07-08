@@ -156,4 +156,76 @@ public class ProgressionParserTests
     {
         Assert.Throws<FormatException>(() => ProgressionParser.Parse("t", "Test", dsl, Ts));
     }
+
+    // ---- Per-chord {…} voicing annotations + purity guard (IN1/IN7) ----
+
+    private static Progression ParseInline(string dsl) =>
+        ProgressionParser.Parse("t", "Test", dsl, Ts, allowVoicingAnnotations: true);
+
+    [Fact]
+    public void Parse_Annotation_RejectedOnStoredProgressionByDefault()
+    {
+        // Purity guard: a stored/standalone progression carries pure harmony only.
+        Assert.Throws<FormatException>(() => Parse("17 {8 x 7 9 8 x}"));
+    }
+
+    [Theory]
+    [InlineData("17 {8 x 7 9 8 x}")]  // whitespace-separated
+    [InlineData("17{8 x 7 9 8 x}")]   // glued
+    public void Parse_InlineAnnotation_StoredRawAsOneBar(string dsl)
+    {
+        Progression prog = ParseInline(dsl);
+
+        ChordSpan span = Assert.Single(Assert.Single(prog.Bars).Spans);
+        Assert.Equal(Quality.Dominant7, span.Degree.Quality);
+        Assert.Equal("8 x 7 9 8 x", span.VoicingAnnotation);
+    }
+
+    [Fact]
+    public void Parse_ReferenceAnnotation_KeptVerbatim()
+    {
+        Progression prog = ParseInline("17 {u: C6}");
+
+        Assert.Equal("u: C6", Assert.Single(Assert.Single(prog.Bars).Spans).VoicingAnnotation);
+    }
+
+    [Fact]
+    public void Parse_AnnotationBindsToPrecedingChordInMultiChordBar()
+    {
+        // `1_4 {u: C6}` → one bar, two chords; the annotation binds to the 4, not the 1.
+        Progression prog = ParseInline("1_4 {u: C6}");
+
+        IReadOnlyList<ChordSpan> spans = Assert.Single(prog.Bars).Spans;
+        Assert.Equal(2, spans.Count);
+        Assert.Null(spans[0].VoicingAnnotation);
+        Assert.Equal("u: C6", spans[1].VoicingAnnotation);
+    }
+
+    [Fact]
+    public void Parse_AnnotationAfterSlots_BindsToThatChord()
+    {
+        Progression prog = ParseInline("1:2_4:1_5:1 {8 x 7 9 8 x root:6@8}");
+
+        IReadOnlyList<ChordSpan> spans = Assert.Single(prog.Bars).Spans;
+        Assert.Equal(3, spans.Count);
+        Assert.Equal("8 x 7 9 8 x root:6@8", spans[2].VoicingAnnotation);
+    }
+
+    [Fact]
+    public void Parse_AnnotatedChord_DoesNotAddABar()
+    {
+        Progression prog = ParseInline("17 {8 x 7 9 8 x} 47");
+        Assert.Equal(2, prog.Bars.Count);
+    }
+
+    [Theory]
+    [InlineData("{8 x 7 9 8 x} 17")]   // orphan annotation, no preceding chord
+    [InlineData("17 {8 x 7")]          // unclosed brace
+    [InlineData("17 8 x 7 9 8 x}")]    // unmatched closing brace
+    [InlineData("17 {}")]              // empty annotation
+    [InlineData("17 {a}{b}")]          // two annotations on one chord
+    public void Parse_MalformedAnnotation_Throws(string dsl)
+    {
+        Assert.Throws<FormatException>(() => ParseInline(dsl));
+    }
 }

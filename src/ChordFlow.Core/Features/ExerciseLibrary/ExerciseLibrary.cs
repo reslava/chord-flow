@@ -122,7 +122,8 @@ public sealed class ExerciseLibraryHandler
             exercise = exercise with { TripletFeel = feel };
         }
         return new LoadedExercise(exercise, LoadScoreEnvelope.From(
-            exercise, new ProgressionStore(db), _renderer, StoredVoicingSource.From(new VoicingStore(db)), options));
+            exercise, new ProgressionStore(db), _renderer, StoredVoicingSource.From(new VoicingStore(db)), options,
+            references: VoicingReferenceSource.From(new VoicingStore(db))));
     }
 
     // Rebuild the Domain Exercise from a stored definition, resolving its references against the live stores

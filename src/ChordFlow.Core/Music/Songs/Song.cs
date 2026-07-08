@@ -95,6 +95,13 @@ public sealed record Song
     /// <summary>The ordered arrangement stream: plays, relative modulations, and absolute key resets.</summary>
     public IReadOnlyList<ArrangementItem> Items { get; }
 
+    /// <summary>
+    /// Song-level voicing defaults from <c>voice &lt;selector&gt; = …</c> directives (design D2), keyed by
+    /// <see cref="VoiceSelector"/>. The value is the <b>raw voicing-spec text</b> — opaque to Music (design D9);
+    /// the Features layer parses it. Empty when the Song declares none.
+    /// </summary>
+    public IReadOnlyDictionary<VoiceSelector, string> Voices { get; }
+
     // Private full constructor: the only way fields reach the record. The public entry point validates first.
     private Song(
         string id,
@@ -103,7 +110,8 @@ public sealed record Song
         IReadOnlyDictionary<string, Part> parts,
         IReadOnlyList<ArrangementItem> items,
         TripletFeel? defaultFeel,
-        int? defaultTempo)
+        int? defaultTempo,
+        IReadOnlyDictionary<VoiceSelector, string> voices)
     {
         Id = id;
         Name = name;
@@ -112,6 +120,7 @@ public sealed record Song
         Items = items;
         DefaultFeel = defaultFeel;
         DefaultTempo = defaultTempo;
+        Voices = voices;
     }
 
     /// <summary>
@@ -132,7 +141,8 @@ public sealed record Song
         IReadOnlyDictionary<string, Part> parts,
         IReadOnlyList<ArrangementItem> items,
         TripletFeel? defaultFeel = null,
-        int? defaultTempo = null)
+        int? defaultTempo = null,
+        IReadOnlyDictionary<VoiceSelector, string>? voices = null)
     {
         ArgumentNullException.ThrowIfNull(initialKey);
         ArgumentNullException.ThrowIfNull(parts);
@@ -175,7 +185,9 @@ public sealed record Song
             throw new ArgumentException("A Song must play at least one part.", nameof(items));
         }
 
-        return new Song(id, name, initialKey, parts, items, defaultFeel, defaultTempo);
+        return new Song(
+            id, name, initialKey, parts, items, defaultFeel, defaultTempo,
+            voices ?? new Dictionary<VoiceSelector, string>());
     }
 
     /// <summary>

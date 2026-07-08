@@ -105,4 +105,99 @@ public class VoicingDslParserTests
     {
         Assert.Throws<FormatException>(() => VoicingDslParser.Parse(dsl));
     }
+
+    // ---- ParseSpec: the shared voicing-spec grammar (per-chord {…} + voice defaults) ----
+
+    private static int? SpecFret(GripSpec g, int stringNumber) =>
+        g.Positions.Where(p => p.String == stringNumber).Select(p => (int?)p.Fret).SingleOrDefault();
+
+    [Fact]
+    public void ParseSpec_BareGrip_ReadsFretsVerbatim()
+    {
+        var grip = Assert.IsType<GripSpec>(VoicingDslParser.ParseSpec("8 x 7 9 8 x"));
+
+        Assert.Equal(8, SpecFret(grip, 6));
+        Assert.Null(SpecFret(grip, 5));
+        Assert.Equal(7, SpecFret(grip, 4));
+        Assert.Equal(9, SpecFret(grip, 3));
+        Assert.Equal(8, SpecFret(grip, 2));
+        Assert.Null(SpecFret(grip, 1));
+        Assert.Equal(new[] { 5, 1 }.OrderBy(x => x), grip.MutedStrings.OrderBy(x => x));
+        Assert.Null(grip.Anchor);
+    }
+
+    [Fact]
+    public void ParseSpec_CustomPrefix_IsSugarForBareGrip()
+    {
+        var bare = Assert.IsType<GripSpec>(VoicingDslParser.ParseSpec("8 x 7 9 8 x"));
+        var prefixed = Assert.IsType<GripSpec>(VoicingDslParser.ParseSpec("c: 8 x 7 9 8 x"));
+
+        Assert.Equal(
+            bare.Positions.OrderBy(p => p.String),
+            prefixed.Positions.OrderBy(p => p.String));
+    }
+
+    [Fact]
+    public void ParseSpec_VoicedRootAnchor_HasNoPhantomFret()
+    {
+        var grip = Assert.IsType<GripSpec>(VoicingDslParser.ParseSpec("8 x 7 9 8 x root:6"));
+
+        Assert.NotNull(grip.Anchor);
+        Assert.Equal(6, grip.Anchor!.String);
+        Assert.Null(grip.Anchor.Fret);
+    }
+
+    [Fact]
+    public void ParseSpec_PhantomRootOnMutedString_CarriesTheFret()
+    {
+        // Rootless shell: low E muted, root declared as a phantom at fret 8.
+        var grip = Assert.IsType<GripSpec>(VoicingDslParser.ParseSpec("x 3 2 3 1 x root:6@8"));
+
+        Assert.Contains(6, grip.MutedStrings);
+        Assert.Equal(6, grip.Anchor!.String);
+        Assert.Equal(8, grip.Anchor.Fret);
+    }
+
+    [Theory]
+    [InlineData("u: C6", "u", "C6")]
+    [InlineData("a: shell-C6", "a", "shell-C6")]
+    [InlineData("swing: C6", "swing", "C6")]
+    [InlineData("swing:C6", "swing", "C6")] // glued form
+    public void ParseSpec_Reference_SplitsSourceAndId(string spec, string source, string id)
+    {
+        var reference = Assert.IsType<ReferenceSpec>(VoicingDslParser.ParseSpec(spec));
+
+        Assert.Equal(source, reference.Source);
+        Assert.Equal(id, reference.Id);
+    }
+
+    [Theory]
+    [InlineData("8 x 7 9 8 x")]
+    [InlineData("8 x 7 9 8 x root:6")]
+    [InlineData("x 3 2 3 1 x root:6@8")]
+    [InlineData("u: C6")]
+    [InlineData("a: shell-C6")]
+    public void ParseSpec_RoundTripsThroughWriter(string spec)
+    {
+        string written = VoicingDslWriter.SpecToDsl(VoicingDslParser.ParseSpec(spec));
+
+        Assert.Equal(spec, written);
+        // Writer is idempotent through a re-parse (record equality can't compare the List<> members).
+        Assert.Equal(written, VoicingDslWriter.SpecToDsl(VoicingDslParser.ParseSpec(written)));
+    }
+
+    [Theory]
+    [InlineData("")]                       // empty
+    [InlineData("8 x 7 9 8")]              // 5 frets, not 6
+    [InlineData("8 x 7 9 8 x x")]          // 7 frets
+    [InlineData("8 x 7 9 8 q")]            // invalid fret token
+    [InlineData("x x x x x x")]            // no fretted strings
+    [InlineData("8 x 7 9 8 x root:7")]     // root string out of 1..6
+    [InlineData("8 x 7 9 8 x root:6@-1")]  // negative phantom fret
+    [InlineData("u:")]                     // reference missing id
+    [InlineData("u: C6 C7")]               // reference with an extra token
+    public void ParseSpec_MalformedInput_Throws(string spec)
+    {
+        Assert.Throws<FormatException>(() => VoicingDslParser.ParseSpec(spec));
+    }
 }

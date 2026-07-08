@@ -1,4 +1,6 @@
+using ChordFlow.Instruments.Guitar;
 using ChordFlow.Music.Harmony;
+using ChordFlow.Music.Progressions;
 using ChordFlow.Music.Rhythm;
 using ChordFlow.Music.Songs;
 using System;
@@ -248,6 +250,114 @@ public class SongParserTests
     {
         // `tempo` is a reserved keyword — it cannot name a part.
         Assert.Throws<FormatException>(() => Parse("tempo = 1 4 5 1\ntempo"));
+    }
+
+    // --- voice directive (Song.Voices) + inline annotations (IN4/C6, IN1/IN7) ---
+
+    [Fact]
+    public void Parse_VoiceDefaults_QualityAndDegreeScoped()
+    {
+        const string dsl = """
+            voice *7 = 3 3 2 3 1 x
+            voice 17 = 8 x 7 9 8 x
+            voice #4dim7 = 8 x 7 8 7 x
+            voice * = x 3 2 0 1 0
+            A = 17 47 17 17
+            A
+            """;
+
+        Song song = Parse(dsl);
+
+        Assert.Equal("3 3 2 3 1 x", song.Voices[VoiceSelector.ForQuality(Quality.Dominant7)]);
+        Assert.Equal("8 x 7 9 8 x", song.Voices[VoiceSelector.ForDegree(new RomanDegree(1, Quality.Dominant7))]);
+        Assert.Equal("8 x 7 8 7 x", song.Voices[VoiceSelector.ForDegree(new RomanDegree(4, Quality.Diminished7, Accidental.Sharp))]);
+        Assert.Equal("x 3 2 0 1 0", song.Voices[VoiceSelector.ForQuality(Quality.Major)]);
+    }
+
+    [Fact]
+    public void Parse_VoiceDefault_KeepsReferenceSpecVerbatim()
+    {
+        Song song = Parse("voice *7 = u: C6\nA = 17 47 17 17\nA");
+        Assert.Equal("u: C6", song.Voices[VoiceSelector.ForQuality(Quality.Dominant7)]);
+    }
+
+    [Fact]
+    public void Parse_DuplicateVoiceSelector_ThrowsFormat()
+    {
+        Assert.Throws<FormatException>(() =>
+            Parse("voice *7 = 3 3 2 3 1 x\nvoice *7 = 8 x 7 9 8 x\nA = 17 47 17 17\nA"));
+    }
+
+    [Theory]
+    [InlineData("voice *zz = 3 3 2 3 1 x")]   // unknown quality
+    [InlineData("voice 8 = 3 3 2 3 1 x")]     // degree out of range
+    [InlineData("voice 17")]                  // no '=' / no spec
+    [InlineData("voice = 3 3 2 3 1 x")]       // empty selector
+    public void Parse_MalformedVoiceDirective_ThrowsFormat(string voiceLine)
+    {
+        Assert.Throws<FormatException>(() => Parse($"{voiceLine}\nA = 17 47 17 17\nA"));
+    }
+
+    [Fact]
+    public void Parse_VoiceAsPartName_ThrowsFormat()
+    {
+        // `voice` is a reserved keyword — `voice=…` (no space) still can't name a part.
+        Assert.Throws<FormatException>(() => Parse("voice=1 4 5 1\nvoice"));
+    }
+
+    [Fact]
+    public void Parse_PartNameStartingWithVoice_IsNotADirective()
+    {
+        // `voiceleading` is a normal part name, not a `voice` directive.
+        Song song = Parse("voiceleading = 1 4 5 1\nvoiceleading");
+        Assert.IsType<InlineProgression>(song.Parts["voiceleading"]);
+        Assert.Empty(song.Voices);
+    }
+
+    [Fact]
+    public void Parse_InlineProgression_AcceptsPerChordAnnotation()
+    {
+        Song song = Parse("A = 17 {8 x 7 9 8 x} 47 17 17\nA");
+
+        var inline = Assert.IsType<InlineProgression>(song.Parts["A"]);
+        ChordSpan first = inline.Progression.Bars[0].Spans[0];
+        Assert.Equal("8 x 7 9 8 x", first.VoicingAnnotation);
+    }
+
+    // --- Round-trip (IN8): the annotation spec writer + verbatim-text stability ---
+
+    [Fact]
+    public void AnnotatedSong_SurvivesTextualRoundTrip()
+    {
+        // A Song has no structural DSL emitter — its text is stored verbatim — so re-parsing the same authored
+        // text must preserve the `voice` map and the inline `{…}` annotations (the round-trip by construction).
+        const string dsl =
+            "voice *7 = 3 3 2 3 1 x\nvoice #4dim7 = 8 x 7 8 7 x\nA = 17 {8 x 7 9 8 x root:6} 47 {u: C6}\nA";
+        Song song = Parse(dsl);
+
+        Assert.Equal("3 3 2 3 1 x", song.Voices[VoiceSelector.ForQuality(Quality.Dominant7)]);
+        Assert.Equal(
+            "8 x 7 8 7 x",
+            song.Voices[VoiceSelector.ForDegree(new RomanDegree(4, Quality.Diminished7, Accidental.Sharp))]);
+
+        var inline = Assert.IsType<InlineProgression>(song.Parts["A"]);
+        Assert.Equal("8 x 7 9 8 x root:6", inline.Progression.Bars[0].Spans[0].VoicingAnnotation);
+        Assert.Equal("u: C6", inline.Progression.Bars[1].Spans[0].VoicingAnnotation);
+    }
+
+    [Theory]
+    [InlineData("8 x 7 9 8 x root:6")]   // grip + voiced anchor
+    [InlineData("x 3 2 3 1 x root:6@8")] // rootless phantom anchor
+    [InlineData("u: C6")]                // reference
+    public void InlineAnnotationSpec_RoundTripsThroughTheWriter(string spec)
+    {
+        // The stored raw annotation feeds the voicing-spec writer and re-parses byte-for-byte — the actual
+        // serialization surface for a `{…}` annotation (there being no whole-progression emitter).
+        Song song = Parse($"A = 17 {{{spec}}}\nA");
+        string raw = Assert.IsType<InlineProgression>(song.Parts["A"]).Progression.Bars[0].Spans[0].VoicingAnnotation!;
+
+        Assert.Equal(spec, raw);
+        Assert.Equal(spec, VoicingDslWriter.SpecToDsl(VoicingDslParser.ParseSpec(raw)));
     }
 
     private static (string Name, int Repeat) AsPlay(ArrangementItem item)

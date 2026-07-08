@@ -2,7 +2,7 @@
 type: idea
 id: id_01KVZYCRYEXGAAAH2QQ27ZCSYF
 title: Explicit per-chord voicing references in the DSL
-status: draft
+status: done
 created: 2026-06-25
 version: 1
 tags: []

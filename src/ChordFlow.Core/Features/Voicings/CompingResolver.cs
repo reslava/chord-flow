@@ -19,17 +19,27 @@ namespace ChordFlow.Features.Voicings;
 /// </summary>
 public static class CompingResolver
 {
-    /// <summary>Build the comping plan for <paramref name="song"/> using <paramref name="main"/> (+ its fallback) and <paramref name="stored"/>.</summary>
-    public static CompingPlan Resolve(RealizedSong song, VoicingSource main, IStoredVoicingSource stored)
+    /// <summary>
+    /// Build the comping plan for <paramref name="song"/> using <paramref name="main"/> (+ its fallback),
+    /// <paramref name="stored"/>, and <paramref name="references"/> for source-qualified voicing references.
+    /// Per span the most-specific-wins cascade (explicit-voicing-reference IN5) applies before the ranking fill:
+    /// a per-chord <c>{…}</c> annotation (a per-occurrence override) › the Song's degree-scoped <c>voice</c>
+    /// default › its quality-scoped <c>voice</c> default › today's candidate/ranking fill. Explicit tiers fail
+    /// loud (IN6) when a spec is malformed or a reference can't be resolved. The fill path is unchanged.
+    /// </summary>
+    public static CompingPlan Resolve(
+        RealizedSong song, VoicingSource main, IStoredVoicingSource stored, IVoicingReferenceSource? references = null)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentNullException.ThrowIfNull(main);
         ArgumentNullException.ThrowIfNull(stored);
+        references ??= VoicingReferenceSource.Empty;
 
         IVoicingRanking ranking = RankingFor(main.Ranking);
         var context = new VoicingRankingContext();
         var candidateCache = new Dictionary<Chord, IReadOnlyList<Voicing>>();
-        var plan = new Dictionary<Chord, Voicing>();
+        var plan = new Dictionary<Chord, Voicing>();                    // per chord value: voice default or ranking fill
+        var spanOverrides = new Dictionary<RealizedSpan, Voicing>();    // per occurrence: {…} annotations
 
         foreach (RealizedSection section in song.Sections)
         {
@@ -38,24 +48,90 @@ public static class CompingResolver
                 foreach (RealizedSpan span in bar.Spans)
                 {
                     Chord chord = span.Chord;
-                    if (!candidateCache.TryGetValue(chord, out IReadOnlyList<Voicing>? candidates))
+
+                    // Tier 1 — a per-chord {…} annotation: a per-occurrence override (never leaks to other spans).
+                    if (span.VoicingAnnotation is { } annotation)
                     {
-                        candidates = CandidatesFor(chord, main, stored);
-                        if (candidates.Count == 0)
+                        if (!spanOverrides.TryGetValue(span, out Voicing? overridden))
                         {
-                            throw new InvalidOperationException(
-                                $"No voicing source can comp {chord.Root.Value}:{chord.Quality} (main '{main.Kind}', fallback user/package/automatic all empty).");
+                            overridden = ResolveSpec(annotation, span, references, $"annotation \"{{{annotation}}}\"");
+                            spanOverrides[span] = overridden;
                         }
 
-                        candidateCache[chord] = candidates;
+                        context.PreviousGrip = overridden;
+                        continue;
                     }
 
-                    plan[chord] = ranking.Pick(chord, candidates, context);
+                    // Tiers 2–4 — per chord value: a degree/quality `voice` default, else the ranking fill.
+                    if (!plan.TryGetValue(chord, out Voicing? chosen))
+                    {
+                        chosen = ResolveVoiceDefault(span, song.Voices, references)
+                                 ?? Fill(chord, main, stored, ranking, context, candidateCache);
+                        plan[chord] = chosen;
+                    }
+
+                    context.PreviousGrip = chosen;
                 }
             }
         }
 
-        return new CompingPlan(plan);
+        return new CompingPlan(plan, spanOverrides);
+    }
+
+    // The Song's `voice` default for this span, most-specific first: a degree-scoped selector (`voice 17`)
+    // beats a quality-scoped one (`voice *7`). Null when the Song declares neither for this chord.
+    private static Voicing? ResolveVoiceDefault(
+        RealizedSpan span, IReadOnlyDictionary<VoiceSelector, string> voices, IVoicingReferenceSource references)
+    {
+        if (voices.TryGetValue(VoiceSelector.ForDegree(span.Degree), out string? degreeSpec))
+        {
+            return ResolveSpec(degreeSpec, span, references, $"voice default for {span.Degree.Degree}{span.Degree.Quality}");
+        }
+
+        if (voices.TryGetValue(VoiceSelector.ForQuality(span.Chord.Quality), out string? qualitySpec))
+        {
+            return ResolveSpec(qualitySpec, span, references, $"voice default for *{span.Chord.Quality}");
+        }
+
+        return null;
+    }
+
+    // Parse an opaque voicing-spec (a grip or a reference) and realize it at the span's chord root. Fail loud
+    // (IN6) on a malformed spec or an unresolvable reference/grip — the spec was carried verbatim from Music.
+    private static Voicing ResolveSpec(
+        string specText, RealizedSpan span, IVoicingReferenceSource references, string what)
+    {
+        VoicingSpec spec = VoicingDslParser.ParseSpec(specText);
+        Voicing? voicing = spec switch
+        {
+            GripSpec grip => VoicingRealizer.RealizeGrip(grip, span.Chord.Root),
+            ReferenceSpec reference => references.Resolve(reference.Source, reference.Id, span.Chord),
+            _ => null,
+        };
+
+        return voicing
+            ?? throw new InvalidOperationException(
+                $"Voicing {what} could not be resolved for {span.Chord.Root.Value}:{span.Chord.Quality}.");
+    }
+
+    // Today's ranking fill for a chord value (the tier-4 default), factored out so the cascade can fall through.
+    private static Voicing Fill(
+        Chord chord, VoicingSource main, IStoredVoicingSource stored, IVoicingRanking ranking,
+        VoicingRankingContext context, Dictionary<Chord, IReadOnlyList<Voicing>> candidateCache)
+    {
+        if (!candidateCache.TryGetValue(chord, out IReadOnlyList<Voicing>? candidates))
+        {
+            candidates = CandidatesFor(chord, main, stored);
+            if (candidates.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    $"No voicing source can comp {chord.Root.Value}:{chord.Quality} (main '{main.Kind}', fallback user/package/automatic all empty).");
+            }
+
+            candidateCache[chord] = candidates;
+        }
+
+        return ranking.Pick(chord, candidates, context);
     }
 
     // Main source first; on empty, the fixed fallback chain user > package > automatic (skipping the main, and

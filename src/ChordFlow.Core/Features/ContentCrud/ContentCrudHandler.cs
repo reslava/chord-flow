@@ -184,7 +184,9 @@ public sealed class ContentCrudHandler
     // so a progression/rhythm preview goes down the exact same path a saved exercise renders through.
     private EntityPreviewEnvelope ScorePreview(string entity, Exercise exercise, ChordFlowDbContext db, RenderOptions options) =>
         new(entity, "score",
-            ExerciseRendering.RenderToTex(exercise, new ProgressionStore(db), _renderer, StoredVoicingSource.From(new VoicingStore(db)), options),
+            ExerciseRendering.RenderToTex(
+                exercise, new ProgressionStore(db), _renderer, StoredVoicingSource.From(new VoicingStore(db)), options,
+                VoicingReferenceSource.From(new VoicingStore(db))),
             exercise.Tempo);
 
     // Resolve the chosen comping id → RhythmPattern via the shared seam (also used by generate/load); a blank id
@@ -216,7 +218,9 @@ public sealed class ContentCrudHandler
     {
         Song song = SongParser.Parse("preview", "Preview", dsl, TimeSignature.FourFour);
         RealizedSong realized = SongExpander.Expand(song, new ProgressionStore(db), startKey);
-        CompingPlan plan = CompingResolver.Resolve(realized, options.VoicingOrDefault, StoredVoicingSource.From(new VoicingStore(db)));
+        CompingPlan plan = CompingResolver.Resolve(
+            realized, options.VoicingOrDefault, StoredVoicingSource.From(new VoicingStore(db)),
+            VoicingReferenceSource.From(new VoicingStore(db)));
         string tex = _renderer.Render(realized, comping, tempo, Difficulty.Beginner, plan, tripletFeel, options: options).Tex;
         return new EntityPreviewEnvelope(entity, "score", tex, tempo);
     }

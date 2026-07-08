@@ -126,4 +126,40 @@ public class SongExpanderTests
         var ex = Assert.Throws<System.InvalidOperationException>(() => SongExpander.Expand(song, EmptyStore));
         Assert.Contains("not found", ex.Message);
     }
+
+    // ---- Annotations + voice map + degree carried through realization (IN1/IN4/IN5) ----
+
+    private static RealizedSong ParseAndExpand(string dsl) =>
+        SongExpander.Expand(SongParser.Parse("s", "S", dsl, Ts), EmptyStore);
+
+    [Fact]
+    public void Expand_CarriesSongVoiceMap_OntoRealizedSong()
+    {
+        RealizedSong realized = ParseAndExpand("voice *7 = 3 3 2 3 1 x\nA = 17 47 17 17\nA");
+
+        Assert.Equal("3 3 2 3 1 x", realized.Voices[VoiceSelector.ForQuality(Quality.Dominant7)]);
+    }
+
+    [Fact]
+    public void Expand_CarriesPerChordAnnotation_OntoRealizedSpan()
+    {
+        RealizedSong realized = ParseAndExpand("A = 17 {8 x 7 9 8 x} 47 17 17\nA");
+
+        RealizedSpan first = realized.Sections[0].Bars[0].Spans[0];
+        Assert.Equal("8 x 7 9 8 x", first.VoicingAnnotation);
+        // A plain chord keeps a null annotation.
+        Assert.Null(realized.Sections[0].Bars[1].Spans[0].VoicingAnnotation);
+    }
+
+    [Fact]
+    public void Expand_RealizedSpan_ExposesOriginatingDegree_ThroughTransposition()
+    {
+        // In A major (key A), the I7 chord's root is A, but the span still reports degree 1 (dominant 7) so a
+        // degree-scoped `voice 17` default can match after transposition.
+        RealizedSong realized = ParseAndExpand("key A\nA = 17 47 17 17\nA");
+
+        RealizedSpan first = realized.Sections[0].Bars[0].Spans[0];
+        Assert.Equal(new RomanDegree(1, Quality.Dominant7), first.Degree);
+        Assert.Equal(new PitchClass(9), first.Chord.Root);   // A = 9, confirms it really transposed
+    }
 }

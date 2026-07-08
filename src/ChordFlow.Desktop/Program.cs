@@ -145,7 +145,8 @@ internal static class Program
                         using var renderDb = new ChordFlowDbContext(dbOptions);
                         bridge.Send(LoadScoreEnvelope.From(
                             exercise, new ProgressionStore(renderDb), renderer,
-                            StoredVoicingSource.From(new VoicingStore(renderDb)), options));
+                            StoredVoicingSource.From(new VoicingStore(renderDb)), options,
+                            references: VoicingReferenceSource.From(new VoicingStore(renderDb))));
                         return true;
                     }
                     catch (Exception renderEx)

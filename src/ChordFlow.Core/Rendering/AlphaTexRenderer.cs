@@ -100,12 +100,12 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         // (ported from the old Render(Exercise) path — merge decision (a)).
         if (rhythm.Pickup is { } pickup && first.Bars.Count > 0)
         {
-            Chord firstChord = first.Bars[0].Spans[0].Chord;
+            RealizedSpan firstSpan = first.Bars[0].Spans[0];
             IReadOnlyList<RhythmSlot> pickupSlots = RhythmQuantizer.Quantize(pickup);
             // \ac marks the bar as an anacrusis: alphaTab sizes it by its actual beats (not the time
             // signature) instead of counting it as a full bar 1. It is bar metadata at the bar's start,
             // ahead of the ":N"/beats — so we prefix the already-correct short bar string (C2: still one bar).
-            barLines.Add("\\ac " + RenderBar(pickupSlots, _ => firstChord, first.Key, opts, state));
+            barLines.Add("\\ac " + RenderBar(pickupSlots, _ => firstSpan, first.Key, opts, state));
         }
 
         Key? previousKey = null;
@@ -296,7 +296,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
             IReadOnlyList<int> boundaries = InteriorBoundaries(bar);
             IReadOnlyList<RhythmSlot> slots =
                 RhythmQuantizer.Quantize(patternBar.Events, ts, boundaries, patternBar.StartsTied);
-            barLines.Add(RenderBar(slots, bar.ChordCovering, key, options, state));
+            barLines.Add(RenderBar(slots, bar.SpanCovering, key, options, state));
         }
     }
 
@@ -322,7 +322,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
 
     private string RenderBar(
         IReadOnlyList<RhythmSlot> slots,
-        Func<int, Chord> chordForTick,
+        Func<int, RealizedSpan> spanForTick,
         Key key,
         RenderOptions options,
         RenderState state)
@@ -356,9 +356,10 @@ public sealed class AlphaTexRenderer : IScoreRenderer
             }
             else
             {
-                // The chord covering this slot's onset tick (harmonic-rhythm lookup) — to voice a sounding
-                // beat and to detect a chord change for the schedule (independent of the display options).
-                Chord chord = chordForTick(slot.StartTick);
+                // The span covering this slot's onset tick (harmonic-rhythm lookup) — to voice a sounding beat
+                // (honoring a per-chord {…} override) and to detect a chord change for the schedule.
+                RealizedSpan span = spanForTick(slot.StartTick);
+                Chord chord = span.Chord;
                 Voicing? voicing = null;
 
                 if (slot.IsRest)
@@ -367,7 +368,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
                 }
                 else
                 {
-                    voicing = state.Plan.For(chord);
+                    voicing = state.Plan.For(span);
                     state.LastVoicing = voicing;
                     body = NoteGroup(voicing);
 
@@ -389,7 +390,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
                     }
                 }
 
-                RecordChordChange(state, chord, key, beatOrdinal, voicing);
+                RecordChordChange(state, span, key, beatOrdinal, voicing);
             }
 
             if (slot.Dotted)
@@ -415,8 +416,9 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     // The diagram is built from the same voicing the tab comps for the chord (req C2): for a sounding beat
     // that voicing is already realized and reused; only a change landing on a rest realizes one here.
     private static void RecordChordChange(
-        RenderState state, Chord chord, Key key, int beatOrdinal, Voicing? voicing)
+        RenderState state, RealizedSpan span, Key key, int beatOrdinal, Voicing? voicing)
     {
+        Chord chord = span.Chord;
         string name = ChordSymbol.Format(chord, key);
         if (string.Equals(name, state.ScheduleChordName, StringComparison.Ordinal))
         {
@@ -426,7 +428,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         state.ScheduleChordName = name;
         state.Schedule.Add(new ChordChange(
             state.BarIndex, beatOrdinal, name,
-            RealizedVoicingDiagram.Build(chord, voicing ?? state.Plan.For(chord), key)));
+            RealizedVoicingDiagram.Build(chord, voicing ?? state.Plan.For(span), key)));
     }
 
     // Render one lead-track bar (v1 = dead/muted notes): each hit is a dead note on string 3 (\x.3 —

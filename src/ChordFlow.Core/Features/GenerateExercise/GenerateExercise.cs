@@ -28,9 +28,9 @@ public sealed record LoadScoreEnvelope(
     /// </summary>
     public static LoadScoreEnvelope From(
         Exercise exercise, IProgressionStore store, IScoreRenderer renderer, IStoredVoicingSource voicings,
-        RenderOptions? options = null)
+        RenderOptions? options = null, IVoicingReferenceSource? references = null)
     {
-        RenderResult result = ExerciseRendering.Render(exercise, store, renderer, voicings, options);
+        RenderResult result = ExerciseRendering.Render(exercise, store, renderer, voicings, options, references);
         // The effective key the piece renders in: an explicit override, else the Song's own initial key. ScoreR
         // seeds its Key control from this so a loaded exercise shows the key it was saved in (C2).
         int keyPc = (exercise.KeyOverride ?? exercise.Song.InitialKey).Tonic.Value;
@@ -70,7 +70,9 @@ public sealed class GenerateExerciseHandler
         using var db = new ChordFlowDbContext(_dbOptions);
         Exercise exercise = Build(
             db, harmonyEntity, harmonyId, compingPatternId, leadPatternId, keyPitchClass, tempo, difficulty, tripletFeel);
-        return LoadScoreEnvelope.From(exercise, new ProgressionStore(db), _renderer, StoredVoicingSource.From(new VoicingStore(db)));
+        return LoadScoreEnvelope.From(
+            exercise, new ProgressionStore(db), _renderer, StoredVoicingSource.From(new VoicingStore(db)),
+            references: VoicingReferenceSource.From(new VoicingStore(db)));
     }
 
     /// <summary>

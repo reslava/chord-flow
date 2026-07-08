@@ -8,6 +8,7 @@ using ChordFlow.Persistence;
 using ChordFlow.Rendering;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 using Xunit;
 
 namespace ChordFlow.Core.Tests;
@@ -77,6 +78,40 @@ public class EngineCompingEndToEndTests
                 exercise, store, renderer, voicings, new RenderOptions(Voicing: new VoicingSource(MinFret: 5, MaxFret: 12)));
 
             Assert.NotEqual(fullNeck, region); // the region knob is a real practice dial
+        }
+    }
+
+    // Dogfood for explicit-voicing-reference: the default-pack "Explicit Voicings Demo" song comps its pinned
+    // grips (a per-chord {…} pin, a `voice *7` default, a `voice #4dim7` engine reference, and a rootless grip)
+    // — the same chord schedule that feeds the now/next fretboards. Visual confirmation is a manual app run
+    // (select the song, hit play); this pins the data those fret-boxes consume.
+    [Fact]
+    public void Generate_ExplicitVoicingsDemo_CompsThePinnedGripsIntoTheSchedule()
+    {
+        var (options, conn) = NewDb();
+        using (conn)
+        {
+            var handler = new GenerateExerciseHandler(options, new AlphaTexRenderer());
+
+            LoadScoreEnvelope env = handler.Generate(
+                "song", "explicit_voicings_demo", "beat_1_3", leadPatternId: null,
+                keyPitchClass: null, tempo: 80, Difficulty.Beginner, TripletFeel.None);
+
+            // Bar 1's I7 is pinned to the E-shape grip `8 10 8 9 8 8` — the low E (string 6) sounds fret 8.
+            // That reaching the schedule is the per-chord {…} override flowing to the fret-boxes.
+            ChordChange firstI7 = env.Schedule[0];
+            Assert.Equal("C7", firstI7.Name);
+            Assert.Contains(firstI7.Diagram.Markers, m => m.String == 6 && m.Fret == 8);
+
+            // A non-annotated C7 later in the tune uses the `voice *7` A-shape default instead: low E muted,
+            // root on string 5 fret 3 — proof the pin did NOT leak to the other I7s (per-occurrence).
+            ChordChange defaultC7 = env.Schedule.First(
+                c => c.Name == "C7" && c.Diagram.MutedStrings.Contains(6));
+            Assert.Contains(defaultC7.Diagram.Markers, m => m.String == 5 && m.Fret == 3);
+
+            // The passing #IVdim7 (F#dim7) resolved its `a:` engine reference — it's present and voiced.
+            ChordChange dim = env.Schedule.First(c => c.Name.Contains("dim") || c.Name.Contains("°"));
+            Assert.NotEmpty(dim.Diagram.Markers);
         }
     }
 }

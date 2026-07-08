@@ -32,6 +32,7 @@ public static class SongParser
     private const string ModKeyword = "mod";
     private const string FeelKeyword = "feel";
     private const string TempoKeyword = "tempo";
+    private const string VoiceKeyword = "voice";
 
     // The play-time tempo seed accepts the same BPM window as the ScoreR transport's tempo input (40–240).
     private const int MinTempo = 40;
@@ -53,9 +54,11 @@ public static class SongParser
         ArgumentNullException.ThrowIfNull(dsl);
 
         var parts = new Dictionary<string, Part>(StringComparer.Ordinal);
+        var voices = new Dictionary<VoiceSelector, string>();
         var streamLines = new List<string>();
 
-        // Pass 1 — pull definitions into Parts (order-free); keep stream lines in order.
+        // Pass 1 — pull definitions into Parts and `voice` defaults into the voices map (both order-free);
+        // keep stream lines in order.
         foreach (string rawLine in dsl.Split('\n'))
         {
             string line = StripComment(rawLine).Trim();
@@ -64,15 +67,22 @@ public static class SongParser
                 continue;
             }
 
-            if (TrySplitDefinition(line, out string defName, out string rhs, out bool isInline))
+            // `voice <selector> = <voicing>` uses '=' like an inline definition, so it must be recognised
+            // before TrySplitDefinition (design D2/D9; req IN4/C6).
+            if (IsVoiceDirectiveLine(line))
+            {
+                ParseVoiceDefault(line, voices);
+            }
+            else if (TrySplitDefinition(line, out string defName, out string rhs, out bool isInline))
             {
                 if (parts.ContainsKey(defName))
                 {
                     throw new FormatException($"Song DSL defines part \"{defName}\" more than once.");
                 }
 
+                // Inline progressions may carry per-chord {…} voicing annotations (arrangement context, IN1/IN7).
                 parts[defName] = isInline
-                    ? new InlineProgression(defName, ProgressionParser.Parse(defName, defName, rhs, ts))
+                    ? new InlineProgression(defName, ProgressionParser.Parse(defName, defName, rhs, ts, allowVoicingAnnotations: true))
                     : new ProgressionReference(defName, rhs);
             }
             else
@@ -201,13 +211,73 @@ public static class SongParser
             }
         }
 
-        return Song.FromSections(id, name, initialKey, parts, items, defaultFeel, defaultTempo);
+        return Song.FromSections(id, name, initialKey, parts, items, defaultFeel, defaultTempo, voices);
     }
 
+    // A `voice <selector> = <voicing>` directive line: the keyword followed by a space (distinct from a part
+    // whose name merely starts with "voice", e.g. `voiceleading = …`).
+    private static bool IsVoiceDirectiveLine(string line) =>
+        line.Length > VoiceKeyword.Length
+        && line.StartsWith(VoiceKeyword, StringComparison.Ordinal)
+        && char.IsWhiteSpace(line[VoiceKeyword.Length]);
+
+    // Parse `voice <selector> = <voicing-spec>` into (selector, raw-spec-text). The spec stays opaque here —
+    // Music never parses frets (design D9); the Features layer realizes it.
+    private static void ParseVoiceDefault(string line, Dictionary<VoiceSelector, string> voices)
+    {
+        string rest = line[VoiceKeyword.Length..].Trim();
+        int eq = rest.IndexOf('=');
+        if (eq < 0)
+        {
+            throw new FormatException($"Song DSL \"voice\" line must be \"voice <selector> = <voicing>\": \"{line}\".");
+        }
+
+        string selectorText = rest[..eq].Trim();
+        string specText = rest[(eq + 1)..].Trim();
+        if (selectorText.Length == 0 || specText.Length == 0)
+        {
+            throw new FormatException($"Song DSL \"voice\" line must be \"voice <selector> = <voicing>\": \"{line}\".");
+        }
+
+        VoiceSelector selector = ParseVoiceSelector(selectorText, line);
+        if (!voices.TryAdd(selector, specText))
+        {
+            throw new FormatException($"Song DSL defines voicing for \"{selectorText}\" more than once.");
+        }
+    }
+
+    // A voice selector is either `*<quality>` (quality-scoped wildcard) or a chord symbol (degree-scoped).
+    private static VoiceSelector ParseVoiceSelector(string text, string line)
+    {
+        try
+        {
+            if (text.StartsWith('*'))
+            {
+                return VoiceSelector.ForQuality(ProgressionParser.ParseQualitySuffix(text[1..]));
+            }
+
+            return VoiceSelector.ForDegree(ProgressionParser.ParseChordSymbol(text));
+        }
+        catch (FormatException ex)
+        {
+            throw new FormatException($"Song DSL \"voice\" selector \"{text}\" is invalid in \"{line}\": {ex.Message}");
+        }
+    }
+
+    // A '#' starts a line comment — except a '#' immediately followed by a digit, which is a chromatic
+    // sharp (a chord `#4dim7` or a `voice #4dim7 = …` selector). Comments in this DSL are written `# text`
+    // (a space or non-digit after the '#'), so the two never collide.
     private static string StripComment(string line)
     {
-        int hash = line.IndexOf('#');
-        return hash < 0 ? line : line[..hash];
+        for (int i = 0; i < line.Length; i++)
+        {
+            if (line[i] == '#' && (i + 1 >= line.Length || !char.IsAsciiDigit(line[i + 1])))
+            {
+                return line[..i];
+            }
+        }
+
+        return line;
     }
 
     // A definition has '=' (inline) or ':' (reference). '=' wins so an inline RHS may itself carry ':slots'.
@@ -241,7 +311,7 @@ public static class SongParser
             throw new FormatException($"Song DSL definition has an invalid part name in \"{line}\".");
         }
 
-        if (name is KeyKeyword or ModKeyword or FeelKeyword or TempoKeyword)
+        if (name is KeyKeyword or ModKeyword or FeelKeyword or TempoKeyword or VoiceKeyword)
         {
             throw new FormatException($"Song DSL cannot define a part named \"{name}\" (reserved keyword).");
         }

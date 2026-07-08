@@ -68,7 +68,7 @@ public static class SongExpander
             }
         }
 
-        return new RealizedSong(sections);
+        return new RealizedSong(sections) { Voices = song.Voices };
     }
 
     // Resolve a part name to a concrete progression: inline parts are self-contained; stored references hit
