@@ -58,8 +58,8 @@ that file is for permissions/hooks/env and ignores `mcpServers`):
   "mcpServers": {
     "loom": {
       "type": "stdio",
-      "command": "loom",
-      "args": ["mcp"],
+      "command": "npx",
+      "args": ["-y", "@reslava/loom@<version>", "mcp"],
       "env": {
         "LOOM_ROOT": "${workspaceFolder}"
       }
@@ -78,7 +78,7 @@ interactively in the project root and approve the `loom` server, or use
 | Entry point | When to use |
 |-------------|-------------|
 | `loom://catalog` resource | Grouped index of every `loom_*` tool (name + one-line purpose). **Read it before searching for a tool**, then `ToolSearch select:<exact name>` — it removes the discovery search, not the one-time schema fetch |
-| `loom://context/{docId}` resource (or `loom://context/thread/{weaveSlug}/{threadUlid}`) | Load the assembled context bundle (global/weave/thread ctx + parent chain + requires_load) for a doc or thread before working on it |
+| `loom://context/{docUlid}` resource (or `loom://context/thread/{weaveSlug}/{threadSlug}`) | Load the assembled context bundle (global/weave/thread ctx + parent chain + requires_load) for a doc or thread before working on it |
 | `do-next-step` prompt | Get the next incomplete step with full context pre-loaded |
 | `continue-thread` prompt | Review thread state and get a next-action suggestion |
 | `validate-state` prompt | Review diagnostics and identify issues to fix |
@@ -88,8 +88,8 @@ interactively in the project root and approve the `loom` server, or use
 
 - **`loom://catalog` is loaded at session start (step 2) — consult it, never keyword-flail.** MCP tool schemas are deferred, so you only see tool *names* until you fetch them. The catalog (loaded up front) is the grouped name index; find the exact tool in it, then `ToolSearch select:<exact name>` (one targeted fetch). If the catalog is not yet in context when you need a `loom_*` tool, read `loom://catalog` **before** the first `ToolSearch` — a blind `ToolSearch` for a `loom_*` tool (keyword guessing without the catalog) is a rule violation.
 - **All writes to `loom/**/*.md` go through MCP tools** — frontmatter, body, state mutations, and prose edits alike (see the "AI session rules" hard rule below for the full breakdown and the gate hook that enforces it).
-- Use `loom://context/{docId}` (or `loom://context/thread/{weaveSlug}/{threadUlid}`) before starting any thread work. The Unified Context Pipeline bundles global/weave/thread ctx + parent chain + requires_load in a single read.
-- `do-next-step` prompt is the primary workflow driver: call it with the active planId to get context + step instruction.
+- Use `loom://context/{docUlid}` (or `loom://context/thread/{weaveSlug}/{threadSlug}`) before starting any thread work. The Unified Context Pipeline bundles global/weave/thread ctx + parent chain + requires_load in a single read.
+- `do-next-step` prompt is the primary workflow driver: call it with the active planUlid to get context + step instruction.
 - **Plans are structured, never hand-authored tables.** Create a plan with `loom_create_plan` by passing `goal` (prose) + a `steps` array of objects (`{ description, title?, files?, blockedBy?, satisfies?, detail? }`) — **never** a Markdown steps table. Loom owns the canonical `## Steps` table; steps live in YAML frontmatter (the source of truth) and the body table is a generated view. `blockedBy` references step `id`s (or plan ids). `loom_create_plan` does **not** accept a `content` body (idea/design/reference still do).
 <!-- rule:single-ai -->
 - **Single-AI (by design):** Loom requires **exactly one** AI provider, never two — run it with whatever AI path you have; only one is required. *Primary:* the Loom VS Code extension's AI buttons launch a **Claude Code CLI agent** with a task prompt that writes via content tools (`loom_update_doc` / `loom_create_*`) — no API key, no sampling. *Fallback:* when no Claude CLI is present, the `loom_generate_*` / `loom_refine_*` sampling tools run via a configured `reslava-loom.ai.apiKey`. A user configures one path or the other, never both.
@@ -142,7 +142,7 @@ If MCP is unavailable, output:
 
 When replying inside a chat doc that lives in a thread (`loom/{weave}/{thread}/chats/...`):
 
-- **First reply for this thread in the current conversation** — read the thread context (idea + design + active plan + any `requires_load` docs) before responding. Emit one visibility line per doc:
+- **First reply for this thread in the current conversation** — read the thread context (idea + design + active plan + any `requires_load` docs) before responding. Load up front, before you start diagnosing — do not answer from code and backfill the read afterward (that is the "context loaded at the wrong time" failure). Emit one visibility line per doc:
   ```
   📡 MCP: loom://context/{chat-id}?mode=chat
   📄 idea.md — loaded for context
@@ -174,7 +174,7 @@ The "is this thread already in transcript?" decision lives **in the AI**, not in
    📘 loom-ctx loaded — global context ready
    ```
    (or `⚠️ loom-ctx not loaded — proceeding without global context` on failure).
-2. **Load the tool catalog** — read the `loom://catalog` resource so the grouped `loom_*` tool index is in context *before* any tool is needed. Emit `📡 MCP: loom://catalog` then `🗂️ loom-catalog loaded — tool index ready`. Mandatory and unconditional: it removes the "first `ToolSearch` runs blind" moment that causes the index to be skipped. Once loaded, never `ToolSearch` for a `loom_*` tool without first consulting this index — go straight from catalog → `ToolSearch select:<exact name>`.
+2. **Load the tool catalog** — read the `loom://catalog` resource so the grouped `loom_*` surface index (tools + resources + prompts) is in context *before* any tool is needed. Emit `📡 MCP: loom://catalog` then `🗂️ loom-catalog loaded — surface index ready`. Mandatory and unconditional: it removes the "first `ToolSearch` runs blind" moment that causes the index to be skipped. Once loaded, never `ToolSearch` for a `loom_*` tool without first consulting this index — go straight from catalog → `ToolSearch select:<exact name>`.
 3. **Load the project map** — read `loom://state?shape=summary`: the cheap weave/thread skeleton + status (a few KB), **not** the full state graph (every plan's every step). Emit `📡 MCP: loom://state?shape=summary` then `🧵 Active: <active/implementing thread IDs>`. This always-loaded orientation read replaces both the old full-state read and any hand-written active-work pointer — never read the full `loom://state` at session start.
 4. **Load only the pointed thread deeply.** When the user pointed you at a chat/doc/thread, that pointer is the active-thread signal — scope the deep load to it: call the `do-next-step` prompt with that thread's active planId (or read `loom://context/thread/{weave}/{thread}`). Bundles thread context (idea, design, current plan, requires_load docs), the next incomplete step, and a pre-filled `loom_complete_step` call. Do not load other threads' content; with no pointer, use the step-3 map to pick.
 
