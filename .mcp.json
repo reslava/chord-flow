@@ -2,12 +2,12 @@
   "mcpServers": {
     "loom": {
       "type": "stdio",
-      "command": "loom",
+      "command": "node",
       "args": [
-        "mcp"
+        "../loom/packages/vscode/dist/loom-mcp.js"
       ],
       "env": {
-        "LOOM_ROOT": "J:/src/chord-flow"
+        "LOOM_ROOT": "${workspaceFolder}"
       }
     }
   }
