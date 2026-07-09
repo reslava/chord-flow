@@ -7,17 +7,48 @@ guitarists practice **rhythm patterns over chord progressions**. The core is an
 exercise-generation engine (progressions × keys × rhythms × voicings), rendered as
 guitar tablature with **synchronized playback** via [alphaTab](https://www.alphatab.net/).
 
-> **Status:** v0.12.0 — a **content-driven** trainer over a music-theory-first kernel with a growing
+> **Status:** v0.13.0 — a **content-driven** trainer over a music-theory-first kernel with a growing
 > guitar **shape engine**. Progressions, songs, rhythms, and voicings are authored in compact **text
 > DSLs**, shipped as importable **content packs**, and assembled through an on-screen **workbench**;
 > shapes render through a reusable **fretboard-diagram** layer over a provably **instrument-agnostic**
-> kernel. New this release: the **CAGED engine is now the app's comping source**, every **content
-> source** (package / your edits / computed `automatic`) is shown side by side, the engine grows
-> **voicing families** (shell + doubled-shell) and **6th chords**, and notation gets more accurate —
-> **dotted notes + ties**, **chromatic (#/b) degrees**, and a **tab / standard / both** staff switch.
-> Windows-only for now (downloadable build below).
+> kernel. New this release: the voicing engine becomes **visible and steerable** — a **faceted Voicings
+> grid** shows every derived voicing at once, a **Voicings Engine inspector** reveals *how* each grip is
+> derived operator-by-operator, and you can **name the exact voicing** a chord uses right in the DSL (a
+> movable grip or a `u:`/`a:`/`<pkg>:` reference). Plus a **light/dark** fretboard theme, whole-song
+> **`tempo`** / **`feel`** directives, and a score that **owns key / tempo / feel** live. Windows-only for
+> now (downloadable build below).
 
-## Features (v0.12.0)
+## Features (v0.13.0)
+
+- **Faceted Voicings grid — the whole engine on one screen** — a **Voicings** page renders every realized
+  voicing at once as a grid of fretboard chord-boxes, over a **faceted toggle-button filter stack** (Root,
+  Source, Family, 3rd, 5th, 7th). The engine's **visual oracle**: the entire derived voicing space, side by
+  side, with per-cell titles, copy-to-clipboard ids, and orientation toggles
+
+- **Voicings Engine inspector — *how* each grip is derived** — the chord-derivation logic is an
+  introspectable **operator library** (CAGED / shell / doubled-shell operators behind a registry, each
+  emitting a step-by-step **derivation trace**), surfaced on a schema-driven **Voicings Engine** page that
+  shows the abstract voicing and its derivation steps beside the resulting grip — the engine as a glass box
+
+- **Name the exact voicing in the DSL — steer the engine** — pin the voicing a chord should use with a
+  **movable literal grip** (with an optional `root:<string>[@<fret>]` anchor; rootless voicings are
+  first-class) or a **reference** (`u:` your edits, `a:` the engine's `automatic`, `<pkg>:` a pack), either
+  **inline** as a per-chord `{…}` annotation or as a reusable Song **`voice <selector> = …` default** (by
+  chord quality or degree). When several apply, the **most specific wins** (per-chord > degree > quality >
+  the engine's ranked fill), and a per-chord pin never leaks to identical chords elsewhere
+
+- **Whole-song `tempo` & `feel` directives** — a Song can carry a default **`tempo <bpm>`** and a
+  whole-song **`feel none|triplet8th|triplet16th`** (the peer of `key`) in its DSL header; both seed
+  play-time interpretation without being baked into content (the transport still overrides)
+
+- **The score owns key / tempo / feel** — the score component is now the single **live** owner of key,
+  tempo, and feel: each seeds from the content (a song's own defaults, else C / 80 / Straight) or a saved
+  exercise's persisted params, and key/feel changes re-render on the fly (the Key picker now lives on the
+  score, not the Practice builder)
+
+- **Light/dark fretboard theme** — the shared fretboard component owns its render surface and flips between
+  a light (white surface / dark contrast) and dark (grey surface / light contrast) theme, with larger
+  fret-number text and per-cell + grid-wide Dark/Light toggles
 
 - **Engine-derived comping + multi-source content** — the CAGED derivation engine is now the app's
   **automatic** voicing source (a `CompingResolver` ranks user > package > automatic with a Practice
@@ -169,11 +200,13 @@ Some downloads are zipped — extract the `.sf2` / `.sf3` and place it in the fo
 dotnet test
 ```
 
-735 xUnit tests cover the `Music` kernel (incl. the `IntervalSpeller` interval-naming + parsing
+883 xUnit tests cover the `Music` kernel (incl. the `IntervalSpeller` interval-naming + parsing
 authority and `QualityFormulas`), the guitar **interval lattice**, **CAGED octave shapes**, the
-**CAGED chord-derivation engine** + **voicing families** (shell / doubled-shell, against a golden
-oracle), the **CompingResolver** + multi-source content model, the content DSLs/parsers (incl. the
-dotted/tie Rhythm DSL and chromatic progression degrees), packs, persistence, `AlphaTexRenderer`, and
+**CAGED chord-derivation engine** (now an introspectable **operator library** with derivation traces) +
+**voicing families** (shell / doubled-shell, against a golden oracle), the **CompingResolver** +
+multi-source content model + **per-chord DSL voicings**, the content DSLs/parsers (incl. the dotted/tie
+Rhythm DSL, chromatic progression degrees, and the Song `tempo`/`feel` directives), packs, persistence,
+`AlphaTexRenderer`, and
 `NetArchTest` architecture-boundary tests asserting `ChordFlow.Music` stays instrument-agnostic and the
 `Music.*` sub-namespaces stay an acyclic DAG.
 

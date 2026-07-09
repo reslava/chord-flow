@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KWAQ35KX1PNST681WY0RVQDS
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.13.0
 steps:
   - id: qualityfacets-3rd-5th-7th-derived-from
     order: 1

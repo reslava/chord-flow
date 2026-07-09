@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KWZAEXXHM8K1PB5J71G3T800
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.13.0
 steps:
   - id: voicing-spec-value-type-shared-parser
     order: 1

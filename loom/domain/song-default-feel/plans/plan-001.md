@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KWSMDGPC8AYX0H26JH8FX792
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.13.0
 steps:
   - id: song-defaultfeel-feel-directive-in-songparser
     order: 1

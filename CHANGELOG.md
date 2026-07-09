@@ -6,6 +6,61 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-07-09
+
+This is the release where ChordFlow's **voicing engine — its core differentiator — becomes something you
+can see, inspect, and steer.** The engine already *derives* every comping voicing from CAGED; now two new
+pages open it up. The **faceted Voicings grid** lays out every realized voicing at once as a wall of
+fretboard chord-boxes, filterable by root, source, family, and chord tones — the engine's visual oracle.
+The **Voicings Engine inspector** goes one level deeper: it shows *how* each grip is derived, operator by
+operator, with the full derivation trace beside the resulting shape. And you can now **steer** the engine
+straight from the DSL — name the exact voicing a chord should use — plus a **light/dark** fretboard theme,
+whole-song **`tempo`** / **`feel`** directives, and a score that owns **key / tempo / feel** live.
+
+### Added
+- **Faceted Voicings grid — see every voicing the engine derives.** A new **Voicings** page renders many
+  realized voicings at once as a grid of fretboard chord-boxes, over a **faceted toggle-button filter
+  stack** — Root, Source, Family, and 3rd / 5th / 7th chord-tone facets. It's the engine's **visual oracle
+  and dogfood surface**: the whole derived voicing space, on screen, side by side. Each cell carries a
+  title, a copy-to-clipboard id, and its own orientation toggle.
+- **Voicings Engine inspector — see *how* each grip is derived.** The chord-derivation logic is reified from
+  static classes into an introspectable **operator library** — CAGED, shell, and doubled-shell operators
+  behind a registry, each emitting a step-by-step **derivation trace**. A new schema-driven **Voicings
+  Engine** page shows the abstract voicing and its derivation steps beside the resulting grip, turning the
+  engine from a black box into a glass one. The derived grips are byte-for-byte unchanged.
+- **Explicit per-chord voicings in the DSL — steer the engine.** A new voicing-spec grammar names the exact
+  voicing a chord should use — a **movable literal grip** (with an optional `root:<string>[@<fret>]` anchor;
+  rootless voicings are first-class) or a **reference** (`u:` user, `a:` engine `automatic`, `<pkg>:` a named
+  pack). It works in two places: as a per-chord **`{…}` annotation** on an inline-Song chord, and as a Song
+  **`voice <selector> = …` default** (a `*<quality>` wildcard or a degree chord symbol). Resolution is a
+  **most-specific-wins cascade** — per-chord `{…}` > degree voice > quality voice > the engine's ranked
+  fill — and a per-chord pin is keyed per occurrence, so it never leaks to identical chords elsewhere.
+  References resolve origin-strict (failing loud on a miss). Ships a default-pack demo song.
+- **Song `tempo` and `feel` directives.** A Song can now carry a default **`tempo <bpm>`** and a whole-song
+  default **`feel none|triplet8th|triplet16th`** (the peer of `key`) in its DSL header. Both seed play-time
+  interpretation without being baked into content — the transport still overrides, and an absent `feel` (no
+  swing seed) stays distinct from an explicit `feel none`.
+
+### Changed
+- **The score owns key / tempo / feel (seeded + live).** The score component is now the single owner of the
+  three render/interpretation params. **Key** and **feel** re-emit a re-render (transpose / `\tf`); **tempo**
+  stays a local playback-speed knob. Each seeds per content (a song's own `key`/`tempo`/`feel` defaults, else
+  C / 80 / Straight) and, for a saved exercise, from its persisted params (the saved override wins). The Key
+  picker moved off the Practice page onto the score, and a live key/feel override is now honored when loading
+  a saved exercise. (Also fixes two feel bugs surfaced by the earlier stepping-stone wiring.)
+- **Fretboard light/dark theme + display polish.** The shared fretboard component gains a **light/dark
+  theme** — it now owns its render surface, so the toggle flips the whole background (light = white surface /
+  dark contrast, dark = grey surface / light contrast), with larger fret-number text. Exposed as a per-cell
+  and a grid-wide **Dark/Light** toggle, plus orientation toggles on the standalone shape pages.
+
+### Fixed
+- **Two-digit fret-position labels no longer clipped.** In the vertical chord-box, an end-anchored
+  `10fr`/`12fr` position label was losing its leading digit at the viewBox edge (`10fr` rendered as `0fr`);
+  the box's left margin now leaves room for it.
+
+### Tests
+- Full `ChordFlow.Core` xUnit suite green (883).
+
 ## [0.12.0] — 2026-06-27
 
 The voicing engine becomes the app's living comping source. ChordFlow now derives **every** comping
@@ -485,6 +540,7 @@ as tablature, and plays it back with a synchronized beat cursor.
   the next phase).
 - No audio-input accuracy detection (out of scope for v1).
 
+[0.13.0]: https://github.com/reslava/chord-flow/releases/tag/v0.13.0
 [0.12.0]: https://github.com/reslava/chord-flow/releases/tag/v0.12.0
 [0.11.0]: https://github.com/reslava/chord-flow/releases/tag/v0.11.0
 [0.10.0]: https://github.com/reslava/chord-flow/releases/tag/v0.10.0

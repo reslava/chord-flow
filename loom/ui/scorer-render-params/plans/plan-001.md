@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KWY1YTRRPV5XZ1R23GZ7BNG4
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.13.0
 steps:
   - id: domain-song-defaulttempo-directive
     order: 1

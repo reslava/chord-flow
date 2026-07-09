@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KWC2P5FB9R739B0QT3PC118Z
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.13.0
 steps:
   - id: fretr-theme-tables-settheme-larger-font
     order: 1

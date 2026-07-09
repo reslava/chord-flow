@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KWKA4A1PF30X28FXZE8HWJNT
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.13.0
 steps:
   - id: type-foundation
     order: 1
