@@ -59,14 +59,17 @@ that file is for permissions/hooks/env and ignores `mcpServers`):
     "loom": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@reslava/loom@<version>", "mcp"],
-      "env": {
-        "LOOM_ROOT": "${workspaceFolder}"
-      }
+      "args": ["-y", "@reslava/loom@<version>", "mcp"]
     }
   }
 }
 ```
+
+No `LOOM_ROOT` is set: the server resolves its own workspace root by walking up from
+the launch directory to the nearest `.loom/`, so the config is committable and works
+whether `claude` is launched from the project root or a subdirectory. (The old
+`LOOM_ROOT: "${workspaceFolder}"` was a VS-Code-only editor variable a standalone
+terminal `claude` cannot expand.)
 
 Project-scoped MCP servers need a one-time approval per project — run `claude`
 interactively in the project root and approve the `loom` server, or use
@@ -123,6 +126,11 @@ interactively in the project root and approve the `loom` server, or use
   - If MCP is genuinely down, output `⚠️ MCP unavailable — editing file directly`, ask the user to disable the gate hook via `/hooks`, and proceed only with explicit go.
 - **Treat MCP tool failures as findings, not friction.** If a `loom_*` tool returns the wrong shape, a malformed doc (missing Steps table, double type-suffix, broken frontmatter), or times out — stop, report what happened in the active chat, and let the user decide how to proceed. Routing around a buggy MCP tool by editing the file directly hides the bug.
 
+<!-- rule:human-pointer-context -->
+### Human pointer → slug-path context resource (never derive a ULID)
+
+**Whenever the user points you at a doc or thread by name or path — at session start _or_ mid-session** — resolve it through the **slug-path human-pointable context resource**: `loom://context/{weaveSlug}/{threadSlug}/{docSlug}` for a doc (`docSlug` = `idea` / `design` / `req` or a filename stem like `chat-001`; add `?mode=chat` for a chat), or `loom://context/thread/{weaveSlug}/{threadSlug}` for a thread. **Never obtain the ULID yourself** with `bash` / `grep` / `Read` on the file — the returned bundle's header carries `target=…` and `thread_ulid=…`, which you hand to any ULID-strict write tool or workflow prompt (`do-next-step`, `loom_do_step`). The slug-path resource *is* the slug→ULID resolver; deriving the ULID by hand bypasses MCP and is redundant. Once a thread is the **active thread**, point at a single doc with `?scope=doc` (the `read`/`reply` slang path) — it returns only that doc, not the bundle you already hold; the first pointed action of a session loads the full thread (`load`).
+
 <!-- rule:mcp-visibility -->
 ### MCP visibility (required)
 
@@ -142,14 +150,14 @@ If MCP is unavailable, output:
 
 When replying inside a chat doc that lives in a thread (`loom/{weave}/{thread}/chats/...`):
 
-- **First reply for this thread in the current conversation** — read the thread context (idea + design + active plan + any `requires_load` docs) before responding. Load up front, before you start diagnosing — do not answer from code and backfill the read afterward (that is the "context loaded at the wrong time" failure). Emit one visibility line per doc:
+- **First reply for this thread in the current conversation** — read the thread context (idea + design + active plan + any `requires_load` docs) before responding. Load up front, before you start diagnosing — do not answer from code and backfill the read afterward (that is the "context loaded at the wrong time" failure). Because the user pointed you here by path, use the **slug-path** form (per the *Human pointer → slug-path* hard rule — don't derive the chat ULID by hand). Emit one visibility line per doc:
   ```
-  📡 MCP: loom://context/{chat-id}?mode=chat
+  📡 MCP: loom://context/{weaveSlug}/{threadSlug}/{chat-stem}?mode=chat
   📄 idea.md — loaded for context
   📄 design.md — loaded for context
   📄 plan-NNN.md — loaded for context  (only if an active plan exists)
   ```
-  (The Unified Context Pipeline assembles global/weave/thread ctx + the chat's parent chain + requires_load; the chat itself is the target.)
+  (The Unified Context Pipeline assembles global/weave/thread ctx + the chat's parent chain + requires_load; the chat itself is the target. The `loom://context/{chat-ulid}?mode=chat` form is equivalent when you already hold the chat's ULID mid-session.) This first-touch full-bundle read **is** the `load` slang — it sets the pointed thread as the active thread; every later `read`/`reply` on its docs is doc-only (`?scope=doc`). A `reply` naming a chat in a thread you have not loaded this session is refused until you `load` that thread.
 - **Same thread, no `refine` / `generate` since last reply** — context is already in the conversation transcript. Do NOT re-read. Emit only the tool-call visibility line:
   ```
   🔧 MCP: loom_append_to_chat(id="{chat-id}")
@@ -161,6 +169,23 @@ To load the chat's own new turns cheaply on first touch, call `loom_read_chat_ta
 For a chat at weave root (loose fiber, no thread), load the parent doc(s) the chat refers to and emit `📄 {doc}.md — loaded for context` for each.
 
 The "is this thread already in transcript?" decision lives **in the AI**, not in the MCP server — the server is stateless across calls and cannot see the LLM transcript.
+
+<!-- rule:loom-slang -->
+### Loom slang — canonical User→AI verbs
+
+A small set of **loom words** map deterministically to one action, so the user never spells out the tool and the AI never guesses from phrasing. Each fires **only in its trigger context** — outside it the word is ordinary English. Full mappings, triggers, chains, and rejections live in the workspace's `loom/refs/loom-slang-reference.md` if present; the essentials:
+
+- `load {weaveSlug}/{threadSlug}` — load `loom://context/thread/{weaveSlug}/{threadSlug}` (the full thread bundle) and make it the **active thread** (AI-held — the MCP server is stateless). Emit `🧵 Active: {weaveSlug}/{threadSlug}`. The only verb that sets/switches the active thread; the first pointed action of a session implicitly loads.
+- `read {docSlug}` *(active thread)* / `read {weaveSlug}/{threadSlug}/{docSlug}` — doc-only: `loom://context/{weaveSlug}/{threadSlug}/{docSlug}?scope=doc` returns **only that doc** (`?mode=chat` for a chat), not the whole thread you already hold. Bare `{docSlug}` resolves in the active thread. After the first touch `read` never auto-loads or switches — a cross-thread read is a pure peek. **If the target is a chat doc with a pending user turn (one after the last `## AI:`), `read` implies `reply`** — flow straight into the reply chain. Reading a non-chat doc, or a chat whose last turn is already `## AI:`, stays load-only.
+- `reply` *(a chat doc is active)* — `loom_read_chat_tail` → compose → `loom_append_to_chat`. `reply {chatSlug}` resolves the chat in the active thread; `reply {weaveSlug}/{threadSlug}/{chatSlug}` is honored **only for the active thread** — a non-active thread is refused (`load` it first).
+- `do quick` — `loom_quick_ship` (record already-done work; never writes code).
+- `code quick` *(a source-code change was agreed in the active chat)* — implement it → build + test + verify → `loom_quick_ship`. Any source touch — or a **test-gated contract file** (a file your project's tests validate, e.g. an agent-contract file checked by a sync test) — is `code quick`, because the record owes a test run.
+- `write quick` *(a docs/prose-only change was agreed)* — implement it → `loom_quick_ship`, **no build/test** (a read-through is the check).
+- `do step {N}` *(implementing plan)* — resolve the ordinal N to its step id, `loom_do_step` → implement → `loom_append_done` → `loom_complete_step`, then **STOP** (stop-rule 1).
+- `do steps {N,M}` / `do steps {N-Z}` / `do plan` *(implementing plan)* — that chain per step, run through without stopping between (the stop-rule 1 explicit-authorization exception; rules 2 & 3 still interrupt).
+- `docs done` — `set-status done` on the thread's idea + design + chats; **never** plans (report any plan with pending steps); `req` stays `locked`.
+
+Slang covers only ambiguous or multi-step verbs; a capability with a self-naming command you run by that name. No single-letter aliases.
 
 ---
 
@@ -176,7 +201,7 @@ The "is this thread already in transcript?" decision lives **in the AI**, not in
    (or `⚠️ loom-ctx not loaded — proceeding without global context` on failure).
 2. **Load the tool catalog** — read the `loom://catalog` resource so the grouped `loom_*` surface index (tools + resources + prompts) is in context *before* any tool is needed. Emit `📡 MCP: loom://catalog` then `🗂️ loom-catalog loaded — surface index ready`. Mandatory and unconditional: it removes the "first `ToolSearch` runs blind" moment that causes the index to be skipped. Once loaded, never `ToolSearch` for a `loom_*` tool without first consulting this index — go straight from catalog → `ToolSearch select:<exact name>`.
 3. **Load the project map** — read `loom://state?shape=summary`: the cheap weave/thread skeleton + status (a few KB), **not** the full state graph (every plan's every step). Emit `📡 MCP: loom://state?shape=summary` then `🧵 Active: <active/implementing thread IDs>`. This always-loaded orientation read replaces both the old full-state read and any hand-written active-work pointer — never read the full `loom://state` at session start.
-4. **Load only the pointed thread deeply.** When the user pointed you at a chat/doc/thread, that pointer is the active-thread signal — scope the deep load to it: call the `do-next-step` prompt with that thread's active planId (or read `loom://context/thread/{weave}/{thread}`). Bundles thread context (idea, design, current plan, requires_load docs), the next incomplete step, and a pre-filled `loom_complete_step` call. Do not load other threads' content; with no pointer, use the step-3 map to pick.
+4. **Load only the pointed thread deeply.** When the user pointed you at a chat/doc/thread, that pointer is the active-thread signal — scope the deep load to it via the **slug-path human-pointable resource** (`loom://context/{weaveSlug}/{threadSlug}/{docSlug}`, or `loom://context/thread/{weaveSlug}/{threadSlug}` for the thread's primary doc). This deep load **is** the `load` slang — it sets the active thread; later `read`/`reply` on that thread's docs are doc-only (`?scope=doc`). **Never derive the thread/plan ULID by hand — the bundle header returns it** (see the *Human pointer → slug-path* hard rule). When the thread has an active plan, follow up with `do-next-step` using that returned `planUlid`; the bundle also carries the next incomplete step + a pre-filled `loom_complete_step` call. Do not load other threads' content; with no pointer, use the step-3 map to pick.
 
 After the reads, output this block and **STOP**:
 

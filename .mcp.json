@@ -5,10 +5,7 @@
       "command": "node",
       "args": [
         "../loom/packages/vscode/dist/loom-mcp.js"
-      ],
-      "env": {
-        "LOOM_ROOT": "${workspaceFolder}"
-      }
+      ]
     }
   }
 }
