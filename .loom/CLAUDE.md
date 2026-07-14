@@ -81,7 +81,7 @@ interactively in the project root and approve the `loom` server, or use
 | Entry point | When to use |
 |-------------|-------------|
 | `loom://catalog` resource | Grouped index of every `loom_*` tool (name + one-line purpose). **Read it before searching for a tool**, then `ToolSearch select:<exact name>` — it removes the discovery search, not the one-time schema fetch |
-| `loom://context/{docUlid}` resource (or `loom://context/thread/{weaveSlug}/{threadSlug}`) | Load the assembled context bundle (global/weave/thread ctx + parent chain + requires_load) for a doc or thread before working on it |
+| `loom://context/{docUlid}` resource (or `loom://context/thread/{weaveSlug}/{threadSlug}`) | Load the assembled context bundle (global ctx + parent chain + requires_load) for a doc or thread before working on it |
 | `do-next-step` prompt | Get the next incomplete step with full context pre-loaded |
 | `continue-thread` prompt | Review thread state and get a next-action suggestion |
 | `validate-state` prompt | Review diagnostics and identify issues to fix |
@@ -91,7 +91,7 @@ interactively in the project root and approve the `loom` server, or use
 
 - **`loom://catalog` is loaded at session start (step 2) — consult it, never keyword-flail.** MCP tool schemas are deferred, so you only see tool *names* until you fetch them. The catalog (loaded up front) is the grouped name index; find the exact tool in it, then `ToolSearch select:<exact name>` (one targeted fetch). If the catalog is not yet in context when you need a `loom_*` tool, read `loom://catalog` **before** the first `ToolSearch` — a blind `ToolSearch` for a `loom_*` tool (keyword guessing without the catalog) is a rule violation.
 - **All writes to `loom/**/*.md` go through MCP tools** — frontmatter, body, state mutations, and prose edits alike (see the "AI session rules" hard rule below for the full breakdown and the gate hook that enforces it).
-- Use `loom://context/{docUlid}` (or `loom://context/thread/{weaveSlug}/{threadSlug}`) before starting any thread work. The Unified Context Pipeline bundles global/weave/thread ctx + parent chain + requires_load in a single read.
+- Use `loom://context/{docUlid}` (or `loom://context/thread/{weaveSlug}/{threadSlug}`) before starting any thread work. The Unified Context Pipeline bundles global ctx + parent chain + requires_load in a single read.
 - `do-next-step` prompt is the primary workflow driver: call it with the active planUlid to get context + step instruction.
 - **Plans are structured, never hand-authored tables.** Create a plan with `loom_create_plan` by passing `goal` (prose) + a `steps` array of objects (`{ description, title?, files?, blockedBy?, satisfies?, detail? }`) — **never** a Markdown steps table. Loom owns the canonical `## Steps` table; steps live in YAML frontmatter (the source of truth) and the body table is a generated view. `blockedBy` references step `id`s (or plan ids). `loom_create_plan` does **not** accept a `content` body (idea/design/reference still do).
 <!-- rule:single-ai -->
