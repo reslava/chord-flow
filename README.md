@@ -7,18 +7,25 @@ guitarists practice **rhythm patterns over chord progressions**. The core is an
 exercise-generation engine (progressions × keys × rhythms × voicings), rendered as
 guitar tablature with **synchronized playback** via [alphaTab](https://www.alphatab.net/).
 
-> **Status:** v0.13.0 — a **content-driven** trainer over a music-theory-first kernel with a growing
+> **Status:** v0.14.0 — a **content-driven** trainer over a music-theory-first kernel with a growing
 > guitar **shape engine**. Progressions, songs, rhythms, and voicings are authored in compact **text
 > DSLs**, shipped as importable **content packs**, and assembled through an on-screen **workbench**;
 > shapes render through a reusable **fretboard-diagram** layer over a provably **instrument-agnostic**
-> kernel. New this release: the voicing engine becomes **visible and steerable** — a **faceted Voicings
-> grid** shows every derived voicing at once, a **Voicings Engine inspector** reveals *how* each grip is
-> derived operator-by-operator, and you can **name the exact voicing** a chord uses right in the DSL (a
-> movable grip or a `u:`/`a:`/`<pkg>:` reference). Plus a **light/dark** fretboard theme, whole-song
-> **`tempo`** / **`feel`** directives, and a score that **owns key / tempo / feel** live. Windows-only for
-> now (downloadable build below).
+> kernel. New this release: **printable chord sheets** — a **Chord Sheets** page renders any song or
+> progression as a one-page chart in two layouts (a flowing **leadsheet** or a **bar-grid**), in any key,
+> with chords shown as **letter names, Nashville numbers, or Roman numerals**, an optional per-bar
+> **chord-tone strip** + **fret diagram**, `%` similes for repeated bars, and **SVG / PNG / PDF** export.
+> Plus a new **`capo`** directive in the Song DSL. Windows-only for now (downloadable build below).
 
-## Features (v0.13.0)
+## Features (v0.14.0)
+
+- **Chord Sheets — print your songs as chord sheets** — a **Chord Sheets** page renders any song or
+  progression as a one-page chart in two idioms: a flowing **leadsheet** (`| bars |`, four to a row, boxed
+  section tags) or a **bar-grid** (one box per bar, in section blocks), in any key or the song's own.
+  Chords read as **letter names / Nashville numbers / Roman numerals** (with an optional second line showing
+  another at once); repeated bars collapse to a **`%` simile** and multi-chord bars split by beat. Optional
+  per-bar **chord-tone strip** (notes ⇄ interval degrees) and **fret diagram** turn a chart into a
+  what-to-play reference, and you can **export to SVG, PNG, or PDF** (always on a clean light page)
 
 - **Faceted Voicings grid — the whole engine on one screen** — a **Voicings** page renders every realized
   voicing at once as a grid of fretboard chord-boxes, over a **faceted toggle-button filter stack** (Root,
@@ -200,12 +207,13 @@ Some downloads are zipped — extract the `.sf2` / `.sf3` and place it in the fo
 dotnet test
 ```
 
-883 xUnit tests cover the `Music` kernel (incl. the `IntervalSpeller` interval-naming + parsing
+916 xUnit tests cover the `Music` kernel (incl. the `IntervalSpeller` interval-naming + parsing
 authority and `QualityFormulas`), the guitar **interval lattice**, **CAGED octave shapes**, the
 **CAGED chord-derivation engine** (now an introspectable **operator library** with derivation traces) +
 **voicing families** (shell / doubled-shell, against a golden oracle), the **CompingResolver** +
-multi-source content model + **per-chord DSL voicings**, the content DSLs/parsers (incl. the dotted/tie
-Rhythm DSL, chromatic progression degrees, and the Song `tempo`/`feel` directives), packs, persistence,
+multi-source content model + **per-chord DSL voicings**, the **chord-sheet builder** (Song → sheet
+projection) + `chordSheet` handler, the content DSLs/parsers (incl. the dotted/tie Rhythm DSL, chromatic
+progression degrees, and the Song `tempo`/`feel`/`capo` directives), packs, persistence,
 `AlphaTexRenderer`, and
 `NetArchTest` architecture-boundary tests asserting `ChordFlow.Music` stays instrument-agnostic and the
 `Music.*` sub-namespaces stay an acyclic DAG.
@@ -220,9 +228,11 @@ src/ChordFlow.Core/        host-agnostic engine (net10.0, zero UI refs)
   Instruments/     instrument adapters over the kernel — Guitar/ (GuitarInstrument facade,
                    fretboard geometry + interval lattice + CAGED octave shapes, voicings/CAGED,
                    fret-box / scale / CAGED-shape diagrams)
-  Rendering/       AlphaTexRenderer (only alphaTex-aware code)
+  Rendering/       the presentation/export seam — AlphaTexRenderer (alphaTex) +
+                   ChordSheets/ (the instrument-agnostic chord-sheet model)
   Features/        GenerateExercise, PracticeSession, ExerciseLibrary, Progress, Scales, Caged,
-                   Voicings (CompingResolver + EngineVoicingSource), ContentCrud, Packs
+                   Voicings (CompingResolver + EngineVoicingSource), ChordSheets (ChordSheetBuilder),
+                   ContentCrud, Packs
   Bridge/          C#↔JS envelope DTOs + inbound message router (host-agnostic)
   Persistence/     SQLite (EF Core) store + migrations
 src/ChordFlow.Desktop/     WinForms + WebView2 host (net10.0-windows)

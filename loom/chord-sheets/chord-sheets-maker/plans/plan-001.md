@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KXGRA16DWE7FKJJEX3A2ZAXH
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.14.0
 steps:
   - id: song-capo
     order: 1

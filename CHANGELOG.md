@@ -6,6 +6,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-07-14
+
+This release turns ChordFlow's songs and progressions into **printable chord sheets** — the classic
+one-page-of-bars view guitarists actually read from. A new **Chord Sheets** page renders any song or
+progression in two idioms — a flowing **leadsheet** (`| bars |`, four to a row, with boxed section tags) or
+a **bar-grid** — in any key or the song's own, and exports it to **SVG, PNG, or PDF**. It leans on the whole
+engine to *explain* the harmony, not just print it: chords shown as **letter names, Nashville numbers, or
+Roman numerals** (with an optional second line showing another at once), an optional per-bar **chord-tone
+strip** (note names ⇄ interval degrees) and **fret diagram**, repeated bars collapsed to a **`%` simile**,
+and multi-chord bars split by beat. Light/dark on screen, always light on export.
+
+### Added
+- **Chord Sheets — print your songs as chord sheets.** A new **Chord Sheets** page turns any song or
+  progression into a one-page chord sheet in two layouts — a flowing **leadsheet** (`| bars |` grouped four
+  to a row, with boxed section tags) or a **bar-grid** (one box per bar, in bordered section blocks) — and
+  renders it in any key or the song's own. Repeated bars collapse to a **`%` simile** and multi-chord bars
+  split by beat, so the page reads the way a real chart does.
+- **Read the chords your way.** Show each chord as a **letter name** (`Cmaj7`), a **Nashville number**
+  (`1maj7`), or a **Roman numeral** (`Imaj7`), and optionally add a **small second line** underneath showing
+  a different notation at the same time — the concrete chord and its function, side by side.
+- **Optional per-bar detail — the engine explains the harmony.** Turn on a **chord-tone strip** under each
+  bar (its spelled notes, toggling to interval degrees, colour-coded by function) and/or a **fret diagram**
+  of the comped voicing — so a chord sheet doubles as a what-to-play reference, not just chord names.
+- **Export to SVG, PNG, or PDF.** One click each: a crisp vector **SVG**, a **PNG** image, or a **PDF**
+  (printed by the app) — always rendered on a clean **light** page regardless of the on-screen theme.
+- **`capo <fret>` in the Song DSL.** A song can now record its **capo** (`capo 3`) in its DSL header; the
+  chord sheet shows it in the heading ("play these shapes with a capo on the 3rd fret") without transposing
+  the written harmony.
+
 ## [0.13.0] — 2026-07-09
 
 This is the release where ChordFlow's **voicing engine — its core differentiator — becomes something you
@@ -540,6 +569,7 @@ as tablature, and plays it back with a synchronized beat cursor.
   the next phase).
 - No audio-input accuracy detection (out of scope for v1).
 
+[0.14.0]: https://github.com/reslava/chord-flow/releases/tag/v0.14.0
 [0.13.0]: https://github.com/reslava/chord-flow/releases/tag/v0.13.0
 [0.12.0]: https://github.com/reslava/chord-flow/releases/tag/v0.12.0
 [0.11.0]: https://github.com/reslava/chord-flow/releases/tag/v0.11.0

@@ -167,11 +167,13 @@ After the definitions, list the parts in playing order — one instruction per l
 | `mod <spec>` | **modulate** — shift the key from here onward |
 | `feel <token>` | the song's **default triplet feel** (swing) — `feel none`, `feel triplet8th`, `feel triplet16th` |
 | `tempo <bpm>` | the song's **default tempo** (BPM, 40–240) — `tempo 120`; pre-selects the Tempo control when you pick the song |
+| `capo <fret>` | the song's **capo** fret (1–12) — `capo 3`; shown on the chord sheet, does **not** transpose the written harmony |
 
 ```
 key C
 feel triplet8th   # a swing tune — the Feel control pre-selects Triplet8th when you pick this song
 tempo 120         # the Tempo control pre-selects 120 BPM when you pick this song
+capo 3            # a capo on the 3rd fret — shown on the chord sheet (the written chords are unchanged)
 
 intro
 verse x2
@@ -185,6 +187,7 @@ verse
 - `mod` is **relative and accumulates**: two `mod V` in a row move up two fifths.
 - `feel` is a **whole-song default** (position-independent, at most once) — it only **pre-selects** the play-time Feel control when you pick the song; you can still change the feel in the transport, and the swing itself still happens at play time (it never changes the notated rhythm). Omitting `feel` means "no preference" (the control stays straight); an explicit `feel none` says "this is a straight tune." It is a **Song-only** directive — progressions are pure chords/bars and carry no `feel` (or `key`). Uses a space keyword (`feel triplet8th`), **not** a colon (`feel:` is reserved for a stored-progression reference).
 - `tempo` is the exact **peer of `feel`**: a whole-song default (position-independent, at most once, BPM in 40–240) that only **pre-selects** the play-time Tempo control — you can still change the tempo in the transport. Omitting `tempo` means "no preference" (the control seeds the ChordFlow default **80**). Also **Song-only**, space-keyword (`tempo 120`).
+- `capo` is **presentational** (position-independent, at most once, fret 1–12): it records that the song is played with a capo so the **chord sheet** can show it — it does **not** transpose the written harmony (the chords are the sounding chords). Also **Song-only**, space-keyword (`capo 3`); omit it for no capo.
 
 ### Modulation specs
 
