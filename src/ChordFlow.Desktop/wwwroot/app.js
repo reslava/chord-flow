@@ -284,6 +284,8 @@ const ChordFlow = (function () {
         } },
       voicingsEngine: { nav: $("navVoicingsEngine"), el: $("voicings-engine-view"),
         onShow: () => window.ChordFlowVoicingsEngine && window.ChordFlowVoicingsEngine.show() },
+      chordSheets: { nav: $("navChordSheets"), el: $("chord-sheets-view"),
+        onShow: () => window.ChordFlowChordSheets && window.ChordFlowChordSheets.show() },
     };
 
     function show(viewName) {

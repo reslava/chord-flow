@@ -199,6 +199,16 @@
       border-radius: 4px; background: #3a3a3d; color: #e6e6e6; cursor: pointer; }
     .cf-debug-bar button.primary { background: #3a4d78; border-color: #3a4d78; color: #fff; }
     .cf-debug-hint { font-size: .75rem; color: #d0a85f; }
+
+    /* Chord-sheet PDF export: the page drops a light copy of the sheet SVG into #chord-sheet-print, then the
+       host prints the page. This @media print rule shows only that container (everything else hidden), so the
+       PDF is just the sheet on white paper. Hidden on screen. */
+    #chord-sheet-print { display: none; }
+    @media print {
+      body > *:not(#chord-sheet-print) { display: none !important; }
+      #chord-sheet-print { display: block !important; }
+      #chord-sheet-print svg { width: 100%; height: auto; background: #fff; }
+    }
   </style>
 </head>
 <body>
@@ -212,6 +222,7 @@
       <button id="navCagedChords" type="button">CAGED Chords</button>
       <button id="navVoicings" type="button">Voicings</button>
       <button id="navVoicingsEngine" type="button">Voicings Engine</button>
+      <button id="navChordSheets" type="button">Chord Sheets</button>
     </nav>
     <span id="status">starting…</span>
   </header>
@@ -341,6 +352,17 @@
     </div>
   </div>
 
+  <!-- Chord Sheets view: the interactive shell (chord-sheets.js) around the pure-SVG ChordSheetR
+       (chord-sheet-render-component.js). Pick a song/progression → the host builds the ChordSheet model and
+       ChordSheetR draws it (Layout A leadsheet / B grid), with notation/adornment/theme toggles + export. -->
+  <div id="chord-sheets-view" hidden>
+    <div id="chord-sheets-page" style="padding:1rem;"></div>
+  </div>
+
+  <!-- Chord-sheet PDF print target: the page injects a light copy of the sheet SVG here; @media print shows
+       only this so the host's PrintToPdfAsync captures just the sheet. Empty + hidden on screen. -->
+  <div id="chord-sheet-print"></div>
+
   <!-- Bundled alphaTab JS build (constraint C6) — loaded from disk, offline. -->
   <script src="alphaTab.min.js"></script>
   <script src="bridge.js"></script>
@@ -353,6 +375,8 @@
   <script src="caged-chords.js"></script>
   <script src="guitar-voicings-render-component.js"></script>
   <script src="voicings-engine.js"></script>
+  <script src="chord-sheet-render-component.js"></script>
+  <script src="chord-sheets.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

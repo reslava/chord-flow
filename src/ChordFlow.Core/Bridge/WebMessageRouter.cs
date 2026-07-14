@@ -40,6 +40,16 @@ public sealed record VoicingDeriveRequest(
     string? Family, string? Quality, int Root, string? Shape, int? MinFret, int? MaxFret);
 
 /// <summary>
+/// One <c>chordSheet</c> request (ChordSheetR): the harmony reference (<see cref="HarmonyEntity"/> song/progression
+/// + <see cref="HarmonyId"/>), an optional key override (<see cref="KeyPitchClass"/>, null ⇒ the song's own key),
+/// the printed <see cref="BarsPerRow"/>, the <see cref="Adornment"/> mode (<c>none</c>/<c>tones</c>/<c>diagram</c>/<c>both</c>
+/// — only <c>diagram</c>/<c>both</c> resolve a comping voicing), and the optional comping <see cref="Voicing"/> source
+/// for the diagram (carried on <c>renderOptions.voicing</c>, absent ⇒ the resolver default).
+/// </summary>
+public sealed record ChordSheetRequest(
+    string HarmonyEntity, string HarmonyId, int? KeyPitchClass, int BarsPerRow, string Adornment, VoicingSource? Voicing);
+
+/// <summary>
 /// Parses inbound JSON envelopes from the WebView (JS→C#) and raises typed
 /// events for feature slices to subscribe to. The envelope <c>type</c> string is
 /// the only contract surface. Inbound vocabulary: <c>ready</c> /
@@ -143,6 +153,12 @@ public sealed class WebMessageRouter
 
     /// <summary>Send the operator catalog (registry + declared schemas) to the Voicings Engine page.</summary>
     public event Action? VoicingOperatorsRequested;
+
+    /// <summary>Build a chord sheet for the ChordSheetR page — <c>(request)</c>.</summary>
+    public event Action<ChordSheetRequest>? ChordSheetRequested;
+
+    /// <summary>Export the on-screen chord sheet to PDF (host prints the print-styled page via WebView2).</summary>
+    public event Action? ExportChordSheetPdfRequested;
 
     /// <summary>Deserialize one inbound message string and dispatch it to subscribers.</summary>
     public void Dispatch(string message)
@@ -301,6 +317,18 @@ public sealed class WebMessageRouter
             case "voicingOperators":
                 VoicingOperatorsRequested?.Invoke();
                 break;
+            case "chordSheet":
+                ChordSheetRequested?.Invoke(new ChordSheetRequest(
+                    envelope.HarmonyEntity ?? "progression",
+                    envelope.HarmonyId ?? "",
+                    envelope.KeyPitchClass,
+                    envelope.BarsPerRow ?? 4,
+                    envelope.Adornment ?? "none",
+                    ParseVoicingSource(envelope.RenderOptions?.Voicing)));
+                break;
+            case "exportChordSheet":
+                ExportChordSheetPdfRequested?.Invoke();
+                break;
             // Unknown / null types are ignored — forward-compatible.
         }
     }
@@ -368,6 +396,9 @@ public sealed class WebMessageRouter
         IReadOnlyList<string>? Fifths, IReadOnlyList<string>? Sevenths,
         // voicingDerive: the neck window for a single-operator derivation (reuses Family/Quality/Shape/RootPitchClass).
         int? MinFret, int? MaxFret,
+        // chordSheet: the printed bars-per-row and the adornment mode (none/tones/diagram/both). Harmony ref +
+        // key override reuse HarmonyEntity/HarmonyId/KeyPitchClass; the comping voicing reuses RenderOptions.Voicing.
+        int? BarsPerRow, string? Adornment,
         // Optional render-time presentation options on the render-producing verbs (generate/loadExercise/entityPreview).
         InboundRenderOptions? RenderOptions);
 

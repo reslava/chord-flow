@@ -16,6 +16,7 @@ namespace ChordFlow.Music.Songs;
 /// <item><c>key &lt;token&gt;</c> — sets <see cref="Song.InitialKey"/> when it precedes the stream; an <see cref="AbsoluteKey"/> reset once in the stream.</item>
 /// <item><c>feel &lt;token&gt;</c> — sets <see cref="Song.DefaultFeel"/> (the whole-song groove default: <c>none</c>/<c>triplet8th</c>/<c>triplet16th</c>), at most once; position-independent.</item>
 /// <item><c>tempo &lt;bpm&gt;</c> — sets <see cref="Song.DefaultTempo"/> (the play-time tempo seed, 40–240), at most once; position-independent.</item>
+/// <item><c>capo &lt;fret&gt;</c> — sets <see cref="Song.Capo"/> (the presentational capo fret, 1–12), at most once; position-independent.</item>
 /// <item><c>NAME</c> / <c>NAME x&lt;n&gt;</c> — a <see cref="PartPlay"/> (<c>n</c> defaults to 1). The name must be a defined part.</item>
 /// <item><c>mod &lt;spec&gt;</c> — a relative <see cref="RelativeMod"/> (<c>+n</c>/<c>-n</c> or a roman degree).</item>
 /// </list>
@@ -32,11 +33,16 @@ public static class SongParser
     private const string ModKeyword = "mod";
     private const string FeelKeyword = "feel";
     private const string TempoKeyword = "tempo";
+    private const string CapoKeyword = "capo";
     private const string VoiceKeyword = "voice";
 
     // The play-time tempo seed accepts the same BPM window as the ScoreR transport's tempo input (40–240).
     private const int MinTempo = 40;
     private const int MaxTempo = 240;
+
+    // A capo fret directive accepts 1–12 (a capo above the 12th fret is not a real guitar placement).
+    private const int MinCapo = 1;
+    private const int MaxCapo = 12;
 
     // Whole-song `feel <token>` idents → TripletFeel. Only the offered set is accepted (req IN2); the
     // reserved (dotted/scottish) enum members are deliberately not parseable yet.
@@ -96,6 +102,7 @@ public static class SongParser
         bool initialKeySet = false;
         TripletFeel? defaultFeel = null;                  // whole-song groove default; null = no preference (req IN7)
         int? defaultTempo = null;                         // play-time tempo seed; null = no preference (ChordFlow default 80 downstream)
+        int? capo = null;                                 // presentational capo fret; null = no capo directive
         var items = new List<ArrangementItem>();
 
         foreach (string line in streamLines)
@@ -166,6 +173,28 @@ public static class SongParser
 
                 defaultTempo = bpm;
             }
+            else if (head == CapoKeyword)
+            {
+                // `capo <fret>` is a whole-song presentational default (not a stream item; position is irrelevant).
+                if (tokens.Length != 2)
+                {
+                    throw new FormatException($"Song DSL \"capo\" line must be \"capo <fret>\": \"{line}\".");
+                }
+
+                if (capo is not null)
+                {
+                    throw new FormatException($"Song DSL sets \"capo\" more than once: \"{line}\".");
+                }
+
+                if (!int.TryParse(tokens[1], NumberStyles.None, CultureInfo.InvariantCulture, out int fret)
+                    || fret < MinCapo || fret > MaxCapo)
+                {
+                    throw new FormatException(
+                        $"Song DSL \"capo\" value \"{tokens[1]}\" must be an integer fret in {MinCapo}–{MaxCapo}.");
+                }
+
+                capo = fret;
+            }
             else if (head == ModKeyword)
             {
                 if (tokens.Length != 2)
@@ -211,7 +240,7 @@ public static class SongParser
             }
         }
 
-        return Song.FromSections(id, name, initialKey, parts, items, defaultFeel, defaultTempo, voices);
+        return Song.FromSections(id, name, initialKey, parts, items, defaultFeel, defaultTempo, capo, voices);
     }
 
     // A `voice <selector> = <voicing>` directive line: the keyword followed by a space (distinct from a part
@@ -311,7 +340,7 @@ public static class SongParser
             throw new FormatException($"Song DSL definition has an invalid part name in \"{line}\".");
         }
 
-        if (name is KeyKeyword or ModKeyword or FeelKeyword or TempoKeyword or VoiceKeyword)
+        if (name is KeyKeyword or ModKeyword or FeelKeyword or TempoKeyword or CapoKeyword or VoiceKeyword)
         {
             throw new FormatException($"Song DSL cannot define a part named \"{name}\" (reserved keyword).");
         }

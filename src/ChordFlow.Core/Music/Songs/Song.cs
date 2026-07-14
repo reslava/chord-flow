@@ -89,6 +89,15 @@ public sealed record Song
     /// </summary>
     public int? DefaultTempo { get; }
 
+    /// <summary>
+    /// The capo fret the Song is played with (1–12), or <c>null</c> for no capo. Purely presentational
+    /// content in the same spirit as <see cref="DefaultFeel"/> / <see cref="DefaultTempo"/>: it does not
+    /// transpose the realized harmony (a chord sheet shows both the shapes and the sounding key), it only
+    /// records the capo so a renderer can display "Capo Nth fret". <c>null</c> (no <c>capo</c> directive) is
+    /// distinct from any explicit fret.
+    /// </summary>
+    public int? Capo { get; }
+
     /// <summary>Local part definitions, keyed by name (inline progressions and stored references alike).</summary>
     public IReadOnlyDictionary<string, Part> Parts { get; }
 
@@ -111,6 +120,7 @@ public sealed record Song
         IReadOnlyList<ArrangementItem> items,
         TripletFeel? defaultFeel,
         int? defaultTempo,
+        int? capo,
         IReadOnlyDictionary<VoiceSelector, string> voices)
     {
         Id = id;
@@ -120,6 +130,7 @@ public sealed record Song
         Items = items;
         DefaultFeel = defaultFeel;
         DefaultTempo = defaultTempo;
+        Capo = capo;
         Voices = voices;
     }
 
@@ -142,6 +153,7 @@ public sealed record Song
         IReadOnlyList<ArrangementItem> items,
         TripletFeel? defaultFeel = null,
         int? defaultTempo = null,
+        int? capo = null,
         IReadOnlyDictionary<VoiceSelector, string>? voices = null)
     {
         ArgumentNullException.ThrowIfNull(initialKey);
@@ -186,7 +198,7 @@ public sealed record Song
         }
 
         return new Song(
-            id, name, initialKey, parts, items, defaultFeel, defaultTempo,
+            id, name, initialKey, parts, items, defaultFeel, defaultTempo, capo,
             voices ?? new Dictionary<VoiceSelector, string>());
     }
 

@@ -252,6 +252,67 @@ public class SongParserTests
         Assert.Throws<FormatException>(() => Parse("tempo = 1 4 5 1\ntempo"));
     }
 
+    // --- capo directive (Song.Capo) ---
+
+    [Theory]
+    [InlineData("1", 1)]
+    [InlineData("3", 3)]
+    [InlineData("12", 12)]
+    public void Parse_CapoDirective_SetsCapo(string token, int expected)
+    {
+        Song song = Parse($"capo {token}\nA = 1 4 5 1\nA");
+        Assert.Equal(expected, song.Capo);
+    }
+
+    [Fact]
+    public void Parse_NoCapoDirective_CapoIsNull()
+    {
+        // Absent (no capo) is distinct from any explicit fret.
+        Song song = Parse("A = 1 4 5 1\nA");
+        Assert.Null(song.Capo);
+    }
+
+    [Fact]
+    public void Parse_CapoDirective_IsPositionIndependent()
+    {
+        // A whole-song directive: valid after the stream, not only before it.
+        Song song = Parse("A = 1 4 5 1\nA\ncapo 5");
+        Assert.Equal(5, song.Capo);
+    }
+
+    [Theory]
+    [InlineData("0")]      // below the 1–12 window
+    [InlineData("13")]     // above it
+    [InlineData("high")]   // not an integer
+    [InlineData("-3")]     // NumberStyles.None rejects the sign
+    [InlineData("3.5")]    // not an integer
+    public void Parse_OutOfRangeOrMalformedCapo_ThrowsFormat(string token)
+    {
+        Assert.Throws<FormatException>(() => Parse($"capo {token}\nA = 1 4 5 1\nA"));
+    }
+
+    [Fact]
+    public void Parse_DuplicateCapo_ThrowsFormat()
+    {
+        Assert.Throws<FormatException>(() => Parse("capo 3\ncapo 5\nA = 1 4 5 1\nA"));
+    }
+
+    [Fact]
+    public void Parse_CapoAsPartName_ThrowsFormat()
+    {
+        // `capo` is a reserved keyword — it cannot name a part.
+        Assert.Throws<FormatException>(() => Parse("capo = 1 4 5 1\ncapo"));
+    }
+
+    [Fact]
+    public void Parse_CapoDirective_SurvivesTextualRoundTrip()
+    {
+        // The DSL string is stored verbatim (no structural Song→DSL emitter), so re-parsing the authored text
+        // preserves the capo — this is what carries it through the SongStore round-trip by construction.
+        const string dsl = "capo 3\nA = 1 4 5 1\nA";
+        Assert.Equal(3, Parse(dsl).Capo);
+    }
+
     // --- voice directive (Song.Voices) + inline annotations (IN4/C6, IN1/IN7) ---
 
     [Fact]

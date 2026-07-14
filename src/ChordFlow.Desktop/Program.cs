@@ -9,6 +9,7 @@ using ChordFlow.Features.PracticeSession;
 using ChordFlow.Features.Progress;
 using ChordFlow.Features.Scales;
 using ChordFlow.Features.Caged;
+using ChordFlow.Features.ChordSheets;
 using ChordFlow.Features.Voicings;
 using ChordFlow.Features;
 using ChordFlow.Bridge;
@@ -112,6 +113,7 @@ internal static class Program
                 var cagedChord = new CagedChordHandler();
                 var voicingGrid = new VoicingGridHandler();
                 var voicingDerive = new VoicingDeriveHandler();
+                var chordSheet = new ChordSheetHandler(dbOptions);
 
                 // App-lifetime global-preference store (key/value over SQLite). Shared by the soundfont choice
                 // and the staff-display profile below.
@@ -332,6 +334,50 @@ internal static class Program
                     catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
                     {
                         bridge.Send(new VoicingDeriveErrorEnvelope(ex.Message));
+                    }
+                };
+
+                // ChordSheetR page: build the chord-sheet model for a harmony ref (+ key/adornment). A missing
+                // reference fails loud into a UI-safe chordSheetError reply (the sheet-page peer of scaleError).
+                router.ChordSheetRequested += req =>
+                {
+                    try
+                    {
+                        bridge.Send(chordSheet.Build(req));
+                    }
+                    catch (Exception ex) when (ex is InvalidOperationException or FormatException or ArgumentException)
+                    {
+                        bridge.Send(new ChordSheetErrorEnvelope(ex.Message));
+                    }
+                };
+
+                // Export the on-screen chord sheet to PDF: the page injects a print-styled light copy into
+                // #chord-sheet-print (an @media print rule hides everything else), then the host prints the current
+                // page via WebView2's native PrintToPdfAsync — no external PDF library (C4). A cancel replies Ok=false
+                // so the page always tears its print container back down.
+                router.ExportChordSheetPdfRequested += async () =>
+                {
+                    try
+                    {
+                        using var dialog = new SaveFileDialog
+                        {
+                            Filter = "PDF document (*.pdf)|*.pdf",
+                            FileName = "chord-sheet.pdf",
+                            DefaultExt = "pdf",
+                            AddExtension = true,
+                        };
+                        if (dialog.ShowDialog() != DialogResult.OK)
+                        {
+                            bridge.Send(new ChordSheetPdfDoneEnvelope(false));
+                            return;
+                        }
+
+                        await core.PrintToPdfAsync(dialog.FileName, null);
+                        bridge.Send(new ChordSheetPdfDoneEnvelope(true, dialog.FileName));
+                    }
+                    catch (Exception ex)
+                    {
+                        bridge.Send(new ChordSheetPdfDoneEnvelope(false, null, ex.Message));
                     }
                 };
 
