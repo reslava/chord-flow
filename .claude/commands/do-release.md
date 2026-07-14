@@ -18,9 +18,13 @@ context below — do **not** read `loom://state` or the `release-pipeline` threa
 1. `RELEASING.md` — the authoritative checklist + gotchas + recovery.
 2. The single `<Version>` in `src/ChordFlow.Desktop/ChordFlow.Desktop.csproj` — the only
    authoritative version source.
-3. `git log <lastTag>..HEAD` **with full commit bodies** — the source for the CHANGELOG
-   prose (`git tag --sort=-creatordate | head -1` gives the last tag). Roadmap history is
-   *not* a substitute: it carries no version and no per-change detail.
+3. **`loom report release-notes`** — the command that drafts the changelog from the doc graph:
+   Unreleased selection (`actual_release` null), done-body enrichment, and the empty-set guard
+   all live in the command. This repo runs it; you do not hand-read the graph. *(Requires a Loom
+   version carrying the enriched `loom report release-notes` — upgrade `@reslava/loom` if the
+   installed command predates it.)*
+4. `git log <lastTag>..HEAD --oneline` (`git tag --sort=-creatordate | head -1` gives the last
+   tag) — the coverage net + a "work not recorded" tell (step 2). Not the changelog source.
 
 ## Pre-flight (before any release work)
 
@@ -43,11 +47,26 @@ version was given.
 
 1. **Confirm version.** Pre-flight A guarantees a version was supplied. Sanity-check it's a
    clean bump above the current csproj `<Version>` and state it.
-2. **Gather changes.** `git log <lastTag>..HEAD --format='===== %h %s%n%b'`. Sort the
-   user-facing commits into Added / Changed / Fixed; drop pure chore/docs/roadmap commits.
-3. **Draft the changelog:**
-   - Promote `## [Unreleased]` (or write a fresh section) to a dated `## [X.Y.Z]` section in
-     `CHANGELOG.md` (the **GitHub release body verbatim**).
+2. **Draft the changelog with `loom report release-notes`.** Selection (the Unreleased set),
+   done-body enrichment, and the doc-graph empty-set guard live in the command now — this repo
+   runs it and reviews:
+   - Run **`loom report release-notes`** (`--titles-only` for a fast, low-token draft) and
+     synthesize its brief **in-session** (you are the AI — no shell-out, no API key). The brief
+     is the Unreleased plans (`actual_release` null) with their done-doc detail, framed
+     Highlights → **Added / Changed / Fixed** in a benefit voice.
+   - **Empty-set guard (built in):** if the command returns the **"NOTHING UNRELEASED"**
+     stop-signal, do **not** draft — STOP and report it (it names any threads still
+     `implementing`). Cross-check the git tells: a dirty tree (`git status`) or commits in
+     `git log <lastTag>..HEAD` mean work shipped but was never closed/quick-shipped/committed —
+     have the user record it, then re-run.
+   - **Coverage net (release-side):** `git log <lastTag>..HEAD --oneline`; list any user-facing
+     commit **not represented** by an Unreleased done plan as a **"Not covered by a done plan"**
+     appendix for the human to fold in or dismiss.
+   - **Stale-leak (release-side):** flag any Unreleased done doc dated **before the previous tag**
+     — a prior release may have failed to stamp its plans; the human decides. Non-blocking.
+3. **Write the changelog from the step-2 draft:**
+   - Put the curated Added / Changed / Fixed (+ Highlights) entries into a dated `## [X.Y.Z]`
+     section in `CHANGELOG.md` (the **GitHub release body verbatim**).
    - Add the bottom link reference:
      `[X.Y.Z]: https://github.com/reslava/chord-flow/releases/tag/vX.Y.Z`.
 4. **Update the README + review the refs.** Bring root `README.md` current with what shipped —
