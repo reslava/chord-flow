@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 30
+last_ai_block: 38
 ---
 # chord-sheets-playback Chat 001
 
@@ -399,3 +399,82 @@ if not tell me and we do another plan
 None of it is hard, but the mode + new rendering + palette is a coherent little feature that deserves its own idea→plan (probably a ~3-step plan) rather than a blind quick-ship. Want me to spin it up as a new thread (or a plan under this one) next? I can scope it tight.
 
 Committing the whole feature (Plan 1 + Plan 2 + the below-cell fix) now.
+
+## Rafa:
+
+bellow-cell working
+
+### Visual metronome: Per-beat marker
+
+we can add a toggle for using `visual metronome` (default) or `per bar`
+Visual: use the exact current visuals, now a new one, right now this bar renders perfectly, no new palette needed
+
+I think doing a new plan here is enough, agree?
+
+## AI:
+
+Agreed — a new plan **here** (in this thread) is the right size, no new thread/idea needed. And reusing the exact current amber visuals is the clean call — the marker's already got the two-level wash (bar + brighter accent), so per-beat just re-points that accent at beats instead of chords. No new palette.
+
+Let me lock the semantics so the plan is right:
+
+- **Marker toggle** in the transport: **Visual metronome** (default) · **Per bar**.
+- **Visual metronome** = every bar subdivides into its beats; on each beat the bar gets the light amber wash and the **current beat** gets the brighter amber accent — i.e. *every* bar behaves like a `17_57_17_57` bar does today. Beats-per-bar comes from the time signature (4/4 → 4), which matches our quarter-note comp.
+- **Per bar** = the whole current bar washes amber, no sub-region.
+- **One assumption to flag:** this **replaces** the current per-chord-*segment* highlight — the two modes become "follow the beat" and "follow the bar," and highlighting an individual chord within a split bar goes away (the metronome shows the change via beat position anyway). Shout if you'd rather keep per-chord as a third mode.
+
+Drafting **plan-004** here now with that: (1) ChordSheetR gains per-beat highlight regions + `highlightBeat()` reusing the amber; (2) the page adds the mode toggle and drives the right highlight from `onBeat`; (3) dogfood. Will post it for your `go`.
+
+## AI:
+
+**plan-004 ready** (`pl_01KXK9…`), 3 steps:
+
+1. **ChordSheetR** — draw N per-beat regions per cell (N from `header.timeSig`, both layouts) + `highlightBeat(section,row,cell,beatIndex)` reusing the amber (`cf-beat-hl` gets the same brighter rule as `cf-chord-hl`); keep `highlight()` for whole-bar. → IN9, C1, C5
+2. **Page** — a "Marker" select (Visual metronome default / Per bar); `onBeat` drives `highlightBeat` (metronome) or whole-bar `highlight` (per bar). → IN9, IN11, C4
+3. **Dogfood** both modes + ref note. → IN13, C6
+
+No req amendment — the modes refine the existing IN9 (granularity) / C5 (screen-only) handles rather than adding scope.
+
+Say `go` (or `do plan`) and I'll build it; `do step 1` to go one at a time.
+
+## Rafa:
+
+Sorry, I meant Visual metronome / Per chord. We don't need per bar I think, agree? (we already have the highlighted bar background marking the actual bar)
+follow the beat / follow the chord
+if you agree:
+update req, plan if needed
+do plan
+
+## AI:
+
+Agree — **Visual metronome** (follow the beat, default) / **Per chord** (follow the chord = today's behavior). Drop "Per bar": you're right, the bar wash already marks the sounding bar in both modes, so the toggle only swaps the *sub*-highlight (current beat ⇄ current chord segment). That also means **per-chord isn't replaced** — it's just the non-default mode. Cleaner.
+
+Doing: amend the req (add the marker-mode toggle), retarget plan-004's step 2 to "Per chord" (reusing the existing `highlight(...,chord)`), then `do plan`.
+
+## AI:
+
+**plan-004 built — steps 1 & 2 done, step 3 is the live dogfood (yours).** Req amended to v2 (IN14) + re-locked. All JS `node --check` clean.
+
+- **ChordSheetR** — draws N per-beat columns per cell (N from the time signature), `highlightBeat(section,row,cell,beatIx)` reusing the exact amber (`.cf-beat.cf-playing` → the same brighter rule as chords). `highlight(...,chord)` unchanged for Per chord. Both wash the bar; export stays inert.
+- **Page** — a **Marker** select (Visual metronome default / Per chord); `onBeat` branches to `highlightBeat` (current beat column) or the existing per-chord highlight; switching mode mid-play takes effect on the next beat.
+- Architecture ref notes the two modes.
+
+Could you **build + run** → Chord Sheets → play a song and check:
+1. **Visual metronome** (default): the current **beat** lights up column-by-column across each bar in time — every bar now behaves like a `17_57_17_57` bar did (bar washed, current beat brighter).
+2. Switch **Marker → Per chord**: back to today's behaviour (active chord segment highlighted), even mid-play.
+3. Both **layouts**, **light/dark**, and **export** unaffected.
+
+If it looks right, I'll mark step 3 ✅, close plan-004, and commit. If the beat column is off (e.g. lands a beat early/late, or wrong width), tell me and I'll adjust.
+
+## Rafa:
+
+Spectacular!
+mark step 3 done
+commit
+
+## AI:
+
+🎸 Spectacular indeed — a **visual metronome** on the chord sheet, and the same `ChordFlowPlayback` clock still doing all the timing. Step 3 ✅, **plan-004 closed**.
+
+Committing plan-004 (per-beat metronome mode + Per-chord toggle, req v2/IN14, refs). That wraps the whole chord-sheets-playback thread: engine extraction → sheet marker → two marker modes, all shipped and dogfooded.
+
+The one thing still parked for a future pass: the pre-existing **metronome/count-in audio** bug (`playback/metronome-countin-fix` thread) — separate from this visual metronome.

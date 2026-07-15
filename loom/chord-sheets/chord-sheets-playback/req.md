@@ -5,7 +5,7 @@ title: Chord Sheets playback — animated bar marker over ChordSheetR — Requir
 status: locked
 created: 2026-07-15
 updated: 2026-07-15
-version: 1
+version: 2
 design_version: 1
 tags: []
 parent_id: de_01KXJJJYD9XBRYED1F8HYTG74H
@@ -13,7 +13,7 @@ requires_load: []
 ---
 # Chord Sheets playback — animated bar marker over ChordSheetR — Requirements
 
-> Built against `design.md`. Open decisions D1–D4 are set to their **recommended** answers below (D1-a combined request, D2 cell+sub-chord, D3 builder-side `%` coordinate, D4 hidden staff + optional toggle). Confirm/adjust before this req is locked.
+> Built against `design.md`. Open decisions D1–D4 are settled at their recommended answers (D1-a combined request, D2 cell+sub-chord, D3 builder-side `%` coordinate, D4 hidden staff + optional toggle). Amended (v2) to add the marker-mode toggle (IN14).
 
 ### ✅ Included
 
@@ -30,6 +30,7 @@ requires_load: []
 - `IN11` **Chord Sheets page owns a `ChordFlowPlayback`** (hidden staff surface) + a transport strip: loads the returned `tex`, builds a `bar:beat→cell` map from `cellSchedule`, drives `highlight` from `onBeat`, and `clearHighlight` on stop/finish.
 - `IN12` **Start / stop / seek** — marker appears on play, clears on stop, lands on the correct cell on reposition; sub-onset beats keep the last cell highlighted.
 - `IN13` **Dogfood** — Jazz Blues + a pop song, both layouts: marker tracks the sounding bar/cell, matches the ScoreR cursor beat-for-beat, handles a split bar and a `%` bar, clears on stop; light/dark on-screen; export unaffected.
+- `IN14` **Marker-mode toggle** in the Chord Sheets transport — **Visual metronome** (per-beat, default) and **Per chord** (the IN9 per-chord-segment highlight). Both modes keep the bar-level wash marking the sounding bar; the toggle only swaps the *sub*-highlight (current beat ⇄ current chord segment), reusing the existing amber visuals (**no new palette**). Beats-per-bar derives from the sheet's time signature (consistent with the quarter-note comp render). `ChordSheetR` gains per-beat highlight regions + `highlightBeat(section,row,cell,beatIndex)` alongside `highlight`.
 
 ### ❌ Excluded
 

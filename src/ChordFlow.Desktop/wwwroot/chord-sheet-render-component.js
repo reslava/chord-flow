@@ -23,8 +23,9 @@
 //     barsPerRow:4,            // only affects Layout A wrapping (Layout B rows are pre-chunked by Core)
 //   });
 //   sheet.render(model); sheet.setLayout("B"); sheet.setNotation({primary:"roman"}); sheet.setTheme("dark");
-//   sheet.highlight(section, row, cell, chord?);  // screen-only playback marker (chord optional, split bars)
-//   sheet.clearHighlight();                        // clear the marker (on stop / end)
+//   sheet.highlight(section, row, cell, chord?);      // per-chord marker (chord optional, split bars)
+//   sheet.highlightBeat(section, row, cell, beatIx);  // visual-metronome marker (current beat column)
+//   sheet.clearHighlight();                            // clear the marker (on stop / end)
 //   sheet.svgElement();  // the raw <svg> (for export)
 "use strict";
 
@@ -56,7 +57,8 @@ window.ChordFlowChordSheet = (function () {
   // class, so export (which builds a new SVG) is inert. Injected as one <style> per built SVG.
   const HIGHLIGHT_CSS =
     ".cf-playing > .cf-cell-hl{fill:rgba(245,158,11,0.18);}" +
-    ".cf-playing > .cf-chord-hl{fill:rgba(245,158,11,0.42);}";
+    ".cf-playing > .cf-chord-hl{fill:rgba(245,158,11,0.42);}" +
+    ".cf-beat.cf-playing > .cf-beat-hl{fill:rgba(245,158,11,0.42);}";   // visual-metronome beat column
 
   // ---- geometry --------------------------------------------------------------------------------
   const MARGIN = 16;
@@ -116,6 +118,14 @@ window.ChordFlowChordSheet = (function () {
         + (adornments.diagrams ? DIAGRAM_H : 0);
     }
 
+    // Beats per bar for the visual-metronome marker, from the sheet's time signature (default 4). Matches the
+    // alphaTab beat count because the handler always renders the quarter-note comp (SeedData.Quarters).
+    function beatsPerBar() {
+      const ts = model && model.header && model.header.timeSig;
+      const n = ts ? parseInt(String(ts).split("/")[0], 10) : 4;
+      return n > 0 ? n : 4;
+    }
+
     // ---- svg builder (shared by on-screen render and export) -----------------------------------
     // Build the whole sheet as one detached <svg> in the given theme. render() attaches it; export serializes it.
     function buildSheetSvg(themeName) {
@@ -167,6 +177,8 @@ window.ChordFlowChordSheet = (function () {
     // Address a cell by (section,row,cell) — indices line up with Core's cellSchedule — and, optionally, a
     // chord segment within a split bar. Always re-queries the CURRENT svg (render() replaces the DOM), so no
     // stale node references; the last highlight is re-applied automatically after any rebuild.
+    // Wash the addressed cell, plus its active sub-region: a beat column (visual-metronome mode, h.beat set)
+    // or a chord segment (per-chord mode, h.chord set).
     function applyHighlight(h) {
       if (!svgNode) return;
       svgNode.querySelectorAll(".cf-playing").forEach((n) => n.classList.remove("cf-playing"));
@@ -174,15 +186,21 @@ window.ChordFlowChordSheet = (function () {
         `.cf-cell[data-section="${h.section}"][data-row="${h.row}"][data-cell="${h.cell}"]`);
       if (!cellEl) return;
       cellEl.classList.add("cf-playing");
-      if (h.chord != null) {
-        const chordEl = cellEl.querySelector(`.cf-chord[data-chord="${h.chord}"]`);
-        if (chordEl) chordEl.classList.add("cf-playing");
-      }
+      const sub = h.beat != null
+        ? cellEl.querySelector(`.cf-beat[data-beat="${h.beat}"]`)
+        : (h.chord != null ? cellEl.querySelector(`.cf-chord[data-chord="${h.chord}"]`) : null);
+      if (sub) sub.classList.add("cf-playing");
     }
 
-    // Light the sounding bar (and, in a split bar, the active chord segment). chord is optional.
+    // Per-chord marker: light the sounding bar (+ the active chord segment in a split bar). chord optional.
     function highlight(section, row, cell, chord) {
-      lastHighlight = { section, row, cell, chord: chord == null ? null : chord };
+      lastHighlight = { section, row, cell, chord: chord == null ? null : chord, beat: null };
+      applyHighlight(lastHighlight);
+    }
+
+    // Visual-metronome marker: light the sounding bar + the current beat column.
+    function highlightBeat(section, row, cell, beat) {
+      lastHighlight = { section, row, cell, chord: null, beat: beat == null ? null : beat };
       applyHighlight(lastHighlight);
     }
 
@@ -306,6 +324,14 @@ window.ChordFlowChordSheet = (function () {
         // when the runtime state class is set (screen-only). These indices match Core's (barsPerRow-aligned).
         const cellG = el("g", { "data-section": si, "data-row": ri, "data-cell": i, class: "cf-cell" });
         cellG.appendChild(el("rect", { class: "cf-cell-hl", x: cx, y, width: BAR_W, height: rowH, fill: "none" }));
+        // Per-beat highlight columns (visual-metronome mode): N equal-width slices, invisible until highlighted,
+        // behind the tokens. Drawn for every cell so any bar can tick beat-by-beat.
+        const nBeats = beatsPerBar();
+        for (let k = 0; k < nBeats; k++) {
+          const beatG = el("g", { class: "cf-beat", "data-beat": k });
+          beatG.appendChild(el("rect", { class: "cf-beat-hl", x: cx + (k / nBeats) * BAR_W, y, width: BAR_W / nBeats, height: rowH, fill: "none" }));
+          cellG.appendChild(beatG);
+        }
         if (layout === "B") {
           cellG.appendChild(el("rect", { x: cx, y, width: BAR_W, height: rowH, fill: "none", stroke: t.cellBorder, "stroke-width": 1 }));
         } else {
@@ -458,7 +484,7 @@ window.ChordFlowChordSheet = (function () {
 
     return {
       render, setLayout, setNotation, setToneLabels, setAdornments, setTheme, setBarsPerRow,
-      highlight, clearHighlight,
+      highlight, highlightBeat, clearHighlight,
       svgElement, toSvgString, toPngBlob, lightSvg, dispose,
     };
   }

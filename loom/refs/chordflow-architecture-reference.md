@@ -5,7 +5,7 @@ title: ChordFlow Architecture
 status: active
 created: 2026-06-10
 updated: 2026-07-15
-version: 71
+version: 72
 tags: []
 parent_id: null
 requires_load: []
@@ -174,7 +174,7 @@ Shape (arrows point up; only the `Music → Instruments` edge is test-enforced):
 
 **Playback engine seam (`playback-component.js`, `window.ChordFlowPlayback`).** alphaTab fuses rendering and playback in one `AlphaTabApi(surface, settings)`, so the api + transport + audio + soundfont round-trip + beat/state events live in a shared **`ChordFlowPlayback`** engine. `score-render-component.js` (**ScoreR**) *composes* one and reaches through `engine.getApi()` for its render/notation concerns (staff, notation-display options, staff-display profile, key/feel/tempo pickers, debug panel); its public handle is unchanged, so the Practice player (`app.js`) and the Content-preview (`content-crud.js`) consume ScoreR exactly as before. A headless consumer (e.g. the Chord Sheets page) mounts a `ChordFlowPlayback` with its surface off-screen to get transport + `onBeat` without any notation chrome.
 
-**Chord-sheet playback (chord-sheets-playback).** The `chordSheetResult` envelope now carries `{ sheet, cellSchedule, tex }` (was `{ sheet }`): `tex` is playable alphaTex the page renders through its own `ChordFlowPlayback`, and `cellSchedule` maps score `(bar,beat)` → the sounding `ChordSheetR` cell/chord. The `ChordSheetR` SVG is now addressable (`<g data-section data-row data-cell>` cells + nested `<g data-chord>`), with `highlight()/clearHighlight()` driving a screen-only marker (export stays inert). All three — sheet, cellSchedule, tex — come from one realized-song pass in the handler, so the marker tracks the audio beat-for-beat.
+**Chord-sheet playback (chord-sheets-playback).** The `chordSheetResult` envelope now carries `{ sheet, cellSchedule, tex }` (was `{ sheet }`): `tex` is playable alphaTex the page renders through its own `ChordFlowPlayback`, and `cellSchedule` maps score `(bar,beat)` → the sounding `ChordSheetR` cell/chord. The `ChordSheetR` SVG is now addressable (`<g data-section data-row data-cell>` cells + nested `<g data-chord>`), with `highlight()`/`highlightBeat()`/`clearHighlight()` driving a screen-only marker in two selectable modes — **Visual metronome** (per-beat column, default) and **Per chord** (active chord segment) — both over the same bar wash (export stays inert). All three — sheet, cellSchedule, tex — come from one realized-song pass in the handler, so the marker tracks the audio beat-for-beat.
 
 The structural move + `GuitarInstrument` adapter landed in `guitar/instrument-boundary`; the renderer fork + the polymorphic `IInstrument` are still to come in `chordflow/instrument-rendering`. The diagram's future-fork annotations (`« future fork… »`, `IInstrument [deferred…]`) mark what that thread adds.
 

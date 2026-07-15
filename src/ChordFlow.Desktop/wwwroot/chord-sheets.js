@@ -24,7 +24,8 @@ window.ChordFlowChordSheets = (function () {
   // Playback (the page owns its OWN ChordFlowPlayback engine — option a; no cross-page transport).
   let engine = null;               // ChordFlowPlayback handle (hidden staff surface)
   let scheduleByBar = new Map();    // bar (0-based) → [cellSchedule entries sorted by beat] for the marker
-  let lastMarkerKey = null;         // "section:row:cell:chord" last highlighted — skip redundant re-highlights
+  let lastMarkerKey = null;         // last highlighted key — skip redundant re-highlights
+  let markerMode = "metronome";     // "metronome" (per-beat, default) | "chord" (per-chord segment)
   let playBtn, stopBtn, tempoInput, soundFontSel;   // transport controls
 
   const state = {
@@ -224,6 +225,18 @@ window.ChordFlowChordSheets = (function () {
     soundFontSel.addEventListener("change", () => { if (engine) engine.setSoundFont(soundFontSel.value); });
     transportEl.append(sfLab, soundFontSel);
 
+    // Marker mode: Visual metronome (per-beat, default) vs Per chord (the active chord segment).
+    const markerLab = document.createElement("label");
+    markerLab.textContent = "Marker"; markerLab.style.cssText = "color:#9aa0a6;";
+    const markerSel = document.createElement("select");
+    markerSel.style.cssText = "font:inherit;padding:.2rem .3rem;background:#3a3a3d;color:#e6e6e6;border:1px solid #4a4a4f;border-radius:4px;";
+    [["metronome", "Visual metronome"], ["chord", "Per chord"]].forEach(([v, l]) => {
+      const o = document.createElement("option"); o.value = v; o.textContent = l; markerSel.appendChild(o);
+    });
+    markerSel.value = markerMode;
+    markerSel.addEventListener("change", () => { markerMode = markerSel.value; lastMarkerKey = null; });
+    transportEl.append(markerLab, markerSel);
+
     const showTab = document.createElement("label");
     showTab.style.cssText = "display:inline-flex;align-items:center;gap:.3rem;color:#9aa0a6;margin-left:auto;";
     const showTabCb = document.createElement("input");
@@ -268,16 +281,29 @@ window.ChordFlowChordSheets = (function () {
     for (const arr of scheduleByBar.values()) arr.sort((a, b) => a.beat - b.beat);
   }
 
-  // The engine reports 1-based (bar,beat); the cellSchedule is 0-based (like NowNext). The sounding cell/chord
-  // is the last entry in this bar whose beat <= the current beat (covers sub-chord onsets + sustain between them).
+  // The engine reports 1-based (bar,beat); the cellSchedule is 0-based (like NowNext). Both modes wash the
+  // sounding bar (from its downbeat entry); they differ in the sub-highlight.
   function onBeat(bar, beat) {
     if (!view) return;
     const entries = scheduleByBar.get(bar - 1);
     if (!entries || entries.length === 0) return;   // out-of-range bar → keep the last marker
+    const cell = entries[0];                         // downbeat entry → this bar's cell
+
+    if (markerMode === "metronome") {
+      // Visual metronome: light the current beat column of the bar.
+      const beatIx = beat - 1;
+      const key = "b:" + cell.section + ":" + cell.row + ":" + cell.cell + ":" + beatIx;
+      if (key === lastMarkerKey) return;
+      lastMarkerKey = key;
+      view.highlightBeat(cell.section, cell.row, cell.cell, beatIx);
+      return;
+    }
+
+    // Per chord: the active segment = the last entry whose beat <= the current beat (sub-chord onsets + sustain).
     const b = beat - 1;
     let active = entries[0];
     for (const e of entries) { if (e.beat <= b) active = e; else break; }
-    const key = active.section + ":" + active.row + ":" + active.cell + ":" + active.chord;
+    const key = "c:" + active.section + ":" + active.row + ":" + active.cell + ":" + active.chord;
     if (key === lastMarkerKey) return;               // no change → skip a redundant DOM re-query
     lastMarkerKey = key;
     view.highlight(active.section, active.row, active.cell, active.chord);
