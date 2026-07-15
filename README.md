@@ -19,13 +19,16 @@ guitar tablature with **synchronized playback** via [alphaTab](https://www.alpha
 
 ## Features (v0.14.0)
 
-- **Chord Sheets — print your songs as chord sheets** — a **Chord Sheets** page renders any song or
+- **Chord Sheets — print *and play along with* your songs** — a **Chord Sheets** page renders any song or
   progression as a one-page chart in two idioms: a flowing **leadsheet** (`| bars |`, four to a row, boxed
   section tags) or a **bar-grid** (one box per bar, in section blocks), in any key or the song's own.
   Chords read as **letter names / Nashville numbers / Roman numerals** (with an optional second line showing
   another at once); repeated bars collapse to a **`%` simile** and multi-chord bars split by beat. Optional
   per-bar **chord-tone strip** (notes ⇄ interval degrees) and **fret diagram** turn a chart into a
-  what-to-play reference, and you can **export to SVG, PNG, or PDF** (always on a clean light page)
+  what-to-play reference, and you can **export to SVG, PNG, or PDF** (always on a clean light page). And you
+  can **play along**: press Play and a marker follows the music in time — a **Visual metronome** (the current
+  beat lights up across each bar) or a **Per chord** highlight — driven by the same synchronized playback
+  engine as the tablature view
 
 - **Faceted Voicings grid — the whole engine on one screen** — a **Voicings** page renders every realized
   voicing at once as a grid of fretboard chord-boxes, over a **faceted toggle-button filter stack** (Root,

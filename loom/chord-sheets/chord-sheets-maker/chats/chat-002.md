@@ -9,7 +9,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 6
+last_ai_block: 7
 ---
 # chord-sheets-maker v2 animated playback Chat 002
 
@@ -66,3 +66,14 @@ Done — both created:
 **Yes, your flow is correct.** Create a chat in the new thread (`loom/chord-sheets/chord-sheets-playback/chats/chat-001.md`) and open a fresh session pointed at it — I'll load the new thread's context (this idea + the parent v1 design via the weave/parent chain) and we talk design there. Once the design settles: design.md → lock a req → plan → build. The open-questions list in the idea is our starting agenda.
 
 One optional tidy-up for *this* thread before you switch: `chord-sheets-maker` is fully shipped but its idea/design/chats are still open — a `docs done` here would mark them done (it won't touch the plan or req). Say the word and I'll run it; otherwise I'll leave it as-is.
+
+## AI:
+
+Closing the loop on this one — the "new thread, not a plan here" call played out well:
+
+- **`chord-sheets-playback` shipped in full.** The design session (in that thread's chat-001) settled all the open questions this chat flagged: the beat→cell schedule is a Core-emitted `cellSchedule` overlaid with the render pass's chord schedule; the marker lives **inside ChordSheetR's SVG** via addressable `<g>` groups (not the HTML shell); `%`/repeat bars get their own downbeat entry; and — the seam that made it clean — the alphaTab transport was **extracted into a shared `ChordFlowPlayback`** so ScoreR and ChordSheetR are both dumb views over one clock.
+- **Four plans, all dogfooded + committed:** engine extraction (ScoreR parity) → sheet marker → below-cell fix → a bonus **visual-metronome** marker mode. Two commits on `main` (`aadd147`, `781eb76`).
+- **One correction to this chat's premise:** it assumed `playedBeatChanged` + a ready `<g data-bar>` highlight state existed. Grounding against the shipped code found neither — ScoreR uses `activeBeatsChanged`, and ChordSheetR was flat SVG — so making the surface addressable was in-scope work, not just wiring. Good that the new thread's grounding pass caught it.
+- The other four v2 items stay captured as future threads. A pre-existing **metronome/count-in audio** bug surfaced during testing and is parked in its own `playback/metronome-countin-fix` thread.
+
+**Re the tidy-up I offered above:** both `chord-sheets-maker` and `chord-sheets-playback` are now fully shipped, so a `docs done` on each would mark their idea/design/chats done (leaving plans/reqs as-is). Want me to run it on both?
