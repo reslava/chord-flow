@@ -2,7 +2,7 @@
 type: chat
 id: ch_01KXJDH7RR5FCGPZVFV2AWHF8Z
 title: chord-sheets-playback Chat 001
-status: active
+status: done
 created: 2026-07-15
 version: 1
 tags: []
