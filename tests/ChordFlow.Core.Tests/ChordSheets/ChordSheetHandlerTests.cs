@@ -21,7 +21,7 @@ public class ChordSheetHandlerTests
     private static DbContextOptions<ChordFlowDbContext> Options(SqliteConnection conn) =>
         new DbContextOptionsBuilder<ChordFlowDbContext>().UseSqlite(conn).Options;
 
-    private static SqliteConnection SeededConnection()
+    private static SqliteConnection SeededConnection(string dsl = "17 47 17 17")
     {
         var conn = new SqliteConnection("DataSource=:memory:");
         conn.Open();
@@ -31,7 +31,7 @@ public class ChordSheetHandlerTests
         {
             Id = "blues",
             Name = "Blues",
-            Dsl = "17 47 17 17",
+            Dsl = dsl,
             Origin = Origin.UserDefined,
             CreatedUtc = DateTime.UtcNow,
         });
@@ -94,6 +94,35 @@ public class ChordSheetHandlerTests
         Assert.All(
             sheet.Sections.SelectMany(s => s.Rows).SelectMany(r => r.Cells).SelectMany(c => c.Chords),
             chord => Assert.NotNull(chord.Diagram));
+    }
+
+    [Fact]
+    public void Build_ReturnsPlayableTexAndPerBarCellSchedule()
+    {
+        using var conn = SeededConnection();   // 4 bars: I7 IV7 I7 I7 (bar 3 repeats bar 2 → a %)
+        var handler = new ChordSheetHandler(Options(conn));
+
+        ChordSheetResultEnvelope result = handler.Build(Request());
+
+        Assert.False(string.IsNullOrWhiteSpace(result.Tex));   // playable alphaTex was rendered
+        // A downbeat entry (bar-level highlight) for every bar 0..3, incl. the % bar (bar 3).
+        Assert.Equal(
+            new[] { 0, 1, 2, 3 },
+            result.CellSchedule.Where(e => e.Beat == 0).Select(e => e.Bar).Distinct().OrderBy(b => b));
+        Assert.Contains(result.CellSchedule, e => e is { Bar: 3, Beat: 0, Chord: 0 });
+    }
+
+    [Fact]
+    public void Build_SplitBar_GetsSubChordOnsetEntry()
+    {
+        using var conn = SeededConnection("17_47");   // one bar, two chords (C7 then F7)
+        var handler = new ChordSheetHandler(Options(conn));
+
+        ChordSheetResultEnvelope result = handler.Build(Request());
+
+        // The downbeat (chord segment 0) plus a mid-bar onset for the second chord (segment 1, beat > 0).
+        Assert.Contains(result.CellSchedule, e => e is { Bar: 0, Beat: 0, Chord: 0 });
+        Assert.Contains(result.CellSchedule, e => e.Bar == 0 && e.Chord == 1 && e.Beat > 0);
     }
 
     [Fact]

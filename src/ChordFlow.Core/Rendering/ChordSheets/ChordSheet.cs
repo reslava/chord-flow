@@ -91,3 +91,18 @@ public sealed record ChordSheetTone(
     string Note,
     string Interval,
     string Function);
+
+/// <summary>
+/// One entry in a chord sheet's <b>playback schedule</b>: at score position (<see cref="Bar"/>,
+/// <see cref="Beat"/>) — 0-based, in alphaTab's master-bar / <c>beat.index</c> units — the sounding cell is
+/// <c>Sections[Section].Rows[Row].Cells[Cell]</c>, and within a split cell its <see cref="Chord"/>-th chord
+/// segment. Drives the animated marker on <c>ChordSheetR</c>.
+/// <para>
+/// The <see cref="ChordSheetBuilder"/> emits the per-bar <b>downbeat</b> entries (<see cref="Beat"/> 0,
+/// <see cref="Chord"/> 0) — one per bar, covering <c>%</c> similes and sustained bars so every bar can
+/// highlight — because it walks harmony only and has no rhythm-slot layout. The handler then overlays the
+/// sub-chord onset beats for split bars from the render schedule (<see cref="ChordChange"/>), so the whole
+/// schedule lines up with the audio timeline by construction (design approach A / D1-a).
+/// </para>
+/// </summary>
+public sealed record CellScheduleEntry(int Bar, int Beat, int Section, int Row, int Cell, int Chord);

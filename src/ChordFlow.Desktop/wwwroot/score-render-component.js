@@ -5,8 +5,14 @@
 // (content-crud.js, lite render-only). It centralizes the alphaTab settings (one source of truth, no
 // per-consumer drift) and the on/off render options.
 //
+// The alphaTab api + transport + audio + soundfont + beat events live in a shared **ChordFlowPlayback**
+// engine (playback-component.js); ScoreR composes one and reaches through engine.getApi() for its own
+// render/notation concerns. ScoreR owns the visible staff, the control strip, the notation-display
+// options, the staff-display profile, the key/feel/tempo pickers, and the alphaTex debug panel. Its public
+// handle is unchanged — Practice and Content-preview consume it exactly as before.
+//
 // Options split in two (the load-bearing distinction):
-//   • player-kind  (metronome, count-in) — applied locally via the alphaTab API, no round-trip.
+//   • player-kind  (metronome, count-in) — applied locally via the engine, no round-trip.
 //   • content-kind (chord names, chord diagrams, voicing) — change the alphaTex the C# renderer emits,
 //                   so flipping one fires onNeedsRerender(renderOptions) and the consumer re-requests.
 //
@@ -34,13 +40,7 @@
 "use strict";
 
 window.ChordFlowScore = (function () {
-  // Player-state enum, resolved defensively (the minified bundle may shuffle namespaces).
-  const PlayerState =
-    (alphaTab.synth && alphaTab.synth.PlayerState) ||
-    alphaTab.PlayerState ||
-    { Paused: 0, Playing: 1 };
-
-  const PLAYER_KIND = new Set(["metronome", "countIn"]);   // applied via the alphaTab API
+  const PLAYER_KIND = new Set(["metronome", "countIn"]);   // applied via the engine
   const CONTENT_KIND = new Set(["chordNames", "diagramsOverStaff", "diagramsOnTop", "voicing"]); // require a C# re-render
   const DISPLAY_KIND = new Set(["autoLayout"]); // applied locally via updateSettings()+render() — no re-render request
 
@@ -94,43 +94,8 @@ window.ChordFlowScore = (function () {
     return { layoutMode: alphaTab.LayoutMode.Page, barsPerRow: auto ? -1 : 4, justifyLastSystem: !auto };
   }
 
-  // The soundfont shipped in the repo — the boot default and the fallback the host falls back to when no
-  // choice is stored. The picker lists whatever the host discovers; ids are file names under soundfont/.
-  const DEFAULT_SOUNDFONT = "sonivox.sf2";
-  function fontUrl(id) { return "soundfont/" + id; }
-
   // A minimal valid score so the debug panel's Render works before any host score has arrived (dev / first run).
   const DEBUG_SAMPLE_TEX = ['\\title "Scratch"', ".", ":4 3.3 3.3 3.3 3.3 |"].join("\n");
-
-  // The single alphaTab settings source of truth. Player settings are added only in player mode so a
-  // lite preview never pays the soundfont/worker-player cost.
-  function buildSettings(player, options, scroll) {
-    const settings = {
-      core: {
-        fontDirectory: "font/",   // relative to index.html, served same-origin under the virtual host
-        useWorkers: true,         // real https origin → layout worker is allowed off the main thread
-      },
-      // Honor the engine's authored `defaultSystemsLayout N` unless the user flips to auto (fit-to-width).
-      display: layoutDisplay(!!(options && options.autoLayout)),
-    };
-    if (player) {
-      settings.player = {
-        enablePlayer: true,
-        enableCursor: true,
-        enableAnimatedBeatCursor: true,
-        enableElementHighlighting: true,
-        soundFont: fontUrl(DEFAULT_SOUNDFONT),   // boot default; replaced live once the host reports the saved choice
-        // Auto-follow the cursor only when the consumer opts in (Practice); scrollElement + a bounded surface
-        // are wired after the api exists (see applyScroll). Off by default keeps the Content preview's free layout.
-        // OffScreen page-flips the surface only when the cursor would leave view — no per-frame creep (Smooth's
-        // problem) and no cross-row offset miscompute (Continuous's). The native browser smooth-scroll animates
-        // each flip so it glides instead of snapping.
-        scrollMode: scroll ? alphaTab.ScrollMode.OffScreen : alphaTab.ScrollMode.Off,
-        nativeBrowserSmoothScroll: scroll,
-      };
-    }
-    return settings;
-  }
 
   function create(container, opts) {
     opts = opts || {};
@@ -154,39 +119,57 @@ window.ChordFlowScore = (function () {
     const surface = document.createElement("div");
     surface.className = "cf-score-surface";
 
-    const api = new alphaTab.AlphaTabApi(surface, buildSettings(player, options, opts.scroll));
-
-    // Auto-follow the cursor by scrolling the score's OWN bounded surface (Model A) — never the window, which
-    // would carry the Now/Next boards + transport off the top. Mode is "off" | "offscreen" | "continuous":
-    //   - offscreen  → page-flip only when the cursor would leave view; nativeBrowserSmoothScroll animates the flip.
-    //   - continuous → keep the cursor in view every beat; native smooth-scroll OFF so it doesn't fight the
-    //                  per-frame repositioning (it would rubber-band).
-    //   - off        → release the bound so the full score sits in normal flow for manual scrolling.
-    // Both follow modes share the same 60vh bound + scrollOffsetY headroom; switching them is just scrollMode +
-    // the paired nativeBrowserSmoothScroll. The transport mode-select flips this live via handle.setScrollMode.
-    const SCROLL_MODES = { off: alphaTab.ScrollMode.Off, offscreen: alphaTab.ScrollMode.OffScreen, continuous: alphaTab.ScrollMode.Continuous };
-    let scrollMode = "off";
-    function applyScrollMode(mode) {
-      if (!player) return;
-      scrollMode = SCROLL_MODES[mode] !== undefined ? mode : "off";
-      const p = api.settings.player;
-      p.scrollMode = SCROLL_MODES[scrollMode];
-      if (scrollMode === "off") {
-        surface.style.maxHeight = "";
-        p.scrollElement = "html,body";   // alphaTab default; inert while scrollMode is Off
-      } else {
-        p.nativeBrowserSmoothScroll = scrollMode === "offscreen";   // animate the flip; instant for Continuous
-        surface.style.maxHeight = "60vh";
-        p.scrollElement = surface;
-        p.scrollOffsetY = -15;
-      }
-      api.updateSettings();
-    }
-    if (player) applyScrollMode(opts.scroll ? "offscreen" : "off");
-
-    let baseTempo = 80;   // the score's authored \tempo; runtime tempo scales off it
     let lastHostTex = null;   // the alphaTex this component last rendered from a host load() — for the debug panel
     let debugDirty = false;   // user has edited the debug textarea; host re-renders stop overwriting it until reload
+    let disposed = false;
+
+    // Control refs, populated by buildControls when a strip is rendered.
+    const ui = { play: null, stop: null, tempo: null, key: null, soundFont: null, tripletFeel: null, staffProfile: null, toggles: {} };
+    // Debug-panel refs, populated by buildDebugPanel when debugPanel is on.
+    const debugUi = { textarea: null, hint: null };
+
+    function reflectPlayState(playing) {
+      if (ui.play) ui.play.textContent = playing ? "⏸ Pause" : "▶ Play";
+    }
+
+    function setTransportEnabled(enabled) {
+      [ui.play, ui.stop, ui.tempo].forEach((el) => { if (el) el.disabled = !enabled; });
+    }
+
+    // Host reply (via the engine): fill the picker (if shown) and reflect the applied selection. The engine
+    // applies the soundfont itself; ScoreR only mirrors it into the picker UI.
+    function fillSoundFontPicker(fonts, selectedId) {
+      if (disposed) return;
+      if (ui.soundFont) {
+        ui.soundFont.innerHTML = "";
+        for (const f of (fonts || [])) {
+          const opt = document.createElement("option");
+          opt.value = f.id;
+          opt.textContent = f.name;
+          ui.soundFont.appendChild(opt);
+        }
+        if (selectedId) ui.soundFont.value = selectedId;
+      }
+    }
+
+    // The shared playback engine owns the alphaTab api + transport + audio + soundfont + beat/state events.
+    // ScoreR grabs its api for all render/notation concerns below, and forwards the engine's events to the
+    // consumer callbacks. The engine renders into `surface`; ScoreR appends `surface` to the container.
+    const engine = ChordFlowPlayback.create(surface, {
+      player,
+      scroll: !!opts.scroll,
+      display: layoutDisplay(!!options.autoLayout),   // ScoreR owns layout; the engine takes the initial blob
+      onBeat: (bar, beat) => cb.onBeat(bar, beat),
+      onStateChange: (playing) => { reflectPlayState(playing); cb.onStateChange(playing); },
+      onFinished: () => cb.onFinished(),
+      onReady: () => setTransportEnabled(true),
+      onSoundFontsListed: (fonts, selectedId) => fillSoundFontPicker(fonts, selectedId),
+    });
+    const api = engine.getApi();
+
+    // Auto-follow mode ("off" | "offscreen" | "continuous") lives in the engine; ScoreR just tracks the
+    // initial value for the transport select and delegates changes.
+    let scrollMode = opts.scroll ? "offscreen" : "off";
 
     // Mirror host output into the debug textarea — unless the user has unsaved edits (dirty), in which case the
     // edits are preserved and we surface a hint that the engine pushed something newer (Reload to pull it in).
@@ -205,18 +188,6 @@ window.ChordFlowScore = (function () {
       Object.assign(api.settings.display, layoutDisplay(options.autoLayout));
       api.updateSettings();
       api.render();
-    }
-
-    // Per-track playback volumes (player-kind, local — never part of renderOptions). Rhythm = track 0,
-    // Lead = track 1 (present only for a two-track exercise; a no-op otherwise). alphaTab rebuilds the tracks
-    // on every load, so these are re-asserted on scoreLoaded.
-    const trackVolumes = { rhythm: 1, lead: 1 };
-    function applyTrackVolume(which) {
-      if (!player || !api.score || !api.score.tracks) return;
-      const track = api.score.tracks[which === "lead" ? 1 : 0];
-      if (track && typeof api.changeTrackVolume === "function") {
-        api.changeTrackVolume([track], trackVolumes[which]);
-      }
     }
 
     // Staff-display profile (tab/standard/both): set the per-staff showStandardNotation/showTablature model
@@ -255,6 +226,7 @@ window.ChordFlowScore = (function () {
     // "Diagrams on top" has no alphaTex directive — it's the score stylesheet's globalDisplayChordDiagramsOnTop
     // flag (defaults to shown when chords are defined). Set it from the current option each time a score
     // loads, so the top list shows/hides independently of the over-staff boxes (driven from the alphaTex).
+    // Runs alongside the engine's own scoreLoaded handler (which re-asserts per-track volumes).
     api.scoreLoaded.on((score) => {
       if (score && score.stylesheet) {
         score.stylesheet.globalDisplayChordDiagramsOnTop = !!options.diagramsOnTop;
@@ -268,116 +240,45 @@ window.ChordFlowScore = (function () {
       if (score && score.tracks && score.tracks.length > 1) {
         api.renderTracks(score.tracks);
       }
-      // Re-assert per-track volumes for the freshly loaded score (tracks are rebuilt on every load).
-      applyTrackVolume("rhythm");
-      applyTrackVolume("lead");
     });
 
-    // Control refs, populated by buildControls when a strip is rendered.
-    const ui = { play: null, stop: null, tempo: null, key: null, soundFont: null, tripletFeel: null, staffProfile: null, toggles: {} };
-    // Debug-panel refs, populated by buildDebugPanel when debugPanel is on.
-    const debugUi = { textarea: null, hint: null };
-
-    // Playback soundfont. The choice is a global host setting; this component requests the list on init and
-    // applies the host's persisted selection live. `currentSoundFont` mirrors what's loaded so we skip a
-    // redundant reload when the saved choice already matches the boot default.
-    let currentSoundFont = DEFAULT_SOUNDFONT;
-    let disposed = false;
-    const bridge = (typeof window !== "undefined" && window.ChordFlowBridge) || null;
-
-    // Swap the active synth soundfont live (no re-render, no persist). The bundled alphaTab loads a font by
-    // URL via loadSoundFontFromUrl(url, append=false); updating settings.player.soundFont keeps any internal
-    // reload consistent.
-    function applySoundFont(id) {
-      if (!id || disposed) return;
-      currentSoundFont = id;
-      if (api.settings && api.settings.player) api.settings.player.soundFont = fontUrl(id);
-      if (typeof api.loadSoundFontFromUrl === "function") api.loadSoundFontFromUrl(fontUrl(id), false);
-    }
-
-    // Host reply: fill the picker (if shown) and apply the persisted selection (even without a picker).
-    function onSoundFontsListed(msg) {
-      if (disposed) return;
-      const fonts = (msg && msg.fonts) || [];
-      if (ui.soundFont) {
-        ui.soundFont.innerHTML = "";
-        for (const f of fonts) {
-          const opt = document.createElement("option");
-          opt.value = f.id;
-          opt.textContent = f.name;
-          ui.soundFont.appendChild(opt);
-        }
-      }
-      const selected = msg && msg.selectedId;
-      if (selected) {
-        if (ui.soundFont) ui.soundFont.value = selected;
-        if (selected !== currentSoundFont) applySoundFont(selected);
-      }
-    }
-
-    function applyPlayerOption(name, value) {
-      if (!player) return;
-      if (name === "metronome") api.metronomeVolume = value ? 1 : 0;
-      else if (name === "countIn") api.countInVolume = value ? 1 : 0;
-    }
-
-    function reflectPlayState(playing) {
-      if (ui.play) ui.play.textContent = playing ? "⏸ Pause" : "▶ Play";
-    }
-
-    // Keep a toggle checkbox in sync when its option is set programmatically (e.g. the on-top coupling).
-    function syncToggle(name, value) {
-      const toggle = ui.toggles[name];
-      if (toggle && toggle.checked !== !!value) toggle.checked = !!value;
-    }
-
-    function setTransportEnabled(enabled) {
-      [ui.play, ui.stop, ui.tempo].forEach((el) => { if (el) el.disabled = !enabled; });
-    }
-
     const handle = {
-      // Render an alphaTex string. `tempo` (the score's authored BPM) re-bases setTempo's speed multiplier.
+      // Render an alphaTex string. `tempo` (the score's authored BPM) re-bases the engine's speed multiplier.
       load(tex, o) {
-        if (o && o.tempo) baseTempo = o.tempo;
-        if (ui.tempo) ui.tempo.value = String(baseTempo);
+        engine.load(tex, o);
+        if (ui.tempo) ui.tempo.value = String(engine.getBaseTempo());
         lastHostTex = tex;
         syncDebugTextarea(tex);   // mirror into the debug panel (no-op when off / preserved when dirty)
-        api.tex(tex);
       },
-      play() { api.playPause(); },
-      stop() { api.stop(); },
-      // Translate absolute BPM into alphaTab's playbackSpeed multiplier (1.0 = authored tempo) — no re-render.
-      setTempo(bpm) { if (bpm && baseTempo) api.playbackSpeed = bpm / baseTempo; },
+      play() { engine.play(); },
+      stop() { engine.stop(); },
+      // Translate absolute BPM into the engine's playbackSpeed multiplier (1.0 = authored tempo) — no re-render.
+      setTempo(bpm) { engine.setTempo(bpm); },
       // Seed the tempo from selected content WITHOUT re-rendering (the twin of seedTripletFeel/seedKey): tempo is
       // a LOCAL playback-speed param, never a C# re-emit (unlike key/feel). Sets baseTempo + the input so the next
       // render/generate carries it and getTempo() returns it. The following load(tex,{tempo}) re-bases as usual.
       seedTempo(bpm) {
         if (!bpm) return;
-        baseTempo = bpm;
+        engine.seedTempo(bpm);
         if (ui.tempo) ui.tempo.value = String(bpm);
       },
       // Per-track playback volume (0..1). which = "rhythm" | "lead"; lead is a no-op on a single-track score.
-      setTrackVolume(which, value) {
-        trackVolumes[which] = value;
-        applyTrackVolume(which);
-      },
-      // User picked a soundfont: apply it live and persist the new global choice host-side.
-      setSoundFont(id) {
-        applySoundFont(id);
-        if (bridge) bridge.send({ type: "setSoundFont", id });
-      },
+      setTrackVolume(which, value) { engine.setTrackVolume(which, value); },
+      // User picked a soundfont: the engine applies it live and persists the new global choice host-side.
+      setSoundFont(id) { engine.setSoundFont(id); },
       // User picked a staff-display profile (tab/standard/both): apply it live (display-only, no re-render
       // request) and persist the new global choice host-side, mirroring the soundfont path.
       setStaffProfile(profile) {
         applyStaffProfile(profile);
         if (bridge) bridge.send({ type: "setStaffProfile", profile });
       },
-      // Player-kind → applied locally; content-kind → ask the consumer to re-render with the new options.
+      // Player-kind → applied via the engine; content-kind → ask the consumer to re-render with the new options.
       setOption(name, value) {
         options[name] = value;
         syncToggle(name, value);
         if (PLAYER_KIND.has(name)) {
-          applyPlayerOption(name, value);
+          if (name === "metronome") engine.setMetronome(value);
+          else if (name === "countIn") engine.setCountIn(value);
           return;
         }
         if (DISPLAY_KIND.has(name)) {
@@ -404,17 +305,17 @@ window.ChordFlowScore = (function () {
           voicing: options.voicing,
         };
       },
-      // Auto-follow mode ("off" | "offscreen" | "continuous") — flips scrollMode + the bounded-surface binding
-      // + the paired nativeBrowserSmoothScroll live (see applyScrollMode).
-      setScrollMode(mode) { applyScrollMode(mode); },
+      // Auto-follow mode ("off" | "offscreen" | "continuous") — delegated to the engine (scrollMode + the
+      // bounded-surface binding + the paired nativeBrowserSmoothScroll).
+      setScrollMode(mode) { scrollMode = mode; engine.setScrollMode(mode); },
       // Ask the consumer to show/hide its Now/Next fretboards (the component doesn't own that container).
       toggleNowNext(visible) { cb.onToggleNowNext(!!visible); },
-      getApi() { return api; },
+      getApi() { return engine.getApi(); },
       // The current tempo shown in the transport (BPM), else the loaded score's authored tempo. Lets a
       // consumer carry the user's tempo choice onto the next generate request.
       getTempo() {
         const shown = ui.tempo ? parseInt(ui.tempo.value, 10) : NaN;
-        return shown || baseTempo;
+        return shown || engine.getBaseTempo();
       },
       // The current whole-song triplet feel (C# TripletFeel name). Tempo's twin — a component-owned value the
       // consumer carries onto the next render request (kept OUT of getRenderOptions; it's a first-class param).
@@ -450,12 +351,14 @@ window.ChordFlowScore = (function () {
         cb.onNeedsRerender(handle.getRenderOptions());
       },
       dispose() {
-        disposed = true;   // a late soundFontsListed fan-out must not touch a destroyed api
-        try { api.destroy(); } catch (_) { /* already torn down */ }
+        disposed = true;   // a late staffProfile fan-out must not touch a destroyed api
+        engine.dispose();
         container.innerHTML = "";
         container.classList.remove("cf-score");
       },
     };
+
+    const bridge = (typeof window !== "undefined" && window.ChordFlowBridge) || null;
 
     // The opt-in alphaTex debug panel (collapsed). Edits the rendered tex and re-renders through THIS component's
     // alphaTab instance — bypassing C#. Dirty-state (see syncDebugTextarea): once edited, host re-renders stop
@@ -516,43 +419,9 @@ window.ChordFlowScore = (function () {
     if (debugPanel) container.appendChild(buildDebugPanel());
 
     if (player) {
-      // playerStateChanged: { state: Paused/Playing, stopped: bool }. `stopped` fires at natural end and
-      // on stop() — both mean "session ended" for the consumer's onFinished.
-      api.playerStateChanged.on((e) => {
-        const playing = e.state === PlayerState.Playing;
-        reflectPlayState(playing);
-        cb.onStateChange(playing);
-        if (e.stopped) cb.onFinished();
-      });
-      // activeBeatsChanged: report the first active beat's (bar, beat), both 1-based.
-      api.activeBeatsChanged.on((e) => {
-        // alphaTab's ActiveBeatsChangedEventArgs.activeBeats is a Beat[]; tolerate a { beats: [] } wrapper too.
-        const active = e && e.activeBeats;
-        const beats = Array.isArray(active) ? active : active && active.beats;
-        if (!beats || beats.length === 0) return;
-        const beat = beats[0];
-        const bar = (beat.voice && beat.voice.bar ? beat.voice.bar.index : 0) + 1;
-        const beatInBar = (typeof beat.index === "number" ? beat.index : 0) + 1;
-        cb.onBeat(bar, beatInBar);
-      });
-      // Transport needs the player; enable it once the soundfont is ready.
-      api.soundFontLoaded.on(() => setTransportEnabled(true));
-
       // Apply the initial player-kind option state (content-kind already rides the first render request).
-      applyPlayerOption("metronome", options.metronome);
-      applyPlayerOption("countIn", options.countIn);
-
-      // Ask the host which soundfonts exist + which is the saved choice; the reply fills the picker and applies
-      // the selection. Feature-detected: in a plain browser (no host) the boot default stays in effect.
-      if (bridge && bridge.available) {
-        bridge.onReceive((data) => {
-          let msg;
-          try { msg = typeof data === "string" ? JSON.parse(data) : data; }
-          catch (_) { return; }
-          if (msg && msg.type === "soundFontsListed") onSoundFontsListed(msg);
-        });
-        bridge.send({ type: "listSoundFonts" });
-      }
+      engine.setMetronome(options.metronome);
+      engine.setCountIn(options.countIn);
     }
 
     // Staff-display profile (tab/standard/both): a global, display-only score-view preference. Request the saved
@@ -785,7 +654,7 @@ window.ChordFlowScore = (function () {
     return wrap;
   }
 
-  // A per-track volume slider (0..1). Player-kind: applied locally via the alphaTab API, never re-rendered.
+  // A per-track volume slider (0..1). Player-kind: applied locally via the engine, never re-rendered.
   function volumeSlider(which, label, handle, ui) {
     const wrap = document.createElement("label");
     wrap.className = "cf-toggle";

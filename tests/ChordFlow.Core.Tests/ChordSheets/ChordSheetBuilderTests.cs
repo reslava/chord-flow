@@ -30,7 +30,10 @@ public class ChordSheetBuilderTests
         return new RealizedSong(new[] { new RealizedSection(label, key, Transposer.RealizeBars(prog, key)) });
     }
 
-    private static ChordSheet Build(string dsl, ChordSheetOptions? opts = null, CompingPlan? comping = null)
+    private static ChordSheet Build(string dsl, ChordSheetOptions? opts = null, CompingPlan? comping = null) =>
+        BuildResult(dsl, opts, comping).Sheet;
+
+    private static ChordSheetBuildResult BuildResult(string dsl, ChordSheetOptions? opts = null, CompingPlan? comping = null)
     {
         RealizedSong realized = Realize(dsl, CMajor);
         Song song = Song.OfProgression(ProgressionParser.Parse("p", "Blues", dsl, Ts), CMajor);
@@ -127,7 +130,7 @@ public class ChordSheetBuilderTests
         Song song = SongParser.Parse("s", "My Blues", "capo 3\ntempo 120\nfeel triplet8th\nA = 1 4 5 1\nA", Ts);
         RealizedSong realized = Realize("1 4 5 1", CMajor);
 
-        ChordSheetHeader header = ChordSheetBuilder.Build(song, realized, CMajor, Ts, FourPerRow).Header;
+        ChordSheetHeader header = ChordSheetBuilder.Build(song, realized, CMajor, Ts, FourPerRow).Sheet.Header;
 
         Assert.Equal("My Blues", header.Title);
         Assert.Null(header.Artist);
@@ -145,7 +148,7 @@ public class ChordSheetBuilderTests
         RealizedSong realized = Realize("1 4 5 1", eFlat);
         Song song = Song.OfProgression(ProgressionParser.Parse("p", "P", "1 4 5 1", Ts), eFlat);
 
-        ChordSheet sheet = ChordSheetBuilder.Build(song, realized, eFlat, Ts, FourPerRow);
+        ChordSheet sheet = ChordSheetBuilder.Build(song, realized, eFlat, Ts, FourPerRow).Sheet;
         Assert.Equal("Eb", sheet.Header.KeyName);
         Assert.Equal("Eb", sheet.Sections[0].Rows[0].Cells[0].Chords.Single().Concrete); // I in Eb = Eb
     }
@@ -170,7 +173,7 @@ public class ChordSheetBuilderTests
         var comping = new CompingPlan(grips);
 
         ChordRef chord = ChordSheetBuilder.Build(song, realized, CMajor, Ts, FourPerRow, comping)
-            .Sections[0].Rows[0].Cells[0].Chords.Single();
+            .Sheet.Sections[0].Rows[0].Cells[0].Chords.Single();
 
         Assert.NotNull(chord.Diagram);
         Assert.Equal("C", chord.Diagram!.Title);
@@ -180,5 +183,32 @@ public class ChordSheetBuilderTests
     public void Build_ZeroBarsPerRow_Throws()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => Build("1", new ChordSheetOptions(BarsPerRow: 0)));
+    }
+
+    [Fact]
+    public void Build_BarSchedule_OneDownbeatEntryPerBar_CoveringSimiles()
+    {
+        // 6 bars incl. a % (bar 1 repeats bar 0), 4/row → row0 = bars 0..3 (cells 0..3), row1 = bars 4,5 (cells 0,1).
+        IReadOnlyList<CellScheduleEntry> schedule = BuildResult("1 1 4 5 6- 5").BarSchedule;
+
+        // One entry per bar, sequential global bar index, all at the downbeat + chord 0 of a single section.
+        Assert.Equal(6, schedule.Count);
+        Assert.Equal(Enumerable.Range(0, 6), schedule.Select(e => e.Bar));
+        Assert.All(schedule, e => { Assert.Equal(0, e.Beat); Assert.Equal(0, e.Chord); Assert.Equal(0, e.Section); });
+
+        // The % bar (bar 1) still gets its own entry, at (row 0, cell 1).
+        Assert.Equal(new CellScheduleEntry(1, 0, 0, 0, 1, 0), schedule[1]);
+        // Row/cell mapping follows the 4/row chunking: bar 4 → row 1 cell 0, bar 5 → row 1 cell 1.
+        Assert.Equal(new CellScheduleEntry(4, 0, 0, 1, 0, 0), schedule[4]);
+        Assert.Equal(new CellScheduleEntry(5, 0, 0, 1, 1, 0), schedule[5]);
+    }
+
+    [Fact]
+    public void Build_BarSchedule_SplitBar_HasSingleDownbeatEntry()
+    {
+        // A split bar (two chords) still emits ONE downbeat entry (chord 0); the per-chord onsets are the
+        // handler's overlay job, not the builder's (approach A — the builder has no rhythm-slot layout).
+        CellScheduleEntry entry = Assert.Single(BuildResult("17_47").BarSchedule);
+        Assert.Equal(new CellScheduleEntry(0, 0, 0, 0, 0, 0), entry);
     }
 }

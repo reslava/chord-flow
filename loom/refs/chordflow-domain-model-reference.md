@@ -4,8 +4,8 @@ id: rf_01KTM41K36DYJ0CE44FE7TMCGH
 title: ChordFlow Domain Model
 status: active
 created: 2026-06-08
-updated: 2026-07-14
-version: 107
+updated: 2026-07-15
+version: 108
 tags: []
 parent_id: null
 requires_load: []
@@ -155,6 +155,8 @@ The old sequential `Beat(Duration, IsHit)` model was **removed**; rhythm is now 
 ### Chord-sheet presentation model (`Rendering/ChordSheets/`) — chord-sheets-maker
 
 A second presentation target alongside alphaTex: the **`ChordSheet`** model — pure/immutable records `ChordSheet(Header, Sections)` → `ChordSheetSection(Label, Rows)` → `ChordSheetRow(Cells)` → `ChordSheetCell(Chords, RepeatOfPrev, BarTicks)` → `ChordRef(Concrete, Degree, Roman, DurationTicks, Tones, Diagram?)` → `ChordSheetTone(Note, Interval, Function)`. Instrument-agnostic except the optional `ChordRef.Diagram` (a guitar `FretboardDiagram`), which is why it lives in `Rendering/` (the allowed `Rendering → Instruments` edge), not `Music/`. Built by the **`ChordSheetBuilder`** Features slice (`Features/ChordSheets/`) as a **pure projection of a `RealizedSong`**: per chord it derives `Concrete` (`ChordSymbol.Format`), `Degree` (Nashville token of the `RomanDegree`), `Roman` (honest diatonic function — no secondary-dominant/borrowed inference, that awaits the `harmonic-analysis` thread), `Tones` (`ChordTones` + `NoteSpeller` + `IntervalSpeller.Label` + function colour-key), and `Diagram` (`RealizedVoicingDiagram.Build` from a `CompingPlan`, only when the diagram adornment is on); `RepeatOfPrev` (the `%` simile) is Core-computed by bar-equality (ordered spans equal by concrete `Chord` + `DurationTicks`, scoped per section). No new music theory — every field is a projection of existing kernel types. The JS ChordSheetR draws it (see the architecture ref); the `ChordSheetHandler` serves the `chordSheet` bridge verb.
+
+**Playback projection (chord-sheets-playback).** `ChordSheetBuilder.Build` returns a `ChordSheetBuildResult(Sheet, BarSchedule)` — `BarSchedule` is one `CellScheduleEntry(Bar, Beat, Section, Row, Cell, Chord)` per bar at its downbeat (0-based, alphaTab master-bar / `beat.index` units), covering `%` similes and sustained bars. The builder walks harmony only, so it emits downbeats, not rhythm-slot beats. The `ChordSheetHandler` realizes the song **once** and feeds it to *both* the builder *and* `AlphaTexRenderer` (a neutral quarter-note comp — `SeedData.Quarters` — over an always-resolved `CompingPlan`), then overlays that render pass's `ChordChange` schedule onto the bar-map to add split-bar sub-chord onsets — the final `cellSchedule`. `chordSheetResult` now carries `{ sheet, cellSchedule, tex }`, so the JS page plays the `tex` through its own `ChordFlowPlayback` and lights the sounding cell/chord in time, aligned to the audio timeline by construction (one realized-song pass).
 
 ---
 

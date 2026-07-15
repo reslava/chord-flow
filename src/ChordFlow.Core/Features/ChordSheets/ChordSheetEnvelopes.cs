@@ -9,8 +9,18 @@ namespace ChordFlow.Features.ChordSheets;
 /// fail-loud, like <c>voicingDeriveError</c>) when the harmony can't be resolved.
 /// </summary>
 
-/// <summary>The built chord sheet: <c>{"type":"chordSheetResult","sheet":{…ChordSheet…}}</c>.</summary>
-public sealed record ChordSheetResultEnvelope(ChordSheet Sheet, string Type = "chordSheetResult");
+/// <summary>
+/// The built chord sheet plus its playback payload:
+/// <c>{"type":"chordSheetResult","sheet":{…ChordSheet…},"cellSchedule":[…],"tex":"…"}</c>. <see cref="CellSchedule"/>
+/// maps score (bar,beat) → the sounding cell/chord for the animated marker; <see cref="Tex"/> is the playable
+/// alphaTex the page's own ChordFlowPlayback engine renders + plays (both derived from one realized-song pass so
+/// they align — design D1-a).
+/// </summary>
+public sealed record ChordSheetResultEnvelope(
+    ChordSheet Sheet,
+    IReadOnlyList<CellScheduleEntry> CellSchedule,
+    string Tex,
+    string Type = "chordSheetResult");
 
 /// <summary>A UI-safe failure (missing harmony, bad reference): <c>{"type":"chordSheetError","message":"…"}</c>.</summary>
 public sealed record ChordSheetErrorEnvelope(string Message, string Type = "chordSheetError");

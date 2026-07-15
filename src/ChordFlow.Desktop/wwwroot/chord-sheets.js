@@ -15,11 +15,17 @@ window.ChordFlowChordSheets = (function () {
   const KEY_NAMES = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
 
   let initialized = false;
-  let pageEl, toolbarEl, sheetEl, errorEl, hintEl;
+  let pageEl, toolbarEl, transportEl, scoreWrapEl, sheetEl, errorEl, hintEl;
   let view = null;        // ChordSheetR handle
   let lastModel = null;   // last chordSheetResult model (for pure-JS re-renders)
   const harmony = [];     // [{ entity, id, name }] from the song + progression entity lists
   let harmonySel;
+
+  // Playback (the page owns its OWN ChordFlowPlayback engine — option a; no cross-page transport).
+  let engine = null;               // ChordFlowPlayback handle (hidden staff surface)
+  let scheduleByBar = new Map();    // bar (0-based) → [cellSchedule entries sorted by beat] for the marker
+  let lastMarkerKey = null;         // "section:row:cell:chord" last highlighted — skip redundant re-highlights
+  let playBtn, stopBtn, tempoInput, soundFontSel;   // transport controls
 
   const state = {
     harmonyEntity: null, harmonyId: null, key: "", // key "" = the song's own key
@@ -77,28 +83,38 @@ window.ChordFlowChordSheets = (function () {
       KEY_NAMES.map((n, pc) => ({ value: String(pc), label: n })));
     toolbarEl.appendChild(select("Key", keyOpts, state.key, (v) => { state.key = v; requestSheet(); }).wrap);
 
+    // Display toggles reuse the live ChordSheetR via its setters (not a rebuild) so the playback marker
+    // survives; harmony/key/adornment change what Core computes, so those re-request (requestSheet).
     toolbarEl.appendChild(select("Layout",
       [{ value: "A", label: "A · Leadsheet" }, { value: "B", label: "B · Grid" }],
-      state.layout, (v) => { state.layout = v; renderNow(); }).wrap);
+      state.layout, (v) => { state.layout = v; if (view) view.setLayout(v); }).wrap);
 
     const notationOpts = [
       { value: "concrete", label: "Letter" }, { value: "nashville", label: "Nashville" }, { value: "roman", label: "Roman" },
     ];
-    toolbarEl.appendChild(select("Chords", notationOpts, state.primary, (v) => { state.primary = v; renderNow(); }).wrap);
+    toolbarEl.appendChild(select("Chords", notationOpts, state.primary,
+      (v) => { state.primary = v; if (view) view.setNotation({ primary: v, secondary: state.secondary || null }); }).wrap);
     toolbarEl.appendChild(select("+ line",
-      [{ value: "", label: "None" }].concat(notationOpts), state.secondary, (v) => { state.secondary = v; renderNow(); }).wrap);
+      [{ value: "", label: "None" }].concat(notationOpts), state.secondary,
+      (v) => { state.secondary = v; if (view) view.setNotation({ primary: state.primary, secondary: v || null }); }).wrap);
 
     toolbarEl.appendChild(select("Below cell",
       [{ value: "none", label: "None" }, { value: "tones", label: "Tone strip" }, { value: "diagram", label: "Fret diagram" }, { value: "both", label: "Both" }],
-      state.adornment, (v) => { state.adornment = v; requestSheet(); }).wrap);
+      state.adornment, (v) => {
+        state.adornment = v;
+        // Update the reused component's adornment flags (tones show at once; diagrams appear when the
+        // re-fetch below returns their Core-computed data). requestSheet re-requests only for the diagram.
+        if (view) view.setAdornments({ tones: v === "tones" || v === "both", diagrams: v === "diagram" || v === "both" });
+        requestSheet();
+      }).wrap);
 
     toolbarEl.appendChild(select("Tone labels",
       [{ value: "notes", label: "Notes" }, { value: "intervals", label: "Intervals" }],
-      state.toneLabels, (v) => { state.toneLabels = v; renderNow(); }).wrap);
+      state.toneLabels, (v) => { state.toneLabels = v; if (view) view.setToneLabels(v); }).wrap);
 
     toolbarEl.appendChild(select("Theme",
       [{ value: "auto", label: "Auto" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" }],
-      state.theme, (v) => { state.theme = v; renderNow(); }).wrap);
+      state.theme, (v) => { state.theme = v; if (view) view.setTheme(v); }).wrap);
 
     // Export group (right-aligned). SVG/PNG are client-side; PDF prints via the host (always light — IN11).
     const spacer = document.createElement("span");
@@ -153,21 +169,118 @@ window.ChordFlowChordSheets = (function () {
     Bridge.send({ type: "exportChordSheet" });
   }
 
-  // Re-render the held model with the current display settings (pure JS, no round-trip).
+  // Render the held model, creating the ChordSheetR once and reusing it thereafter (display toggles go
+  // through its setters — see buildToolbar — so the playback marker survives).
   function renderNow() {
     if (!lastModel) return;
-    if (view) view.dispose();
-    view = window.ChordFlowChordSheet.create(sheetEl, {
-      layout: state.layout,
-      notation: { primary: state.primary, secondary: state.secondary || null },
-      toneLabels: state.toneLabels,
-      adornments: {
-        tones: state.adornment === "tones" || state.adornment === "both",
-        diagrams: state.adornment === "diagram" || state.adornment === "both",
-      },
-      theme: state.theme,
-    });
+    if (!view) {
+      view = window.ChordFlowChordSheet.create(sheetEl, {
+        layout: state.layout,
+        notation: { primary: state.primary, secondary: state.secondary || null },
+        toneLabels: state.toneLabels,
+        adornments: {
+          tones: state.adornment === "tones" || state.adornment === "both",
+          diagrams: state.adornment === "diagram" || state.adornment === "both",
+        },
+        theme: state.theme,
+      });
+    }
     view.render(lastModel);
+  }
+
+  // --- playback: the page owns a ChordFlowPlayback (option a) ----------------
+  // Build the transport strip (play/stop/tempo/soundfont + Show tab). The engine renders its staff into a
+  // collapsed surface; "Show tab" reveals it (D4 — hidden by default).
+  function buildTransport() {
+    transportEl.innerHTML = "";
+    transportEl.style.cssText =
+      "display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.4rem .75rem;margin-bottom:.6rem;" +
+      "background:#2d2d30;border:1px solid #333;border-radius:6px;font-size:.85rem;";
+
+    playBtn = button("▶ Play", () => { if (engine) engine.play(); });
+    playBtn.disabled = true;
+    stopBtn = button("■ Stop", () => { if (engine) engine.stop(); });
+    stopBtn.disabled = true;
+    transportEl.append(playBtn, stopBtn);
+
+    const tempoLab = document.createElement("label");
+    tempoLab.textContent = "Tempo"; tempoLab.style.cssText = "color:#9aa0a6;";
+    tempoInput = document.createElement("input");
+    tempoInput.type = "number"; tempoInput.min = "40"; tempoInput.max = "240"; tempoInput.step = "1";
+    tempoInput.disabled = true;
+    tempoInput.style.cssText = "width:4rem;font:inherit;padding:.2rem .3rem;background:#3a3a3d;color:#e6e6e6;border:1px solid #4a4a4f;border-radius:4px;";
+    tempoInput.addEventListener("change", () => {
+      const bpm = parseInt(tempoInput.value, 10);
+      if (bpm && engine) engine.setTempo(bpm);
+    });
+    const bpm = document.createElement("span");
+    bpm.textContent = "BPM"; bpm.style.color = "#9aa0a6";
+    transportEl.append(tempoLab, tempoInput, bpm);
+
+    const sfLab = document.createElement("label");
+    sfLab.textContent = "Sound"; sfLab.style.cssText = "color:#9aa0a6;";
+    soundFontSel = document.createElement("select");
+    soundFontSel.style.cssText = "font:inherit;padding:.2rem .3rem;background:#3a3a3d;color:#e6e6e6;border:1px solid #4a4a4f;border-radius:4px;";
+    soundFontSel.addEventListener("change", () => { if (engine) engine.setSoundFont(soundFontSel.value); });
+    transportEl.append(sfLab, soundFontSel);
+
+    const showTab = document.createElement("label");
+    showTab.style.cssText = "display:inline-flex;align-items:center;gap:.3rem;color:#9aa0a6;margin-left:auto;";
+    const showTabCb = document.createElement("input");
+    showTabCb.type = "checkbox";
+    showTabCb.addEventListener("change", () => { scoreWrapEl.style.maxHeight = showTabCb.checked ? "" : "0"; });
+    showTab.append(showTabCb, document.createTextNode("Show tab"));
+    transportEl.append(showTab);
+  }
+
+  // Create the page's own ChordFlowPlayback engine (once), rendering its staff into the collapsed surface.
+  function setupEngine() {
+    if (engine || !window.ChordFlowPlayback) return;
+    const surface = document.createElement("div");
+    scoreWrapEl.appendChild(surface);
+    engine = window.ChordFlowPlayback.create(surface, {
+      player: true,
+      onBeat: onBeat,
+      onStateChange: (playing) => { if (playBtn) playBtn.textContent = playing ? "⏸ Pause" : "▶ Play"; },
+      onFinished: () => { if (view) view.clearHighlight(); lastMarkerKey = null; if (playBtn) playBtn.textContent = "▶ Play"; },
+      onReady: () => { if (playBtn) playBtn.disabled = false; if (stopBtn) stopBtn.disabled = false; if (tempoInput) tempoInput.disabled = false; },
+      onSoundFontsListed: (fonts, selectedId) => {
+        if (!soundFontSel) return;
+        soundFontSel.innerHTML = "";
+        for (const f of (fonts || [])) {
+          const o = document.createElement("option");
+          o.value = f.id; o.textContent = f.name;
+          soundFontSel.appendChild(o);
+        }
+        if (selectedId) soundFontSel.value = selectedId;
+      },
+    });
+  }
+
+  // Group the cellSchedule by bar (0-based), each bar's entries sorted by beat — for the beat→cell lookup.
+  function buildSchedule(cellSchedule) {
+    scheduleByBar = new Map();
+    for (const e of (cellSchedule || [])) {
+      let arr = scheduleByBar.get(e.bar);
+      if (!arr) { arr = []; scheduleByBar.set(e.bar, arr); }
+      arr.push(e);
+    }
+    for (const arr of scheduleByBar.values()) arr.sort((a, b) => a.beat - b.beat);
+  }
+
+  // The engine reports 1-based (bar,beat); the cellSchedule is 0-based (like NowNext). The sounding cell/chord
+  // is the last entry in this bar whose beat <= the current beat (covers sub-chord onsets + sustain between them).
+  function onBeat(bar, beat) {
+    if (!view) return;
+    const entries = scheduleByBar.get(bar - 1);
+    if (!entries || entries.length === 0) return;   // out-of-range bar → keep the last marker
+    const b = beat - 1;
+    let active = entries[0];
+    for (const e of entries) { if (e.beat <= b) active = e; else break; }
+    const key = active.section + ":" + active.row + ":" + active.cell + ":" + active.chord;
+    if (key === lastMarkerKey) return;               // no change → skip a redundant DOM re-query
+    lastMarkerKey = key;
+    view.highlight(active.section, active.row, active.cell, active.chord);
   }
 
   // Ask the host to (re)build the model — the recompute path (harmony/key/adornment).
@@ -176,6 +289,9 @@ window.ChordFlowChordSheets = (function () {
     if (!state.harmonyEntity || !state.harmonyId) {
       lastModel = null;
       if (view) { view.dispose(); view = null; }
+      if (engine) engine.stop();
+      scheduleByBar = new Map();
+      lastMarkerKey = null;
       setHint("Pick a song or progression to render its chord sheet.");
       return;
     }
@@ -198,7 +314,17 @@ window.ChordFlowChordSheets = (function () {
     if (msg.type === "chordSheetResult") {
       setError("");
       lastModel = msg.sheet;
+      buildSchedule(msg.cellSchedule);
       renderNow();
+      lastMarkerKey = null;
+      if (view) view.clearHighlight();
+      // New content → stop any playback and load the playable tex into the page's engine.
+      if (engine) {
+        engine.stop();
+        const tempo = (msg.sheet.header && msg.sheet.header.tempo) || 100;
+        engine.load(msg.tex, { tempo });
+        if (tempoInput) tempoInput.value = String(tempo);
+      }
     } else if (msg.type === "chordSheetError") {
       setError(msg.message || "Couldn't build this chord sheet.");
     } else if (msg.type === "chordSheetPdfDone") {
@@ -239,18 +365,26 @@ window.ChordFlowChordSheets = (function () {
     pageEl = document.getElementById("chord-sheets-page");
     pageEl.innerHTML = "";
     toolbarEl = document.createElement("div");
+    transportEl = document.createElement("div");
     errorEl = document.createElement("div");
     errorEl.style.cssText = "color:#ff8a8a;font-size:.8rem;min-height:1.1rem;margin:.2rem 0;";
     hintEl = document.createElement("div");
     hintEl.style.cssText = "color:#8a8f94;font-size:.85rem;margin:.2rem 0;";
+    // The engine's staff surface — collapsed by default (Show tab reveals it); kept full-width so alphaTab lays out.
+    scoreWrapEl = document.createElement("div");
+    scoreWrapEl.style.cssText = "overflow:hidden;max-height:0;";
     sheetEl = document.createElement("div");
     sheetEl.style.cssText = "overflow:auto;";
     pageEl.appendChild(toolbarEl);
+    pageEl.appendChild(transportEl);
     pageEl.appendChild(errorEl);
     pageEl.appendChild(hintEl);
+    pageEl.appendChild(scoreWrapEl);
     pageEl.appendChild(sheetEl);
     buildToolbar();
+    buildTransport();
     if (Bridge.available) Bridge.onReceive(onHostMessage);
+    setupEngine();
     initialized = true;
   }
 

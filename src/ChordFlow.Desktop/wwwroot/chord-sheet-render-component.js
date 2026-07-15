@@ -23,6 +23,8 @@
 //     barsPerRow:4,            // only affects Layout A wrapping (Layout B rows are pre-chunked by Core)
 //   });
 //   sheet.render(model); sheet.setLayout("B"); sheet.setNotation({primary:"roman"}); sheet.setTheme("dark");
+//   sheet.highlight(section, row, cell, chord?);  // screen-only playback marker (chord optional, split bars)
+//   sheet.clearHighlight();                        // clear the marker (on stop / end)
 //   sheet.svgElement();  // the raw <svg> (for export)
 "use strict";
 
@@ -47,6 +49,14 @@ window.ChordFlowChordSheet = (function () {
       sectionBorder: "#6b6b70", tag: "#3a3a3d", tagText: "#e6e6e6", diagLine: "#6b6b70", diagMuted: "#cfcfd2",
     },
   };
+
+  // Playback marker wash — a translucent amber that reads over BOTH the light and dark chrome, so no
+  // per-theme table is needed. The cell wash is the bar-level highlight; the chord wash is the stronger
+  // active-segment accent within a split bar. Screen-only: a fresh build never carries the `cf-playing`
+  // class, so export (which builds a new SVG) is inert. Injected as one <style> per built SVG.
+  const HIGHLIGHT_CSS =
+    ".cf-playing > .cf-cell-hl{fill:rgba(245,158,11,0.18);}" +
+    ".cf-playing > .cf-chord-hl{fill:rgba(245,158,11,0.42);}";
 
   // ---- geometry --------------------------------------------------------------------------------
   const MARGIN = 16;
@@ -90,6 +100,7 @@ window.ChordFlowChordSheet = (function () {
     let barsPerRow = opts.barsPerRow > 0 ? opts.barsPerRow : 4;
     let model = null;
     let svgNode = null;
+    let lastHighlight = null;   // {section,row,cell,chord} — re-applied after every rebuild (screen-only marker)
 
     function normalizeNotation(n) {
       n = n || {};
@@ -117,11 +128,14 @@ window.ChordFlowChordSheet = (function () {
       const width = MARGIN * 2 + cols * BAR_W;
 
       const svg = el("svg", { xmlns: NS, style: `display:block;background:${t.bg};font-family:system-ui,sans-serif;` });
+      const style = el("style");
+      style.textContent = HIGHLIGHT_CSS;   // inert until a node carries `cf-playing` (screen-only marker)
+      svg.appendChild(style);
       let y = MARGIN;
       y = drawHeader(svg, MARGIN, y, cols * BAR_W, model.header, t);
 
-      for (const section of rowsPerSection) {
-        y = drawSection(svg, MARGIN, y, section, rowH, t);
+      for (let si = 0; si < rowsPerSection.length; si++) {
+        y = drawSection(svg, MARGIN, y, rowsPerSection[si], rowH, t, si);
         y += SECTION_GAP;
       }
 
@@ -146,6 +160,36 @@ window.ChordFlowChordSheet = (function () {
       root.appendChild(svg);
       container.appendChild(root);
       svgNode = svg;
+      if (lastHighlight) applyHighlight(lastHighlight);   // survive layout/notation/theme rebuilds mid-play
+    }
+
+    // ---- playback marker (screen-only) ---------------------------------------------------------
+    // Address a cell by (section,row,cell) — indices line up with Core's cellSchedule — and, optionally, a
+    // chord segment within a split bar. Always re-queries the CURRENT svg (render() replaces the DOM), so no
+    // stale node references; the last highlight is re-applied automatically after any rebuild.
+    function applyHighlight(h) {
+      if (!svgNode) return;
+      svgNode.querySelectorAll(".cf-playing").forEach((n) => n.classList.remove("cf-playing"));
+      const cellEl = svgNode.querySelector(
+        `.cf-cell[data-section="${h.section}"][data-row="${h.row}"][data-cell="${h.cell}"]`);
+      if (!cellEl) return;
+      cellEl.classList.add("cf-playing");
+      if (h.chord != null) {
+        const chordEl = cellEl.querySelector(`.cf-chord[data-chord="${h.chord}"]`);
+        if (chordEl) chordEl.classList.add("cf-playing");
+      }
+    }
+
+    // Light the sounding bar (and, in a split bar, the active chord segment). chord is optional.
+    function highlight(section, row, cell, chord) {
+      lastHighlight = { section, row, cell, chord: chord == null ? null : chord };
+      applyHighlight(lastHighlight);
+    }
+
+    // Clear the marker (on stop / end) — drops the state so a later rebuild stays clean.
+    function clearHighlight() {
+      lastHighlight = null;
+      if (svgNode) svgNode.querySelectorAll(".cf-playing").forEach((n) => n.classList.remove("cf-playing"));
     }
 
     // ---- export (always LIGHT — req IN11) ------------------------------------------------------
@@ -220,7 +264,7 @@ window.ChordFlowChordSheet = (function () {
     }
 
     // ---- a section (rows of cells) -------------------------------------------------------------
-    function drawSection(svg, x, y, section, rowH, t) {
+    function drawSection(svg, x, y, section, rowH, t, si) {
       const topY = y;
       // Boxed section tag (Intro/Verse/A/…) above the first row.
       let contentY = y;
@@ -231,8 +275,8 @@ window.ChordFlowChordSheet = (function () {
         contentY = y + TAG_H + 4;
       }
 
-      for (const cells of section.rows) {
-        drawRow(svg, x, contentY, cells, rowH, t);
+      for (let ri = 0; ri < section.rows.length; ri++) {
+        drawRow(svg, x, contentY, section.rows[ri], rowH, t, si, ri);
         contentY += rowH;
       }
 
@@ -253,53 +297,69 @@ window.ChordFlowChordSheet = (function () {
       return m * BAR_W;
     }
 
-    function drawRow(svg, x, y, cells, rowH, t) {
+    function drawRow(svg, x, y, cells, rowH, t, si, ri) {
       for (let i = 0; i < cells.length; i++) {
         const cx = x + i * BAR_W;
+        // Each bar-cell is an addressable <g> (section,row,cell) — the playback marker toggles a "cf-playing"
+        // state on it. A backdrop rect (cf-cell-hl) is the first child so the highlight paints BEHIND the
+        // tokens; it is invisible (fill:none) in a fresh build, so export is unaffected — the wash only shows
+        // when the runtime state class is set (screen-only). These indices match Core's (barsPerRow-aligned).
+        const cellG = el("g", { "data-section": si, "data-row": ri, "data-cell": i, class: "cf-cell" });
+        cellG.appendChild(el("rect", { class: "cf-cell-hl", x: cx, y, width: BAR_W, height: rowH, fill: "none" }));
         if (layout === "B") {
-          svg.appendChild(el("rect", { x: cx, y, width: BAR_W, height: rowH, fill: "none", stroke: t.cellBorder, "stroke-width": 1 }));
+          cellG.appendChild(el("rect", { x: cx, y, width: BAR_W, height: rowH, fill: "none", stroke: t.cellBorder, "stroke-width": 1 }));
         } else {
           // Leadsheet barline at the left edge of each bar, plus a closing line after the last bar of the row.
-          svg.appendChild(el("line", { x1: cx, y1: y + 4, x2: cx, y2: y + CHORD_ROW_H - 2, stroke: t.rule, "stroke-width": 1.5 }));
+          cellG.appendChild(el("line", { x1: cx, y1: y + 4, x2: cx, y2: y + CHORD_ROW_H - 2, stroke: t.rule, "stroke-width": 1.5 }));
           if (i === cells.length - 1) {
-            svg.appendChild(el("line", { x1: cx + BAR_W, y1: y + 4, x2: cx + BAR_W, y2: y + CHORD_ROW_H - 2, stroke: t.rule, "stroke-width": 1.5 }));
+            cellG.appendChild(el("line", { x1: cx + BAR_W, y1: y + 4, x2: cx + BAR_W, y2: y + CHORD_ROW_H - 2, stroke: t.rule, "stroke-width": 1.5 }));
           }
         }
-        drawCell(svg, cx, y, BAR_W, cells[i], t);
+        drawCell(cellG, cx, y, BAR_W, cells[i], t);
+        svg.appendChild(cellG);
       }
     }
 
     // ---- one bar cell --------------------------------------------------------------------------
-    function drawCell(svg, x, y, w, cell, t) {
+    // Draws into `parent` (the cell <g>). Each chord token lives in its own <g data-chord=j> so a split bar's
+    // sub-chord can be highlighted independently; a % cell has no chord group (the marker highlights the cell).
+    function drawCell(parent, x, y, w, cell, t) {
       const cx = x + w / 2;
       const primaryY = y + 26;
 
       if (cell.repeatOfPrev) {
-        drawSimile(svg, cx, y + CHORD_ROW_H / 2 + 4, t);
+        drawSimile(parent, cx, y + CHORD_ROW_H / 2 + 4, t);
         return;
       }
 
       const chords = cell.chords || [];
       if (chords.length === 1) {
-        drawChord(svg, cx, primaryY, chords[0], t);
+        const g = el("g", { "data-chord": 0, class: "cf-chord" });
+        g.appendChild(el("rect", { class: "cf-chord-hl", x, y, width: w, height: CHORD_ROW_H, fill: "none" }));
+        drawChord(g, cx, primaryY, chords[0], t);
         let belowY = y + CHORD_ROW_H + (notation.secondary ? SECONDARY_H : 0);
         if (adornments.tones && chords[0].tones && chords[0].tones.length) {
-          drawToneStrip(svg, x + 8, belowY, w - 16, chords[0].tones, t);
+          drawToneStrip(g, x + 8, belowY, w - 16, chords[0].tones, t);
           belowY += TONE_STRIP_H;
         }
         if (adornments.diagrams && chords[0].diagram) {
-          drawDiagram(svg, x, belowY, w, chords[0].diagram, t);
+          drawDiagram(g, x, belowY, w, chords[0].diagram, t);
         }
+        parent.appendChild(g);
         return;
       }
 
       // Multi-chord bar: split by each chord's tick share; tokens only (adornments are single-chord, v1).
       const total = cell.barTicks || chords.reduce((s, c) => s + (c.durationTicks || 0), 0) || 1;
       let acc = 0;
-      for (const c of chords) {
+      for (let j = 0; j < chords.length; j++) {
+        const c = chords[j];
         const frac = (c.durationTicks || 0) / total;
         const sub = x + (acc / total) * w;
-        drawChord(svg, sub + (frac * w) / 2, primaryY, c, t);
+        const g = el("g", { "data-chord": j, class: "cf-chord" });
+        g.appendChild(el("rect", { class: "cf-chord-hl", x: sub, y, width: frac * w, height: CHORD_ROW_H, fill: "none" }));
+        drawChord(g, sub + (frac * w) / 2, primaryY, c, t);
+        parent.appendChild(g);
         acc += c.durationTicks || 0;
       }
     }
@@ -398,6 +458,7 @@ window.ChordFlowChordSheet = (function () {
 
     return {
       render, setLayout, setNotation, setToneLabels, setAdornments, setTheme, setBarsPerRow,
+      highlight, clearHighlight,
       svgElement, toSvgString, toPngBlob, lightSvg, dispose,
     };
   }

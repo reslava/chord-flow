@@ -13,6 +13,14 @@ namespace ChordFlow.Features.ChordSheets;
 public sealed record ChordSheetOptions(int BarsPerRow = 4);
 
 /// <summary>
+/// A <see cref="ChordSheetBuilder"/> build result: the drawn <see cref="Sheet"/> plus the per-bar
+/// <see cref="BarSchedule"/> — one downbeat <see cref="CellScheduleEntry"/> per bar (in walk order, its global
+/// 0-based bar index), covering <c>%</c> similes and sustained bars. The handler overlays split-bar sub-chord
+/// beats onto this from the render schedule to produce the final playback cellSchedule (approach A).
+/// </summary>
+public sealed record ChordSheetBuildResult(ChordSheet Sheet, IReadOnlyList<CellScheduleEntry> BarSchedule);
+
+/// <summary>
 /// Builds a <see cref="ChordSheet"/> from an already-realized song — the Features-layer producer, peer of
 /// <see cref="ExerciseRendering"/> (which builds alphaTex). The caller owns the I/O seam (resolve the harmony
 /// via <see cref="ExerciseRefs"/>, <see cref="SongExpander.Expand"/> it into a <see cref="RealizedSong"/>, and —
@@ -29,7 +37,7 @@ public static class ChordSheetBuilder
     /// accidentals follow modulations. Pass <paramref name="comping"/> (resolved over the same
     /// <paramref name="realized"/>) to fill the fret-diagram adornment; leave it null for no diagram.
     /// </summary>
-    public static ChordSheet Build(
+    public static ChordSheetBuildResult Build(
         Song song,
         RealizedSong realized,
         Key sheetKey,
@@ -56,12 +64,19 @@ public static class ChordSheetBuilder
             Capo: song.Capo);
 
         var sections = new List<ChordSheetSection>(realized.Sections.Count);
-        foreach (RealizedSection section in realized.Sections)
+        var barSchedule = new List<CellScheduleEntry>();
+        // The running master-bar index, advanced once per bar across ALL sections — this lines up with the
+        // AlphaTexRenderer's BarIndex and alphaTab's master-bar index (both walk the same realized bars).
+        int globalBar = 0;
+
+        for (int si = 0; si < realized.Sections.Count; si++)
         {
+            RealizedSection section = realized.Sections[si];
             // Similes are scoped to a section: a section's first bar is never a "%", even if it happens to
             // repeat the previous section's last bar.
             RealizedBar? previous = null;
             var rows = new List<ChordSheetRow>();
+            int rowIndex = 0;
 
             for (int i = 0; i < section.Bars.Count; i += options.BarsPerRow)
             {
@@ -69,6 +84,7 @@ public static class ChordSheetBuilder
                 var cells = new List<ChordSheetCell>(count);
                 for (int b = i; b < i + count; b++)
                 {
+                    int cellIndex = b - i;
                     RealizedBar bar = section.Bars[b];
                     int barTicks = bar.Spans.Sum(s => s.DurationTicks);
 
@@ -84,16 +100,23 @@ public static class ChordSheetBuilder
                         cells.Add(new ChordSheetCell(chords, RepeatOfPrev: false, barTicks));
                     }
 
+                    // One per-bar downbeat entry (Beat 0, Chord 0) for EVERY bar — including % similes and
+                    // sustained bars — so the marker can highlight any sounding bar. Split-bar sub-chord onsets
+                    // are overlaid later in the handler from the render schedule (approach A).
+                    barSchedule.Add(new CellScheduleEntry(globalBar, 0, si, rowIndex, cellIndex, 0));
+                    globalBar++;
+
                     previous = bar;
                 }
 
                 rows.Add(new ChordSheetRow(cells));
+                rowIndex++;
             }
 
             sections.Add(new ChordSheetSection(section.Label, rows));
         }
 
-        return new ChordSheet(header, sections);
+        return new ChordSheetBuildResult(new ChordSheet(header, sections), barSchedule);
     }
 
     // One chord span → a ChordRef carrying every notation (concrete/Nashville/Roman) and the tone strip, plus
