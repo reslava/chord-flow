@@ -2,7 +2,7 @@
 type: idea
 id: id_01KXJQHWZJ36XZCEBA2HTW1EBZ
 title: Metronome & count-in produce no sound (pre-existing regression)
-status: draft
+status: done
 created: 2026-07-15
 version: 1
 tags: []

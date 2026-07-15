@@ -250,6 +250,7 @@ window.ChordFlowChordSheets = (function () {
   function setupEngine() {
     if (engine || !window.ChordFlowPlayback) return;
     const surface = document.createElement("div");
+    surface.className = "cf-score-surface";   // white bg / black ink (index.html) — else alphaTab's dark notation is unreadable on the dark page
     scoreWrapEl.appendChild(surface);
     engine = window.ChordFlowPlayback.create(surface, {
       player: true,

@@ -4,8 +4,8 @@ id: loom-ctx
 title: Loom — Global Context
 status: active
 created: 2026-06-07
-updated: 2026-06-29
-version: 11
+updated: 2026-07-15
+version: 12
 tags: [ctx, summary]
 parent_id: null
 requires_load: []
@@ -52,3 +52,4 @@ source_hash: 61c479f6d5a2f19917ec21349afc4694cf705f66
 - Chat docs are the conversation surface — reply inside them under `## AI:`.
 - After each step, state what was done and what is next, then STOP.
 - **Guitar-weave dogfood rule:** every new guitar feature ships with a fretboard UI page that visualizes it (built on the `fretboard-render-component`) — fast visual confirmation before building the next layer on top. Add a "dogfood: render on the fretboard UI page" line to each guitar idea's Validation section.
+- **Live WebView debugging (`CHORDFLOW_DEVTOOLS`):** the desktop host ships a **default-off** debug facility for inspecting the WebView at runtime. Set the `CHORDFLOW_DEVTOOLS` env var before launching to (a) enable WebView2 devtools (F12 / right-click → Inspect) and (b) expose `window.__cfApi` (the alphaTab api) + `window.__cfEngine` (the `ChordFlowPlayback` handle) for live playback/synth inspection. Inert in normal runs; wired in `src/ChordFlow.Desktop/Program.cs` (env → `AreDevToolsEnabled` + injected `window.__cfDebug`) and `wwwroot/score-render-component.js` (gates the `window.__cf*` handles). Use it when hunting playback/render bugs instead of re-adding temporary debug lines.

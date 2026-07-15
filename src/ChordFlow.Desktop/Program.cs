@@ -65,6 +65,16 @@ internal static class Program
                 await web.EnsureCoreWebView2Async();
                 CoreWebView2 core = web.CoreWebView2;
 
+                // Debug hooks (default OFF; kept in-tree for future bug hunts). Set the CHORDFLOW_DEVTOOLS env
+                // var to enable WebView devtools (F12/Console) AND expose window.__cfApi / window.__cfEngine in
+                // the JS (score-render-component.js gates on window.__cfDebug). Inert in normal runs.
+                bool debugHooks = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CHORDFLOW_DEVTOOLS"));
+                core.Settings.AreDevToolsEnabled = debugHooks;
+                if (debugHooks)
+                {
+                    await core.AddScriptToExecuteOnDocumentCreatedAsync("window.__cfDebug = true;");
+                }
+
                 // wwwroot is copied next to the executable (see ChordFlow.Desktop.csproj).
                 string wwwroot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
                 core.SetVirtualHostNameToFolderMapping(

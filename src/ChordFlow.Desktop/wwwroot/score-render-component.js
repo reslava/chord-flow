@@ -132,6 +132,12 @@ window.ChordFlowScore = (function () {
       if (ui.play) ui.play.textContent = playing ? "⏸ Pause" : "▶ Play";
     }
 
+    // Keep a toggle checkbox in sync when its option is set programmatically (e.g. the on-top coupling).
+    function syncToggle(name, value) {
+      const toggle = ui.toggles[name];
+      if (toggle && toggle.checked !== !!value) toggle.checked = !!value;
+    }
+
     function setTransportEnabled(enabled) {
       [ui.play, ui.stop, ui.tempo].forEach((el) => { if (el) el.disabled = !enabled; });
     }
@@ -166,6 +172,9 @@ window.ChordFlowScore = (function () {
       onSoundFontsListed: (fonts, selectedId) => fillSoundFontPicker(fonts, selectedId),
     });
     const api = engine.getApi();
+    // Debug hook (default off): when the host sets window.__cfDebug (via the CHORDFLOW_DEVTOOLS env var),
+    // expose the ScoreR engine + api for live devtools inspection. Inert in normal runs; kept for bug hunts.
+    if (player && window.__cfDebug) { window.__cfEngine = engine; window.__cfApi = api; }
 
     // Auto-follow mode ("off" | "offscreen" | "continuous") lives in the engine; ScoreR just tracks the
     // initial value for the transport select and delegates changes.
