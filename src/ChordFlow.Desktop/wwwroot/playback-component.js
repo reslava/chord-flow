@@ -66,13 +66,29 @@ window.ChordFlowPlayback = (function () {
   function create(surface, opts) {
     opts = opts || {};
     const player = opts.player !== false;                 // default true
-    const cb = {
-      onBeat: opts.onBeat || function () {},
-      onStateChange: opts.onStateChange || function () {},
-      onFinished: opts.onFinished || function () {},
-      onReady: opts.onReady || function () {},
-      onSoundFontsListed: opts.onSoundFontsListed || function () {},
-    };
+    // A small multi-subscriber event bus so several consumers (a page's playback marker AND a shared
+    // PlayerControlsR) can each react to the same engine events without the page forwarding them. The
+    // create()-time on* callbacks are sugar that register on these same buses.
+    //   beat(bar,beat 1-based) · stateChange(playing) · ready · finished · soundFontsListed(fonts, selectedId)
+    const listeners = { beat: [], stateChange: [], ready: [], finished: [], soundFontsListed: [] };
+    function on(event, handler) {
+      if (listeners[event] && typeof handler === "function") listeners[event].push(handler);
+    }
+    function emit(event) {
+      const hs = listeners[event];
+      if (!hs) return;
+      const args = Array.prototype.slice.call(arguments, 1);
+      for (const h of hs) {
+        try { h.apply(null, args); }
+        catch (e) { console.error("[ChordFlowPlayback] " + event + " listener failed:", e); }
+      }
+    }
+    // Seed the create-time callbacks onto the buses (back-compat sugar).
+    if (opts.onBeat) on("beat", opts.onBeat);
+    if (opts.onStateChange) on("stateChange", opts.onStateChange);
+    if (opts.onReady) on("ready", opts.onReady);
+    if (opts.onFinished) on("finished", opts.onFinished);
+    if (opts.onSoundFontsListed) on("soundFontsListed", opts.onSoundFontsListed);
     const bridge = (typeof window !== "undefined" && window.ChordFlowBridge) || null;
 
     let baseTempo = 80;   // the score's authored \tempo; runtime tempo scales off it
@@ -139,7 +155,7 @@ window.ChordFlowPlayback = (function () {
       if (disposed) return;
       const fonts = (msg && msg.fonts) || [];
       const selected = (msg && msg.selectedId) || null;
-      cb.onSoundFontsListed(fonts, selected || currentSoundFont);
+      emit("soundFontsListed", fonts, selected || currentSoundFont);
       if (selected && selected !== currentSoundFont) applySoundFont(selected);
     }
 
@@ -156,8 +172,8 @@ window.ChordFlowPlayback = (function () {
       // stop() — both mean "session ended" for the consumer's onFinished.
       api.playerStateChanged.on((e) => {
         const playing = e.state === PlayerState.Playing;
-        cb.onStateChange(playing);
-        if (e.stopped) cb.onFinished();
+        emit("stateChange", playing);
+        if (e.stopped) emit("finished");
       });
 
       // activeBeatsChanged: report the first active beat's (bar, beat), both 1-based.
@@ -168,13 +184,13 @@ window.ChordFlowPlayback = (function () {
         const beat = beats[0];
         const bar = (beat.voice && beat.voice.bar ? beat.voice.bar.index : 0) + 1;
         const beatInBar = (typeof beat.index === "number" ? beat.index : 0) + 1;
-        cb.onBeat(bar, beatInBar);
+        emit("beat", bar, beatInBar);
       });
 
       // Transport needs the player; the consumer enables its controls once the soundfont is ready. The synth
       // output exists by now, so (re)assert the desired metronome/count-in state — a value set earlier (before
       // the synth existed) would otherwise have been dropped.
-      api.soundFontLoaded.on(() => { applyMetronomeCountIn(); cb.onReady(); });
+      api.soundFontLoaded.on(() => { applyMetronomeCountIn(); emit("ready"); });
 
       // Ask the host which soundfonts exist + which is the saved choice; feature-detected (no host → boot default).
       if (bridge && bridge.available) {
@@ -198,8 +214,11 @@ window.ChordFlowPlayback = (function () {
       stop() { if (player) api.stop(); },
       // Translate absolute BPM into alphaTab's playbackSpeed multiplier (1.0 = authored tempo) — no re-render.
       setTempo(bpm) { if (player && bpm && baseTempo) api.playbackSpeed = bpm / baseTempo; },
-      setMetronome(on) { metronomeOn = !!on; applyMetronomeCountIn(); },
-      setCountIn(on) { countInOn = !!on; applyMetronomeCountIn(); },
+      setMetronome(state) { metronomeOn = !!state; applyMetronomeCountIn(); },
+      setCountIn(state) { countInOn = !!state; applyMetronomeCountIn(); },
+      // Subscribe to an engine event bus (beat/stateChange/ready/finished/soundFontsListed). Multiple
+      // consumers (page marker + PlayerControlsR) can each subscribe without the page forwarding events.
+      on(event, handler) { on(event, handler); return this; },
       // Per-track playback volume (0..1). which = "rhythm" | "lead"; lead is a no-op on a single-track score.
       setTrackVolume(which, value) { trackVolumes[which] = value; applyTrackVolume(which); },
       // Apply a soundfont live and persist the new global choice host-side.

@@ -29,7 +29,7 @@
 //     debugPanel: true,        // adds a collapsed editable alphaTex panel under the staff (default false)
 //     tripletFeel: true,       // adds a whole-song feel (swing) select to the transport (default false)
 //     key: true,               // adds a Key select to the transport — ScoreR owns key/tempo/feel (default false)
-//     options: { metronome:false, countIn:false, chordNames:false, diagrams:false, voicing:"byDifficulty" },
+//     options: { chordNames:false, diagrams:false, voicing:"byDifficulty" },   // metronome/count-in live in PlayerControlsR
 //     onBeat:(bar,beat)=>…, onStateChange:(playing)=>…, onFinished:()=>…, onNeedsRerender:(ro)=>…,
 //   });
 //   view.load(tex, { tempo }); view.play(); view.stop(); view.setTempo(bpm);
@@ -40,13 +40,10 @@
 "use strict";
 
 window.ChordFlowScore = (function () {
-  const PLAYER_KIND = new Set(["metronome", "countIn"]);   // applied via the engine
   const CONTENT_KIND = new Set(["chordNames", "diagramsOverStaff", "diagramsOnTop", "voicing"]); // require a C# re-render
   const DISPLAY_KIND = new Set(["autoLayout"]); // applied locally via updateSettings()+render() — no re-render request
 
   const DEFAULT_OPTIONS = {
-    metronome: false,
-    countIn: false,
     chordNames: true,        // default selected
     diagramsOverStaff: false,
     diagramsOnTop: true,     // default selected
@@ -124,38 +121,15 @@ window.ChordFlowScore = (function () {
     let disposed = false;
 
     // Control refs, populated by buildControls when a strip is rendered.
-    const ui = { play: null, stop: null, tempo: null, key: null, soundFont: null, tripletFeel: null, staffProfile: null, toggles: {} };
+    const ui = { key: null, tripletFeel: null, staffProfile: null, toggles: {} };
+    let pc = null;   // the shared PlayerControlsR (transport/metronome/count-in/now-next), created before buildControls
     // Debug-panel refs, populated by buildDebugPanel when debugPanel is on.
     const debugUi = { textarea: null, hint: null };
-
-    function reflectPlayState(playing) {
-      if (ui.play) ui.play.textContent = playing ? "⏸ Pause" : "▶ Play";
-    }
 
     // Keep a toggle checkbox in sync when its option is set programmatically (e.g. the on-top coupling).
     function syncToggle(name, value) {
       const toggle = ui.toggles[name];
       if (toggle && toggle.checked !== !!value) toggle.checked = !!value;
-    }
-
-    function setTransportEnabled(enabled) {
-      [ui.play, ui.stop, ui.tempo].forEach((el) => { if (el) el.disabled = !enabled; });
-    }
-
-    // Host reply (via the engine): fill the picker (if shown) and reflect the applied selection. The engine
-    // applies the soundfont itself; ScoreR only mirrors it into the picker UI.
-    function fillSoundFontPicker(fonts, selectedId) {
-      if (disposed) return;
-      if (ui.soundFont) {
-        ui.soundFont.innerHTML = "";
-        for (const f of (fonts || [])) {
-          const opt = document.createElement("option");
-          opt.value = f.id;
-          opt.textContent = f.name;
-          ui.soundFont.appendChild(opt);
-        }
-        if (selectedId) ui.soundFont.value = selectedId;
-      }
     }
 
     // The shared playback engine owns the alphaTab api + transport + audio + soundfont + beat/state events.
@@ -166,10 +140,10 @@ window.ChordFlowScore = (function () {
       scroll: !!opts.scroll,
       display: layoutDisplay(!!options.autoLayout),   // ScoreR owns layout; the engine takes the initial blob
       onBeat: (bar, beat) => cb.onBeat(bar, beat),
-      onStateChange: (playing) => { reflectPlayState(playing); cb.onStateChange(playing); },
+      onStateChange: (playing) => cb.onStateChange(playing),
       onFinished: () => cb.onFinished(),
-      onReady: () => setTransportEnabled(true),
-      onSoundFontsListed: (fonts, selectedId) => fillSoundFontPicker(fonts, selectedId),
+      // `ready` + `soundFontsListed` are consumed by the shared PlayerControlsR via its own engine.on(...)
+      // subscriptions (it enables the transport and fills the soundfont picker) — ScoreR no longer wires them.
     });
     const api = engine.getApi();
     // Debug hook (default off): when the host sets window.__cfDebug (via the CHORDFLOW_DEVTOOLS env var),
@@ -255,7 +229,7 @@ window.ChordFlowScore = (function () {
       // Render an alphaTex string. `tempo` (the score's authored BPM) re-bases the engine's speed multiplier.
       load(tex, o) {
         engine.load(tex, o);
-        if (ui.tempo) ui.tempo.value = String(engine.getBaseTempo());
+        if (pc) pc.setTempoValue(engine.getBaseTempo());
         lastHostTex = tex;
         syncDebugTextarea(tex);   // mirror into the debug panel (no-op when off / preserved when dirty)
       },
@@ -269,7 +243,7 @@ window.ChordFlowScore = (function () {
       seedTempo(bpm) {
         if (!bpm) return;
         engine.seedTempo(bpm);
-        if (ui.tempo) ui.tempo.value = String(bpm);
+        if (pc) pc.setTempoValue(bpm);
       },
       // Per-track playback volume (0..1). which = "rhythm" | "lead"; lead is a no-op on a single-track score.
       setTrackVolume(which, value) { engine.setTrackVolume(which, value); },
@@ -285,11 +259,6 @@ window.ChordFlowScore = (function () {
       setOption(name, value) {
         options[name] = value;
         syncToggle(name, value);
-        if (PLAYER_KIND.has(name)) {
-          if (name === "metronome") engine.setMetronome(value);
-          else if (name === "countIn") engine.setCountIn(value);
-          return;
-        }
         if (DISPLAY_KIND.has(name)) {
           applyLayout();
           return;
@@ -323,7 +292,7 @@ window.ChordFlowScore = (function () {
       // The current tempo shown in the transport (BPM), else the loaded score's authored tempo. Lets a
       // consumer carry the user's tempo choice onto the next generate request.
       getTempo() {
-        const shown = ui.tempo ? parseInt(ui.tempo.value, 10) : NaN;
+        const shown = pc ? pc.getTempo() : 0;
         return shown || engine.getBaseTempo();
       },
       // The current whole-song triplet feel (C# TripletFeel name). Tempo's twin — a component-owned value the
@@ -418,20 +387,17 @@ window.ChordFlowScore = (function () {
       return panel;
     }
 
-    const strip = buildControls(player, controls, options, handle, ui, tripletFeelEnabled, {
-      scrollMode,
-      nowNextToggle: !!opts.onToggleNowNext,
-      keyEnabled,
-    });
+    // The shared player-transport controls (PlayerControlsR), bound to ScoreR's engine handle: play/stop/tempo/
+    // soundfont/metronome/count-in, plus the Now/Next toggle when the consumer wires the boards. ScoreR keeps
+    // owning the engine, the surface, getApi, and its notation-display controls (below).
+    pc = player ? window.ChordFlowPlayerControls.create(null, engine, {
+      onToggleNowNext: opts.onToggleNowNext ? (v) => handle.toggleNowNext(v) : null,
+    }) : null;
+
+    const strip = buildControls(player, controls, options, handle, ui, tripletFeelEnabled, { scrollMode, keyEnabled }, pc);
     if (strip) container.appendChild(strip);
     container.appendChild(surface);
     if (debugPanel) container.appendChild(buildDebugPanel());
-
-    if (player) {
-      // Apply the initial player-kind option state (content-kind already rides the first render request).
-      engine.setMetronome(options.metronome);
-      engine.setCountIn(options.countIn);
-    }
 
     // Staff-display profile (tab/standard/both): a global, display-only score-view preference. Request the saved
     // value on init and apply it; a new choice is persisted host-side via setStaffProfile. Runs in BOTH player
@@ -452,33 +418,16 @@ window.ChordFlowScore = (function () {
 
   // Build the control strip per profile. Transport + player-kind toggles need the player; content-kind
   // toggles render only in the "full" profile. Returns null when nothing is rendered (mini render-only / none).
-  function buildControls(player, controls, options, handle, ui, tripletFeelEnabled, extra) {
+  function buildControls(player, controls, options, handle, ui, tripletFeelEnabled, extra, pc) {
     if (controls === "none") return null;
     extra = extra || {};
 
     const strip = document.createElement("div");
     strip.className = "cf-controls";
 
-    if (player && (controls === "full" || controls === "mini")) {
-      ui.play = button("▶ Play", () => handle.play());
-      ui.play.disabled = true;
-      ui.stop = button("■ Stop", () => handle.stop());
-      ui.stop.disabled = true;
-      strip.append(ui.play, ui.stop);
-
-      const tempoLabel = document.createElement("label");
-      tempoLabel.textContent = "Tempo";
-      ui.tempo = document.createElement("input");
-      ui.tempo.type = "number";
-      ui.tempo.min = "40"; ui.tempo.max = "240"; ui.tempo.step = "1";
-      ui.tempo.disabled = true;
-      ui.tempo.className = "cf-tempo";
-      ui.tempo.addEventListener("change", () => {
-        const bpm = parseInt(ui.tempo.value, 10);
-        if (bpm) handle.setTempo(bpm);
-      });
-      strip.append(tempoLabel, ui.tempo, span("BPM"));
-    }
+    // The shared transport (play/stop/tempo/soundfont/metronome/count-in/now-next) is PlayerControlsR, created
+    // in create() and mounted first so it leads the strip.
+    if (pc) strip.appendChild(pc.el);
 
     if (extra.keyEnabled) {
       strip.append(keyPicker(handle, ui));
@@ -491,16 +440,9 @@ window.ChordFlowScore = (function () {
     if (player && controls === "full") {
       strip.append(
         scrollModeSelect(handle, ui, extra.scrollMode),
-        toggle("metronome", "Metronome", options, handle, ui),
-        toggle("countIn", "Count-in", options, handle, ui),
         volumeSlider("rhythm", "Rhythm vol", handle, ui),
         volumeSlider("lead", "Lead vol", handle, ui),
-        soundFontPicker(handle, ui),
       );
-    }
-
-    if (extra.nowNextToggle) {
-      strip.append(nowNextToggle(handle, ui));
     }
 
     // Staff-display profile — a display-only knob over any shown score, so it appears in both the full
@@ -528,12 +470,6 @@ window.ChordFlowScore = (function () {
     b.textContent = label;
     b.addEventListener("click", onClick);
     return b;
-  }
-
-  function span(text) {
-    const s = document.createElement("span");
-    s.textContent = text;
-    return s;
   }
 
   function toggle(name, label, options, handle, ui) {
@@ -574,20 +510,6 @@ window.ChordFlowScore = (function () {
     return wrap;
   }
 
-  // Show/hide the consumer's Now/Next fretboards. The component doesn't own that container — it just fires
-  // handle.toggleNowNext and lets the consumer (app.js) flip its visibility. Defaults visible.
-  function nowNextToggle(handle, ui) {
-    const wrap = document.createElement("label");
-    wrap.className = "cf-toggle";
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.checked = true;
-    input.addEventListener("change", () => handle.toggleNowNext(input.checked));
-    wrap.append(input, document.createTextNode(" Now/Next"));
-    ui.toggles.nowNext = input;
-    return wrap;
-  }
-
   // The Key picker (tonic pitch class 0..11). Content-kind: a change re-emits the alphaTex in the new key via
   // handle.setKey (a transpose). The consumer reads the choice with handle.getKey(); ScoreR owns the key now.
   function keyPicker(handle, ui) {
@@ -625,19 +547,6 @@ window.ChordFlowScore = (function () {
     select.addEventListener("change", () => handle.setTripletFeel(select.value));
     wrap.append(document.createTextNode("Feel "), select);
     ui.tripletFeel = select;
-    return wrap;
-  }
-
-  // The soundfont picker (player-kind, local apply + host persist). Starts empty; populated by the host's
-  // soundFontsListed reply. Hidden in plain-browser/no-host runs (no list ever arrives, options stay empty).
-  function soundFontPicker(handle, ui) {
-    const wrap = document.createElement("label");
-    wrap.className = "cf-toggle";
-    const select = document.createElement("select");
-    select.className = "cf-soundfont";
-    select.addEventListener("change", () => handle.setSoundFont(select.value));
-    wrap.append(document.createTextNode("Sound "), select);
-    ui.soundFont = select;
     return wrap;
   }
 

@@ -2,7 +2,7 @@
 type: idea
 id: id_01KXKSWXMZG7Y6K5S25042XVZZ
 title: Shared PlayerControlsR — extract the player transport from ScoreR so both render surfaces mount it
-status: draft
+status: done
 created: 2026-07-15
 version: 1
 tags: []

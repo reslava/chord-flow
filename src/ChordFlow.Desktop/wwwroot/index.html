@@ -102,6 +102,22 @@
     /* alphaTab renders into this surface; position:relative anchors its cursor overlay. */
     .cf-score-surface { position: relative; background: #fff; color: #000; border-radius: 6px; overflow: auto; }
 
+    /* ---- Shared player-transport controls (player-controls-component.js) ---- */
+    /* Self-styled so it reads the same mounted inside ScoreR's .cf-controls strip OR the Chord Sheets page. */
+    .cf-player-controls { display: inline-flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+    .cf-player-controls label { color: #9aa0a6; }
+    .cf-player-controls button {
+      font: inherit; padding: .3rem .9rem; border: 1px solid #4a4a4f;
+      border-radius: 4px; background: #3a3a3d; color: #e6e6e6; cursor: pointer;
+    }
+    .cf-player-controls button:disabled { opacity: .5; cursor: default; }
+    .cf-player-controls input[type=number], .cf-player-controls select {
+      font: inherit; padding: .25rem .4rem; background: #3a3a3d; color: #e6e6e6;
+      border: 1px solid #4a4a4f; border-radius: 4px;
+    }
+    .cf-player-controls .cf-tempo { width: 4rem; }
+    .cf-player-controls .cf-toggle { display: inline-flex; align-items: center; gap: .25rem; color: #cfd2d6; cursor: pointer; }
+
     /* Saved-exercise library — click an item to reload it. */
     #library-pane {
       width: 240px;
@@ -367,6 +383,7 @@
   <script src="alphaTab.min.js"></script>
   <script src="bridge.js"></script>
   <script src="playback-component.js"></script>
+  <script src="player-controls-component.js"></script>
   <script src="score-render-component.js"></script>
   <script src="fretboard-render-component.js"></script>
   <script src="now-next-fretboards.js"></script>

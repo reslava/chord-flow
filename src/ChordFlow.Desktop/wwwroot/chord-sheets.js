@@ -26,7 +26,7 @@ window.ChordFlowChordSheets = (function () {
   let scheduleByBar = new Map();    // bar (0-based) → [cellSchedule entries sorted by beat] for the marker
   let lastMarkerKey = null;         // last highlighted key — skip redundant re-highlights
   let markerMode = "metronome";     // "metronome" (per-beat, default) | "chord" (per-chord segment)
-  let playBtn, stopBtn, tempoInput, soundFontSel;   // transport controls
+  let pc = null;   // shared PlayerControlsR (transport/tempo/soundfont/metronome/count-in), bound to this page's engine
 
   const state = {
     harmonyEntity: null, harmonyId: null, key: "", // key "" = the song's own key
@@ -190,40 +190,14 @@ window.ChordFlowChordSheets = (function () {
   }
 
   // --- playback: the page owns a ChordFlowPlayback (option a) ----------------
-  // Build the transport strip (play/stop/tempo/soundfont + Show tab). The engine renders its staff into a
-  // collapsed surface; "Show tab" reveals it (D4 — hidden by default).
+  // Build the transport strip. Play/stop/tempo/soundfont/metronome/count-in are the shared PlayerControlsR,
+  // mounted in setupEngine (it needs the engine handle); this page adds only its OWN controls — the marker
+  // mode and "Show tab". The engine renders its staff into a collapsed surface; "Show tab" reveals it.
   function buildTransport() {
     transportEl.innerHTML = "";
     transportEl.style.cssText =
       "display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.4rem .75rem;margin-bottom:.6rem;" +
       "background:#2d2d30;border:1px solid #333;border-radius:6px;font-size:.85rem;";
-
-    playBtn = button("▶ Play", () => { if (engine) engine.play(); });
-    playBtn.disabled = true;
-    stopBtn = button("■ Stop", () => { if (engine) engine.stop(); });
-    stopBtn.disabled = true;
-    transportEl.append(playBtn, stopBtn);
-
-    const tempoLab = document.createElement("label");
-    tempoLab.textContent = "Tempo"; tempoLab.style.cssText = "color:#9aa0a6;";
-    tempoInput = document.createElement("input");
-    tempoInput.type = "number"; tempoInput.min = "40"; tempoInput.max = "240"; tempoInput.step = "1";
-    tempoInput.disabled = true;
-    tempoInput.style.cssText = "width:4rem;font:inherit;padding:.2rem .3rem;background:#3a3a3d;color:#e6e6e6;border:1px solid #4a4a4f;border-radius:4px;";
-    tempoInput.addEventListener("change", () => {
-      const bpm = parseInt(tempoInput.value, 10);
-      if (bpm && engine) engine.setTempo(bpm);
-    });
-    const bpm = document.createElement("span");
-    bpm.textContent = "BPM"; bpm.style.color = "#9aa0a6";
-    transportEl.append(tempoLab, tempoInput, bpm);
-
-    const sfLab = document.createElement("label");
-    sfLab.textContent = "Sound"; sfLab.style.cssText = "color:#9aa0a6;";
-    soundFontSel = document.createElement("select");
-    soundFontSel.style.cssText = "font:inherit;padding:.2rem .3rem;background:#3a3a3d;color:#e6e6e6;border:1px solid #4a4a4f;border-radius:4px;";
-    soundFontSel.addEventListener("change", () => { if (engine) engine.setSoundFont(soundFontSel.value); });
-    transportEl.append(sfLab, soundFontSel);
 
     // Marker mode: Visual metronome (per-beat, default) vs Per chord (the active chord segment).
     const markerLab = document.createElement("label");
@@ -255,20 +229,14 @@ window.ChordFlowChordSheets = (function () {
     engine = window.ChordFlowPlayback.create(surface, {
       player: true,
       onBeat: onBeat,
-      onStateChange: (playing) => { if (playBtn) playBtn.textContent = playing ? "⏸ Pause" : "▶ Play"; },
-      onFinished: () => { if (view) view.clearHighlight(); lastMarkerKey = null; if (playBtn) playBtn.textContent = "▶ Play"; },
-      onReady: () => { if (playBtn) playBtn.disabled = false; if (stopBtn) stopBtn.disabled = false; if (tempoInput) tempoInput.disabled = false; },
-      onSoundFontsListed: (fonts, selectedId) => {
-        if (!soundFontSel) return;
-        soundFontSel.innerHTML = "";
-        for (const f of (fonts || [])) {
-          const o = document.createElement("option");
-          o.value = f.id; o.textContent = f.name;
-          soundFontSel.appendChild(o);
-        }
-        if (selectedId) soundFontSel.value = selectedId;
-      },
+      // Playback marker only: clear it at end-of-play. The transport button/label/enable + tempo + soundfont
+      // picker are owned by PlayerControlsR (it self-subscribes to the engine); this page just drives the marker.
+      onFinished: () => { if (view) view.clearHighlight(); lastMarkerKey = null; },
     });
+    // Mount the shared player-transport controls at the head of the transport strip — metronome + count-in come
+    // for free. The page owns the engine (C1); PlayerControlsR binds to its handle.
+    pc = window.ChordFlowPlayerControls.create(null, engine, {});
+    transportEl.insertBefore(pc.el, transportEl.firstChild);
   }
 
   // Group the cellSchedule by bar (0-based), each bar's entries sorted by beat — for the beat→cell lookup.
@@ -350,7 +318,7 @@ window.ChordFlowChordSheets = (function () {
         engine.stop();
         const tempo = (msg.sheet.header && msg.sheet.header.tempo) || 100;
         engine.load(msg.tex, { tempo });
-        if (tempoInput) tempoInput.value = String(tempo);
+        if (pc) pc.setTempoValue(tempo);
       }
     } else if (msg.type === "chordSheetError") {
       setError(msg.message || "Couldn't build this chord sheet.");
