@@ -76,7 +76,22 @@
     .toolbar button:disabled { opacity: .5; cursor: default; }
 
     main { display: flex; gap: 1rem; padding: 1rem; align-items: flex-start; }
-    #score-pane { flex: 1; min-width: 0; }
+    #view-pane { flex: 1; min-width: 0; }
+
+    /* Score ⇄ Sheet view swap (harmony-controls-r C4): the hidden surface COLLAPSES (max-height:0 + hidden
+       overflow) instead of display:none, so it keeps its layout width — alphaTab never re-measures while
+       hidden and its playback cursor stays valid for the mid-playback toggle. The proven "Show tab" trick. */
+    .view-collapsed { max-height: 0 !important; overflow: hidden !important; margin: 0 !important; }
+
+    /* The page-level Score ⇄ Sheet segmented toggle (same chrome as the header nav). */
+    .view-toggle { display: inline-flex; gap: 0; }
+    .view-toggle button {
+      font: inherit; font-size: .82rem; padding: .25rem .7rem;
+      border: 1px solid #4a4a4f; background: #2d2d30; color: #cfd2d6; cursor: pointer;
+    }
+    .view-toggle button:first-child { border-radius: 4px 0 0 4px; }
+    .view-toggle button:last-child { border-radius: 0 4px 4px 0; border-left: none; }
+    .view-toggle button.active { background: #3a4d78; color: #fff; border-color: #3a4d78; }
     /* alphaTab positions the playback cursor + highlight elements but does NOT
        color them — we must, per the alphaTab cursor docs, or they're invisible. */
     .at-cursor-bar { background: rgba(255, 242, 0, 0.25); }      /* current bar highlight */
@@ -117,6 +132,27 @@
     }
     .cf-player-controls .cf-tempo { width: 4rem; }
     .cf-player-controls .cf-toggle { display: inline-flex; align-items: center; gap: .25rem; color: #cfd2d6; cursor: pointer; }
+
+    /* ---- Shared harmony/definition controls (harmony-controls-component.js) ---- */
+    /* The definition strip (HarmonyControlsR): harmony/key/feel/comping+vol/lead+vol/difficulty/frets/actions.
+       Self-styled like PlayerControlsR so it reads the same wherever the page mounts it. */
+    .cf-harmony-controls {
+      display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+      padding: .5rem .75rem; margin-bottom: .5rem;
+      background: #2d2d30; border: 1px solid #333; border-radius: 6px; font-size: .85rem;
+    }
+    .cf-harmony-controls label { color: #9aa0a6; }
+    .cf-harmony-controls button {
+      font: inherit; padding: .3rem .9rem; border: 1px solid #4a4a4f;
+      border-radius: 4px; background: #3a3a3d; color: #e6e6e6; cursor: pointer;
+    }
+    .cf-harmony-controls button:disabled { opacity: .5; cursor: default; }
+    .cf-harmony-controls select, .cf-harmony-controls input[type=number] {
+      font: inherit; padding: .25rem .4rem; background: #3a3a3d; color: #e6e6e6;
+      border: 1px solid #4a4a4f; border-radius: 4px;
+    }
+    .cf-harmony-controls .cf-fret { width: 3.5rem; }
+    .cf-harmony-controls .cf-toggle { display: inline-flex; align-items: center; gap: .25rem; color: #cfd2d6; cursor: pointer; }
 
     /* Saved-exercise library — click an item to reload it. */
     #library-pane {
@@ -238,46 +274,36 @@
       <button id="navCagedChords" type="button">CAGED Chords</button>
       <button id="navVoicings" type="button">Voicings</button>
       <button id="navVoicingsEngine" type="button">Voicings Engine</button>
-      <button id="navChordSheets" type="button">Chord Sheets</button>
     </nav>
     <span id="status">starting…</span>
   </header>
 
-  <!-- Practice view: the exercise generator (key/rhythm → score + transport + saved list). -->
+  <!-- Practice view — ONE page, two view surfaces (harmony-controls-r IN2/IN6):
+       HarmonyControlsR (the definition strip) + a page-level transport strip (Score ⇄ Sheet toggle +
+       PlayerControlsR bound to ScoreR's engine) + Now/Next + the two swappable surfaces (Score / Sheet) +
+       the saved-exercise library. All shared pieces exist ONCE; only the surfaces swap. -->
   <div id="practice-view">
-    <!-- Builder: pick the definition (harmony + comping + optional lead) and the params
-         (key/difficulty; feel + tempo live in the component transport), then generate / save / mark practiced.
-         The harmony/comping/lead lists are populated from the content stores via the entity* bridge. -->
-    <section class="toolbar" id="builder">
-      <label for="harmony">Harmony</label>
-      <select id="harmony"></select>
-      <label for="comping">Comping</label>
-      <select id="comping"></select>
-      <label for="lead">Lead</label>
-      <select id="lead"></select>
-      <!-- Key moved onto the ScoreR transport (scorer-render-params): it's a render/interpretation param
-           (seeded per content, a live transpose), not a definition param — so it lives with tempo + feel. -->
-      <label for="difficulty">Difficulty</label>
-      <select id="difficulty"></select>
-      <!-- Automatic comping-voicing region (engine-derived-as-app-source IN14): the fret window the engine
-           derives grips in. Min/max for debugging; ranking is Closest (mode selector is voicing-ranking-strategies). -->
-      <label for="voicingMinFret">Voicing frets</label>
-      <input type="number" id="voicingMinFret" min="0" max="15" value="0" title="Lowest fret for automatic comping voicings" />
-      <span class="builder-dash">–</span>
-      <input type="number" id="voicingMaxFret" min="0" max="15" value="15" title="Highest fret for automatic comping voicings" />
-      <button id="btnGenerate" type="button">Generate</button>
-      <button id="btnSave" type="button">Save</button>
-      <button id="btnPractice" type="button">Mark practiced</button>
-    </section>
+    <!-- HarmonyControlsR mounts here (harmony-controls-component.js): harmony/key/feel/comping+vol/lead+vol/
+         difficulty/voicing-frets/Generate/Save/Mark practiced. Populated from the entity* bridge via app.js. -->
+    <div id="harmony-controls"></div>
+
+    <!-- Page-level transport strip (built by app.js): the Score ⇄ Sheet segmented toggle at its head, then the
+         shared PlayerControlsR. Page-level so it survives the view toggle (a view switch never stops playback). -->
+    <div id="transport-strip" class="toolbar"></div>
 
     <!-- Now/Next fretboards: the current + upcoming chord as fret boxes, synced to playback by ChordFlowNowNext
          (now-next-fretboards.js), fed the loadScore chord schedule + the score component's beat signal in app.js. -->
     <div id="now-next-pane"></div>
 
-    <!-- Transport (Play/Stop/Tempo + render toggles) is rendered by the shared ChordFlowScore
-         component into #score-pane — see score-render-component.js / app.js. -->
     <main>
-      <div id="score-pane"></div>
+      <div id="view-pane">
+        <!-- Score view: ScoreR (staff toggles + debug panel + alphaTab surface; transport/volumes live at page
+             level). Hidden via the collapse class — max-height:0 keeps the WIDTH intact so alphaTab never
+             re-layouts while hidden and the cursor stays valid for the mid-playback toggle (req C4). -->
+        <div id="score-pane"></div>
+        <!-- Sheet view: ChordFlowSheetView (chord-sheets.js) — sheet strip + ChordSheetR SVG + exports. -->
+        <div id="sheet-pane" class="view-collapsed"></div>
+      </div>
       <aside id="library-pane">
         <h2>Saved exercises</h2>
         <ul id="library"><li class="empty">No saved exercises</li></ul>
@@ -368,14 +394,7 @@
     </div>
   </div>
 
-  <!-- Chord Sheets view: the interactive shell (chord-sheets.js) around the pure-SVG ChordSheetR
-       (chord-sheet-render-component.js). Pick a song/progression → the host builds the ChordSheet model and
-       ChordSheetR draws it (Layout A leadsheet / B grid), with notation/adornment/theme toggles + export. -->
-  <div id="chord-sheets-view" hidden>
-    <div id="chord-sheets-page" style="padding:1rem;"></div>
-  </div>
-
-  <!-- Chord-sheet PDF print target: the page injects a light copy of the sheet SVG here; @media print shows
+  <!-- Chord-sheet PDF print target: the Sheet view injects a light copy of the sheet SVG here; @media print shows
        only this so the host's PrintToPdfAsync captures just the sheet. Empty + hidden on screen. -->
   <div id="chord-sheet-print"></div>
 
@@ -384,6 +403,7 @@
   <script src="bridge.js"></script>
   <script src="playback-component.js"></script>
   <script src="player-controls-component.js"></script>
+  <script src="harmony-controls-component.js"></script>
   <script src="score-render-component.js"></script>
   <script src="fretboard-render-component.js"></script>
   <script src="now-next-fretboards.js"></script>

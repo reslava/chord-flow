@@ -5,36 +5,45 @@ using ChordFlow.Music.Rhythm;
 using ChordFlow.Music.Songs;
 using ChordFlow.Persistence;
 using ChordFlow.Rendering;
+using ChordFlow.Rendering.ChordSheets;
 using Microsoft.EntityFrameworkCore;
 
 namespace ChordFlow.Features.GenerateExercise;
 
 /// <summary>
-/// Outbound bridge envelope: load a freshly rendered score into the WebView.
-/// Serializes to <c>{"type":"loadScore","tex":"…","tempo":N,"key":P,"tripletFeel":"…","schedule":[…]}</c>. The
-/// alphaTex string is the real payload; <see cref="Tempo"/>/<see cref="Key"/>/<see cref="TripletFeel"/> ride
-/// along so ScoreR can <b>seed</b> its render-param controls from the piece (scorer-render-params IN6 — a
-/// stored exercise's persisted params win over content defaults, C2), and <see cref="Schedule"/> (one entry per
+/// Outbound bridge envelope: load a freshly rendered score into the WebView. Serializes to
+/// <c>{"type":"loadScore","tex":"…","tempo":N,"key":P,"tripletFeel":"…","schedule":[…],"sheet":{…},"cellSchedule":[…]}</c>.
+/// The alphaTex string is the real payload; <see cref="Tempo"/>/<see cref="Key"/>/<see cref="TripletFeel"/> ride
+/// along so the definition controls can <b>seed</b> from the piece (scorer-render-params IN6 — a stored
+/// exercise's persisted params win over content defaults, C2), and <see cref="Schedule"/> (one entry per
 /// chord change, each with a fretboard diagram of the comped voicing) feeds the now/next fretboards.
+/// <see cref="Sheet"/> + <see cref="CellSchedule"/> are the chord-sheet projection of the SAME render pass
+/// (harmony-controls-r IN3): the Sheet view draws the model and maps score (bar,beat) → sounding cell with the
+/// cellSchedule — one reply, both view surfaces, nothing can drift.
 /// </summary>
 public sealed record LoadScoreEnvelope(
-    string Type, string Tex, int Tempo, int Key, string TripletFeel, IReadOnlyList<ChordChange> Schedule)
+    string Type, string Tex, int Tempo, int Key, string TripletFeel, IReadOnlyList<ChordChange> Schedule,
+    ChordSheet Sheet, IReadOnlyList<CellScheduleEntry> CellSchedule)
 {
     /// <summary>
-    /// Render an <see cref="Exercise"/> to alphaTex + chord schedule and wrap it for the bridge. The single
-    /// place a loadScore envelope is built — shared by GenerateExercise (fresh) and ExerciseLibrary
-    /// (regenerated on load), so alphaTex is never persisted. Expansion (the one I/O seam) runs through
-    /// <see cref="ExerciseRendering"/> against <paramref name="store"/>; the renderer stays pure (merge decision (a)).
+    /// Render an <see cref="Exercise"/> to alphaTex + chord schedule + the chord-sheet projection and wrap it
+    /// for the bridge. The single place a loadScore envelope is built — shared by GenerateExercise (fresh) and
+    /// ExerciseLibrary (regenerated on load), so alphaTex is never persisted. Expansion (the one I/O seam) runs
+    /// through <see cref="ExerciseRendering"/> against <paramref name="store"/>; the renderer stays pure
+    /// (merge decision (a)).
     /// </summary>
     public static LoadScoreEnvelope From(
         Exercise exercise, IProgressionStore store, IScoreRenderer renderer, IStoredVoicingSource voicings,
         RenderOptions? options = null, IVoicingReferenceSource? references = null)
     {
-        RenderResult result = ExerciseRendering.Render(exercise, store, renderer, voicings, options, references);
-        // The effective key the piece renders in: an explicit override, else the Song's own initial key. ScoreR
-        // seeds its Key control from this so a loaded exercise shows the key it was saved in (C2).
+        ExerciseProjections result = ExerciseRendering.RenderWithSheet(
+            exercise, store, renderer, voicings, options, references);
+        // The effective key the piece renders in: an explicit override, else the Song's own initial key. The
+        // Key control seeds from this so a loaded exercise shows the key it was saved in (C2).
         int keyPc = (exercise.KeyOverride ?? exercise.Song.InitialKey).Tonic.Value;
-        return new("loadScore", result.Tex, exercise.Tempo, keyPc, exercise.TripletFeel.ToString(), result.Schedule);
+        return new(
+            "loadScore", result.Render.Tex, exercise.Tempo, keyPc, exercise.TripletFeel.ToString(),
+            result.Render.Schedule, result.Sheet, result.CellSchedule);
     }
 }
 

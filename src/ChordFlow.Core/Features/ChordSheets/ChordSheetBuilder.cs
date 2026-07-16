@@ -119,6 +119,41 @@ public static class ChordSheetBuilder
         return new ChordSheetBuildResult(new ChordSheet(header, sections), barSchedule);
     }
 
+    /// <summary>
+    /// Overlay the render schedule's mid-bar chord onsets onto the builder's per-bar downbeats (approach A):
+    /// every bar keeps its downbeat entry (bar-level highlight, incl. <c>%</c> and sustained bars); a split bar
+    /// gains one entry per mid-bar chord change, mapped to its chord-segment index (1, 2, … in beat order —
+    /// segment 0 is the downbeat). (bar,beat) come straight from the alphaTab-aligned render schedule. A pure
+    /// walk producing the final playback cellSchedule for the unified generate/loadExercise reply
+    /// (<c>ExerciseRendering.RenderWithSheet</c>).
+    /// </summary>
+    public static IReadOnlyList<CellScheduleEntry> OverlaySchedule(
+        IReadOnlyList<CellScheduleEntry> barSchedule, IReadOnlyList<ChordChange> renderSchedule)
+    {
+        ArgumentNullException.ThrowIfNull(barSchedule);
+        ArgumentNullException.ThrowIfNull(renderSchedule);
+
+        var cellByBar = barSchedule.ToDictionary(e => e.Bar);
+        var entries = new List<CellScheduleEntry>(barSchedule);
+
+        foreach (var barChanges in renderSchedule.GroupBy(c => c.Bar))
+        {
+            if (!cellByBar.TryGetValue(barChanges.Key, out CellScheduleEntry? cell))
+            {
+                continue;
+            }
+
+            var midBar = barChanges.Where(c => c.Beat > 0).OrderBy(c => c.Beat).ToList();
+            for (int j = 0; j < midBar.Count; j++)
+            {
+                entries.Add(new CellScheduleEntry(
+                    barChanges.Key, midBar[j].Beat, cell.Section, cell.Row, cell.Cell, Chord: j + 1));
+            }
+        }
+
+        return entries.OrderBy(e => e.Bar).ThenBy(e => e.Beat).ToList();
+    }
+
     // One chord span → a ChordRef carrying every notation (concrete/Nashville/Roman) and the tone strip, plus
     // the comped diagram when a plan is supplied. Note names are spelled against the section's key.
     private static ChordRef ToChordRef(RealizedSpan span, Key key, CompingPlan? comping)

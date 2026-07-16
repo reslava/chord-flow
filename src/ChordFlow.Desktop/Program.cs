@@ -123,7 +123,6 @@ internal static class Program
                 var cagedChord = new CagedChordHandler();
                 var voicingGrid = new VoicingGridHandler();
                 var voicingDerive = new VoicingDeriveHandler();
-                var chordSheet = new ChordSheetHandler(dbOptions);
 
                 // App-lifetime global-preference store (key/value over SQLite). Shared by the soundfont choice
                 // and the staff-display profile below.
@@ -347,19 +346,9 @@ internal static class Program
                     }
                 };
 
-                // ChordSheetR page: build the chord-sheet model for a harmony ref (+ key/adornment). A missing
-                // reference fails loud into a UI-safe chordSheetError reply (the sheet-page peer of scaleError).
-                router.ChordSheetRequested += req =>
-                {
-                    try
-                    {
-                        bridge.Send(chordSheet.Build(req));
-                    }
-                    catch (Exception ex) when (ex is InvalidOperationException or FormatException or ArgumentException)
-                    {
-                        bridge.Send(new ChordSheetErrorEnvelope(ex.Message));
-                    }
-                };
+                // The chord-sheet MODEL has no request of its own anymore: it rides the unified loadScore reply
+                // as a projection of the generate/loadExercise pass (harmony-controls-r IN3). Only the PDF
+                // print round-trip below remains sheet-specific.
 
                 // Export the on-screen chord sheet to PDF: the page injects a print-styled light copy into
                 // #chord-sheet-print (an @media print rule hides everything else), then the host prints the current

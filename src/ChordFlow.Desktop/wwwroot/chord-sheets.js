@@ -1,44 +1,22 @@
-// ChordFlow Chord Sheets view — the interactive HTML shell around ChordSheetR ("ChordSheetUIR").
+// ChordFlow Sheet VIEW (chord-sheets.js) — the Chord-Sheet view of the single Practice page.
 //
-// Owns the page chrome (harmony/key/layout/notation/adornment/theme controls + export) and drives the pure-SVG
-// ChordSheetR (chord-sheet-render-component.js) which draws the sheet body. Split by design (chat-001): the SVG
-// body is used for BOTH screen and export (no parity drift); this shell adds the controls, the export actions,
-// and — later — playback highlighting + the separate FretR now/next boards.
+// Refactored from the standalone Chord Sheets page shell into a VIEW module (harmony-controls-r IN2/IN9): the
+// Practice shell (app.js) owns the page — the definition strip (HarmonyControlsR), the one playback engine,
+// PlayerControlsR, the Now/Next boards, and the Score ⇄ Sheet toggle. This module owns only what is
+// sheet-specific: the display strip (Layout / Chords / + line / Below cell / Tone labels / Theme / Marker mode),
+// the pure-SVG ChordSheetR body, the playback bar-marker, and the three exports (SVG/PNG client-side, PDF via
+// the #chord-sheet-print + host-print flow — EX3).
 //
-// Recompute vs pure-JS (req C3): harmony / key / adornment changes re-request the model from Core (the handler
-// only resolves comping voicings for the diagram/both adornments); layout / notation / tone-label / theme are
-// pure-JS re-renders over the held model — no round-trip.
+// It owns NO engine and issues NO render requests: the shell feeds it the sheet projection of the unified
+// generate/loadExercise reply — render(sheet, name) + setSchedule(cellSchedule) — and fans the engine's beat
+// signal into onBeat(bar, beat). Every strip control is a pure-JS re-render over the held model (req C3-style);
+// Below cell too (IN10) — the model always carries tone + diagram data, so adornments never re-request.
 "use strict";
 
-window.ChordFlowChordSheets = (function () {
+window.ChordFlowSheetView = (function () {
   const Bridge = window.ChordFlowBridge;
-  const KEY_NAMES = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
 
-  let initialized = false;
-  let pageEl, toolbarEl, transportEl, scoreWrapEl, sheetEl, errorEl, hintEl;
-  let view = null;        // ChordSheetR handle
-  let lastModel = null;   // last chordSheetResult model (for pure-JS re-renders)
-  const harmony = [];     // [{ entity, id, name }] from the song + progression entity lists
-  let harmonySel;
-
-  // Playback (the page owns its OWN ChordFlowPlayback engine — option a; no cross-page transport).
-  let engine = null;               // ChordFlowPlayback handle (hidden staff surface)
-  let scheduleByBar = new Map();    // bar (0-based) → [cellSchedule entries sorted by beat] for the marker
-  let lastMarkerKey = null;         // last highlighted key — skip redundant re-highlights
-  let markerMode = "metronome";     // "metronome" (per-beat, default) | "chord" (per-chord segment)
-  let pc = null;   // shared PlayerControlsR (transport/tempo/soundfont/metronome/count-in), bound to this page's engine
-  let nowNext = null;    // ChordFlowNowNext handle — the current/next chord fretboards (fed chordSchedule)
-  let nowNextEl = null;  // its page container (above the sheet); the PlayerControlsR toggle hides THIS (no setVisible)
-
-  const state = {
-    harmonyEntity: null, harmonyId: null, key: "", // key "" = the song's own key
-    layout: "A", primary: "concrete", secondary: "", toneLabels: "notes", adornment: "none", theme: "auto",
-  };
-
-  function setError(text) { if (errorEl) errorEl.textContent = text || ""; }
-  function setHint(text) { if (hintEl) hintEl.textContent = text || ""; }
-
-  // --- a small labelled <select> control ------------------------------------
+  // --- small labelled <select> / button builders (sheet-strip chrome) ---------
   function select(label, options, value, onChange) {
     const wrap = document.createElement("span");
     wrap.style.cssText = "display:inline-flex;align-items:center;gap:.3rem;";
@@ -67,352 +45,231 @@ window.ChordFlowChordSheets = (function () {
     return b;
   }
 
-  function buildToolbar() {
-    toolbarEl.innerHTML = "";
-    toolbarEl.style.cssText =
-      "display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;padding:.5rem .75rem;margin-bottom:.6rem;" +
-      "background:#2d2d30;border:1px solid #333;border-radius:6px;font-size:.85rem;";
+  function create(container, opts) {
+    opts = opts || {};
 
-    const harmonyCtl = select("Sheet", [{ value: "", label: "— pick a song/progression —" }], "", (v) => {
-      const picked = harmony.find((h) => h.entity + ":" + h.id === v);
-      state.harmonyEntity = picked ? picked.entity : null;
-      state.harmonyId = picked ? picked.id : null;
-      requestSheet();
-    });
-    harmonySel = harmonyCtl.sel;
-    toolbarEl.appendChild(harmonyCtl.wrap);
+    let view = null;              // ChordSheetR handle (created once, reused — the marker survives toggles)
+    let lastModel = null;         // last sheet model (for pure-JS re-renders)
+    let sheetName = "chord-sheet";// export filename base (the shell passes the harmony name on render)
+    let scheduleByBar = new Map();// bar (0-based) → [cellSchedule entries sorted by beat] for the marker
+    let lastMarkerKey = null;     // last highlighted key — skip redundant re-highlights
+    let markerMode = "metronome"; // "metronome" (per-beat, default) | "chord" (per-chord segment)
 
-    const keyOpts = [{ value: "", label: "Song key" }].concat(
-      KEY_NAMES.map((n, pc) => ({ value: String(pc), label: n })));
-    toolbarEl.appendChild(select("Key", keyOpts, state.key, (v) => { state.key = v; requestSheet(); }).wrap);
-
-    // Display toggles reuse the live ChordSheetR via its setters (not a rebuild) so the playback marker
-    // survives; harmony/key/adornment change what Core computes, so those re-request (requestSheet).
-    toolbarEl.appendChild(select("Layout",
-      [{ value: "A", label: "A · Leadsheet" }, { value: "B", label: "B · Grid" }],
-      state.layout, (v) => { state.layout = v; if (view) view.setLayout(v); }).wrap);
-
-    const notationOpts = [
-      { value: "concrete", label: "Letter" }, { value: "nashville", label: "Nashville" }, { value: "roman", label: "Roman" },
-    ];
-    toolbarEl.appendChild(select("Chords", notationOpts, state.primary,
-      (v) => { state.primary = v; if (view) view.setNotation({ primary: v, secondary: state.secondary || null }); }).wrap);
-    toolbarEl.appendChild(select("+ line",
-      [{ value: "", label: "None" }].concat(notationOpts), state.secondary,
-      (v) => { state.secondary = v; if (view) view.setNotation({ primary: state.primary, secondary: v || null }); }).wrap);
-
-    toolbarEl.appendChild(select("Below cell",
-      [{ value: "none", label: "None" }, { value: "tones", label: "Tone strip" }, { value: "diagram", label: "Fret diagram" }, { value: "both", label: "Both" }],
-      state.adornment, (v) => {
-        state.adornment = v;
-        // Update the reused component's adornment flags (tones show at once; diagrams appear when the
-        // re-fetch below returns their Core-computed data). requestSheet re-requests only for the diagram.
-        if (view) view.setAdornments({ tones: v === "tones" || v === "both", diagrams: v === "diagram" || v === "both" });
-        requestSheet();
-      }).wrap);
-
-    toolbarEl.appendChild(select("Tone labels",
-      [{ value: "notes", label: "Notes" }, { value: "intervals", label: "Intervals" }],
-      state.toneLabels, (v) => { state.toneLabels = v; if (view) view.setToneLabels(v); }).wrap);
-
-    toolbarEl.appendChild(select("Theme",
-      [{ value: "auto", label: "Auto" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" }],
-      state.theme, (v) => { state.theme = v; if (view) view.setTheme(v); }).wrap);
-
-    // Export group (right-aligned). SVG/PNG are client-side; PDF prints via the host (always light — IN11).
-    const spacer = document.createElement("span");
-    spacer.style.cssText = "flex:1;";
-    toolbarEl.appendChild(spacer);
-    toolbarEl.appendChild(button("Export SVG", exportSvg));
-    toolbarEl.appendChild(button("Export PNG", exportPng));
-    toolbarEl.appendChild(button("Export PDF", exportPdf));
-  }
-
-  function sheetFilename(ext) {
-    const picked = harmony.find((h) => h.entity === state.harmonyEntity && h.id === state.harmonyId);
-    const base = (picked ? picked.name : "chord-sheet").replace(/[^\w.-]+/g, "_") || "chord-sheet";
-    return base + "." + ext;
-  }
-
-  function downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-
-  function exportSvg() {
-    if (!view) { setError("Nothing to export yet."); return; }
-    const s = view.toSvgString();
-    if (!s) { setError("Nothing to export yet."); return; }
-    downloadBlob(new Blob([s], { type: "image/svg+xml" }), sheetFilename("svg"));
-  }
-
-  function exportPng() {
-    if (!view) { setError("Nothing to export yet."); return; }
-    view.toPngBlob(2, (blob) => {
-      if (blob) downloadBlob(blob, sheetFilename("png"));
-      else setError("PNG export failed.");
-    });
-  }
-
-  // PDF: inject a print-styled light copy into #chord-sheet-print (an @media print rule hides the rest) and ask
-  // the host to print the page via WebView2 PrintToPdfAsync. The chordSheetPdfDone reply tears the copy back down.
-  function exportPdf() {
-    if (!view) { setError("Nothing to export yet."); return; }
-    if (!Bridge.available) { setError("Open in the ChordFlow app to export PDF."); return; }
-    const printEl = document.getElementById("chord-sheet-print");
-    const svg = view.lightSvg();
-    if (!printEl || !svg) { setError("Nothing to export yet."); return; }
-    printEl.innerHTML = "";
-    printEl.appendChild(svg);
-    Bridge.send({ type: "exportChordSheet" });
-  }
-
-  // Render the held model, creating the ChordSheetR once and reusing it thereafter (display toggles go
-  // through its setters — see buildToolbar — so the playback marker survives).
-  function renderNow() {
-    if (!lastModel) return;
-    if (!view) {
-      view = window.ChordFlowChordSheet.create(sheetEl, {
-        layout: state.layout,
-        notation: { primary: state.primary, secondary: state.secondary || null },
-        toneLabels: state.toneLabels,
-        adornments: {
-          tones: state.adornment === "tones" || state.adornment === "both",
-          diagrams: state.adornment === "diagram" || state.adornment === "both",
-        },
-        theme: state.theme,
-      });
-    }
-    view.render(lastModel);
-  }
-
-  // --- playback: the page owns a ChordFlowPlayback (option a) ----------------
-  // Build the transport strip. Play/stop/tempo/soundfont/metronome/count-in are the shared PlayerControlsR,
-  // mounted in setupEngine (it needs the engine handle); this page adds only its OWN controls — the marker
-  // mode and "Show tab". The engine renders its staff into a collapsed surface; "Show tab" reveals it.
-  function buildTransport() {
-    transportEl.innerHTML = "";
-    transportEl.style.cssText =
-      "display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.4rem .75rem;margin-bottom:.6rem;" +
-      "background:#2d2d30;border:1px solid #333;border-radius:6px;font-size:.85rem;";
-
-    // Marker mode: Visual metronome (per-beat, default) vs Per chord (the active chord segment).
-    const markerLab = document.createElement("label");
-    markerLab.textContent = "Marker"; markerLab.style.cssText = "color:#9aa0a6;";
-    const markerSel = document.createElement("select");
-    markerSel.style.cssText = "font:inherit;padding:.2rem .3rem;background:#3a3a3d;color:#e6e6e6;border:1px solid #4a4a4f;border-radius:4px;";
-    [["metronome", "Visual metronome"], ["chord", "Per chord"]].forEach(([v, l]) => {
-      const o = document.createElement("option"); o.value = v; o.textContent = l; markerSel.appendChild(o);
-    });
-    markerSel.value = markerMode;
-    markerSel.addEventListener("change", () => { markerMode = markerSel.value; lastMarkerKey = null; });
-    transportEl.append(markerLab, markerSel);
-
-    const showTab = document.createElement("label");
-    showTab.style.cssText = "display:inline-flex;align-items:center;gap:.3rem;color:#9aa0a6;margin-left:auto;";
-    const showTabCb = document.createElement("input");
-    showTabCb.type = "checkbox";
-    showTabCb.addEventListener("change", () => { scoreWrapEl.style.maxHeight = showTabCb.checked ? "" : "0"; });
-    showTab.append(showTabCb, document.createTextNode("Show tab"));
-    transportEl.append(showTab);
-  }
-
-  // Create the page's own ChordFlowPlayback engine (once), rendering its staff into the collapsed surface.
-  function setupEngine() {
-    if (engine || !window.ChordFlowPlayback) return;
-    const surface = document.createElement("div");
-    surface.className = "cf-score-surface";   // white bg / black ink (index.html) — else alphaTab's dark notation is unreadable on the dark page
-    scoreWrapEl.appendChild(surface);
-    engine = window.ChordFlowPlayback.create(surface, {
-      player: true,
-      onBeat: onBeat,
-      // Playback marker only: clear it at end-of-play. The transport button/label/enable + tempo + soundfont
-      // picker are owned by PlayerControlsR (it self-subscribes to the engine); this page just drives the marker.
-      onFinished: () => {
-        if (view) view.clearHighlight();
-        lastMarkerKey = null;
-        if (nowNext) nowNext.reset();   // back to the first chord on stop/end (schedule kept for replay)
-      },
-    });
-    // Mount the shared player-transport controls at the head of the transport strip — metronome + count-in come
-    // for free. The page owns the engine (C1); PlayerControlsR binds to its handle. Passing onToggleNowNext
-    // renders the optional Now/Next checkbox (default checked → boards visible, matching Practice); since
-    // ChordFlowNowNext has no setVisible, the toggle hides the page container we mounted it in (like app.js).
-    pc = window.ChordFlowPlayerControls.create(null, engine, {
-      onToggleNowNext: (visible) => { if (nowNextEl) nowNextEl.hidden = !visible; },
-    });
-    transportEl.insertBefore(pc.el, transportEl.firstChild);
-  }
-
-  // Group the cellSchedule by bar (0-based), each bar's entries sorted by beat — for the beat→cell lookup.
-  function buildSchedule(cellSchedule) {
-    scheduleByBar = new Map();
-    for (const e of (cellSchedule || [])) {
-      let arr = scheduleByBar.get(e.bar);
-      if (!arr) { arr = []; scheduleByBar.set(e.bar, arr); }
-      arr.push(e);
-    }
-    for (const arr of scheduleByBar.values()) arr.sort((a, b) => a.beat - b.beat);
-  }
-
-  // The engine reports 1-based (bar,beat); the cellSchedule is 0-based (like NowNext). Both modes wash the
-  // sounding bar (from its downbeat entry); they differ in the sub-highlight.
-  function onBeat(bar, beat) {
-    // Now/next boards advance per CHORD change, independent of the marker mode below (IN6). The engine reports
-    // 1-based (bar,beat); ChordFlowNowNext (like the chordSchedule) is 0-based, so step down by one (as app.js).
-    if (nowNext) nowNext.onBeat(bar - 1, beat - 1);
-
-    if (!view) return;
-    const entries = scheduleByBar.get(bar - 1);
-    if (!entries || entries.length === 0) return;   // out-of-range bar → keep the last marker
-    const cell = entries[0];                         // downbeat entry → this bar's cell
-
-    if (markerMode === "metronome") {
-      // Visual metronome: light the current beat column of the bar.
-      const beatIx = beat - 1;
-      const key = "b:" + cell.section + ":" + cell.row + ":" + cell.cell + ":" + beatIx;
-      if (key === lastMarkerKey) return;
-      lastMarkerKey = key;
-      view.highlightBeat(cell.section, cell.row, cell.cell, beatIx);
-      return;
-    }
-
-    // Per chord: the active segment = the last entry whose beat <= the current beat (sub-chord onsets + sustain).
-    const b = beat - 1;
-    let active = entries[0];
-    for (const e of entries) { if (e.beat <= b) active = e; else break; }
-    const key = "c:" + active.section + ":" + active.row + ":" + active.cell + ":" + active.chord;
-    if (key === lastMarkerKey) return;               // no change → skip a redundant DOM re-query
-    lastMarkerKey = key;
-    view.highlight(active.section, active.row, active.cell, active.chord);
-  }
-
-  // Ask the host to (re)build the model — the recompute path (harmony/key/adornment).
-  function requestSheet() {
-    setError("");
-    if (!state.harmonyEntity || !state.harmonyId) {
-      lastModel = null;
-      if (view) { view.dispose(); view = null; }
-      if (engine) engine.stop();
-      scheduleByBar = new Map();
-      lastMarkerKey = null;
-      setHint("Pick a song or progression to render its chord sheet.");
-      return;
-    }
-    if (!Bridge.available) { setHint("Open in the ChordFlow app to render chord sheets."); return; }
-    setHint("");
-    const msg = {
-      type: "chordSheet",
-      harmonyEntity: state.harmonyEntity,
-      harmonyId: state.harmonyId,
-      barsPerRow: 4,
-      adornment: state.adornment,
+    const state = {
+      layout: "A", primary: "concrete", secondary: "", toneLabels: "notes", adornment: "none", theme: "auto",
     };
-    if (state.key !== "") msg.keyPitchClass = parseInt(state.key, 10) || 0;
-    Bridge.send(msg);
-  }
 
-  function onHostMessage(raw) {
-    let msg;
-    try { msg = JSON.parse(raw); } catch (e) { return; }
-    if (msg.type === "chordSheetResult") {
-      setError("");
-      lastModel = msg.sheet;
-      buildSchedule(msg.cellSchedule);
-      if (nowNext) nowNext.setSchedule(msg.chordSchedule);   // the now/next feed — a separate projection (C1)
-      renderNow();
-      lastMarkerKey = null;
-      if (view) view.clearHighlight();
-      // New content → stop any playback and load the playable tex into the page's engine.
-      if (engine) {
-        engine.stop();
-        const tempo = (msg.sheet.header && msg.sheet.header.tempo) || 100;
-        engine.load(msg.tex, { tempo });
-        if (pc) pc.setTempoValue(tempo);
-      }
-    } else if (msg.type === "chordSheetError") {
-      setError(msg.message || "Couldn't build this chord sheet.");
-    } else if (msg.type === "chordSheetPdfDone") {
-      const printEl = document.getElementById("chord-sheet-print");
-      if (printEl) printEl.innerHTML = "";
-      if (msg.ok === false && msg.message) setError("PDF export failed: " + msg.message);
-    } else if (msg.type === "entityList" && (msg.entity === "song" || msg.entity === "progression")) {
-      mergeHarmony(msg.entity, msg.items || []);
-    }
-  }
-
-  // Merge one entity list into the harmony dropdown (deduped by entity:id; source rows collapse by id).
-  function mergeHarmony(entity, items) {
-    for (const it of items) {
-      if (!harmony.some((h) => h.entity === entity && h.id === it.id)) {
-        harmony.push({ entity, id: it.id, name: it.name || it.id });
-      }
-    }
-    if (!harmonySel) return;
-    const keep = harmonySel.value;
-    harmonySel.innerHTML = "";
-    const first = document.createElement("option");
-    first.value = ""; first.textContent = "— pick a song/progression —";
-    harmonySel.appendChild(first);
-    harmony
-      .slice()
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .forEach((h) => {
-        const opt = document.createElement("option");
-        opt.value = h.entity + ":" + h.id;
-        opt.textContent = (h.entity === "song" ? "♪ " : "→ ") + h.name;
-        harmonySel.appendChild(opt);
-      });
-    harmonySel.value = keep;
-  }
-
-  function init() {
-    pageEl = document.getElementById("chord-sheets-page");
-    pageEl.innerHTML = "";
-    toolbarEl = document.createElement("div");
-    transportEl = document.createElement("div");
-    errorEl = document.createElement("div");
+    const stripEl = document.createElement("div");
+    const errorEl = document.createElement("div");
     errorEl.style.cssText = "color:#ff8a8a;font-size:.8rem;min-height:1.1rem;margin:.2rem 0;";
-    hintEl = document.createElement("div");
-    hintEl.style.cssText = "color:#8a8f94;font-size:.85rem;margin:.2rem 0;";
-    // The engine's staff surface — collapsed by default (Show tab reveals it); kept full-width so alphaTab lays out.
-    scoreWrapEl = document.createElement("div");
-    scoreWrapEl.style.cssText = "overflow:hidden;max-height:0;";
-    // The now/next chord fretboards live above the sheet (mirroring Practice's placement above the score); the
-    // PlayerControlsR Now/Next toggle shows/hides this container.
-    nowNextEl = document.createElement("div");
-    sheetEl = document.createElement("div");
+    const sheetEl = document.createElement("div");
     sheetEl.style.cssText = "overflow:auto;";
-    pageEl.appendChild(toolbarEl);
-    pageEl.appendChild(transportEl);
-    pageEl.appendChild(errorEl);
-    pageEl.appendChild(hintEl);
-    pageEl.appendChild(scoreWrapEl);
-    pageEl.appendChild(nowNextEl);
-    pageEl.appendChild(sheetEl);
-    buildToolbar();
-    buildTransport();
-    // Mount the shared now/next boards (reused as-is); fed msg.chordSchedule on each result, advanced in onBeat.
-    if (window.ChordFlowNowNext) nowNext = window.ChordFlowNowNext.create(nowNextEl);
-    if (Bridge.available) Bridge.onReceive(onHostMessage);
-    setupEngine();
-    initialized = true;
-  }
+    container.appendChild(stripEl);
+    container.appendChild(errorEl);
+    container.appendChild(sheetEl);
 
-  // Shown when the Chord Sheets tab is selected: lazy-init, refresh the harmony lists, and (re)request.
-  function show() {
-    if (!initialized) init();
-    if (Bridge.available) {
-      Bridge.send({ type: "entityList", entity: "song" });
-      Bridge.send({ type: "entityList", entity: "progression" });
+    function setError(text) { errorEl.textContent = text || ""; }
+
+    // --- the sheet-specific display strip (IN9) — every control is pure-JS ----
+    function buildStrip() {
+      stripEl.innerHTML = "";
+      stripEl.style.cssText =
+        "display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;padding:.5rem .75rem;margin-bottom:.6rem;" +
+        "background:#2d2d30;border:1px solid #333;border-radius:6px;font-size:.85rem;";
+
+      stripEl.appendChild(select("Layout",
+        [{ value: "A", label: "A · Leadsheet" }, { value: "B", label: "B · Grid" }],
+        state.layout, (v) => { state.layout = v; if (view) view.setLayout(v); }).wrap);
+
+      const notationOpts = [
+        { value: "concrete", label: "Letter" }, { value: "nashville", label: "Nashville" }, { value: "roman", label: "Roman" },
+      ];
+      stripEl.appendChild(select("Chords", notationOpts, state.primary,
+        (v) => { state.primary = v; if (view) view.setNotation({ primary: v, secondary: state.secondary || null }); }).wrap);
+      stripEl.appendChild(select("+ line",
+        [{ value: "", label: "None" }].concat(notationOpts), state.secondary,
+        (v) => { state.secondary = v; if (view) view.setNotation({ primary: state.primary, secondary: v || null }); }).wrap);
+
+      // Below cell is a pure display toggle now (IN10): the unified reply's sheet model ALWAYS carries the
+      // tone strips + comped fret diagrams, so flipping adornments never re-requests.
+      stripEl.appendChild(select("Below cell",
+        [{ value: "none", label: "None" }, { value: "tones", label: "Tone strip" }, { value: "diagram", label: "Fret diagram" }, { value: "both", label: "Both" }],
+        state.adornment, (v) => {
+          state.adornment = v;
+          if (view) view.setAdornments(adornments());
+        }).wrap);
+
+      stripEl.appendChild(select("Tone labels",
+        [{ value: "notes", label: "Notes" }, { value: "intervals", label: "Intervals" }],
+        state.toneLabels, (v) => { state.toneLabels = v; if (view) view.setToneLabels(v); }).wrap);
+
+      stripEl.appendChild(select("Theme",
+        [{ value: "auto", label: "Auto" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" }],
+        state.theme, (v) => { state.theme = v; if (view) view.setTheme(v); }).wrap);
+
+      // Marker mode: Visual metronome (per-beat, default) vs Per chord (the active chord segment).
+      stripEl.appendChild(select("Marker",
+        [{ value: "metronome", label: "Visual metronome" }, { value: "chord", label: "Per chord" }],
+        markerMode, (v) => { markerMode = v; lastMarkerKey = null; }).wrap);
+
+      // Export group (right-aligned). SVG/PNG are client-side; PDF prints via the host (always light — EX3).
+      const spacer = document.createElement("span");
+      spacer.style.cssText = "flex:1;";
+      stripEl.appendChild(spacer);
+      stripEl.appendChild(button("Export SVG", exportSvg));
+      stripEl.appendChild(button("Export PNG", exportPng));
+      stripEl.appendChild(button("Export PDF", exportPdf));
     }
-    requestSheet();
+
+    function adornments() {
+      return {
+        tones: state.adornment === "tones" || state.adornment === "both",
+        diagrams: state.adornment === "diagram" || state.adornment === "both",
+      };
+    }
+
+    // --- exports (EX3 — mechanics unchanged) -----------------------------------
+    function sheetFilename(ext) {
+      return (sheetName.replace(/[^\w.-]+/g, "_") || "chord-sheet") + "." + ext;
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function exportSvg() {
+      if (!view) { setError("Nothing to export yet."); return; }
+      const s = view.toSvgString();
+      if (!s) { setError("Nothing to export yet."); return; }
+      downloadBlob(new Blob([s], { type: "image/svg+xml" }), sheetFilename("svg"));
+    }
+
+    function exportPng() {
+      if (!view) { setError("Nothing to export yet."); return; }
+      view.toPngBlob(2, (blob) => {
+        if (blob) downloadBlob(blob, sheetFilename("png"));
+        else setError("PNG export failed.");
+      });
+    }
+
+    // PDF: inject a print-styled light copy into #chord-sheet-print (an @media print rule hides the rest) and
+    // ask the host to print the page via WebView2 PrintToPdfAsync. chordSheetPdfDone tears the copy back down.
+    function exportPdf() {
+      if (!view) { setError("Nothing to export yet."); return; }
+      if (!Bridge.available) { setError("Open in the ChordFlow app to export PDF."); return; }
+      const printEl = document.getElementById("chord-sheet-print");
+      const svg = view.lightSvg();
+      if (!printEl || !svg) { setError("Nothing to export yet."); return; }
+      printEl.innerHTML = "";
+      printEl.appendChild(svg);
+      Bridge.send({ type: "exportChordSheet" });
+    }
+
+    // The PDF-done teardown is the one bridge envelope this module still owns (its own export round-trip).
+    function onHostMessage(raw) {
+      let msg;
+      try { msg = JSON.parse(raw); } catch (e) { return; }
+      if (msg.type === "chordSheetPdfDone") {
+        const printEl = document.getElementById("chord-sheet-print");
+        if (printEl) printEl.innerHTML = "";
+        if (msg.ok === false && msg.message) setError("PDF export failed: " + msg.message);
+      }
+    }
+
+    // --- playback marker (driven by the shell's beat fan-out — C5) --------------
+    // Group the cellSchedule by bar (0-based), each bar's entries sorted by beat, for the beat→cell lookup.
+    function setSchedule(cellSchedule) {
+      scheduleByBar = new Map();
+      for (const e of (cellSchedule || [])) {
+        let arr = scheduleByBar.get(e.bar);
+        if (!arr) { arr = []; scheduleByBar.set(e.bar, arr); }
+        arr.push(e);
+      }
+      for (const arr of scheduleByBar.values()) arr.sort((a, b) => a.beat - b.beat);
+      lastMarkerKey = null;
+    }
+
+    // The engine reports 1-based (bar,beat); the cellSchedule is 0-based. Both modes wash the sounding bar
+    // (from its downbeat entry); they differ in the sub-highlight. Runs even while the Sheet view is hidden,
+    // so a mid-playback Score ⇄ Sheet toggle reveals a marker already in the right place (IN7).
+    function onBeat(bar, beat) {
+      if (!view) return;
+      const entries = scheduleByBar.get(bar - 1);
+      if (!entries || entries.length === 0) return;   // out-of-range bar → keep the last marker
+      const cell = entries[0];                         // downbeat entry → this bar's cell
+
+      if (markerMode === "metronome") {
+        // Visual metronome: light the current beat column of the bar.
+        const beatIx = beat - 1;
+        const key = "b:" + cell.section + ":" + cell.row + ":" + cell.cell + ":" + beatIx;
+        if (key === lastMarkerKey) return;
+        lastMarkerKey = key;
+        view.highlightBeat(cell.section, cell.row, cell.cell, beatIx);
+        return;
+      }
+
+      // Per chord: the active segment = the last entry whose beat <= the current beat (sub-chord onsets + sustain).
+      const b = beat - 1;
+      let active = entries[0];
+      for (const e of entries) { if (e.beat <= b) active = e; else break; }
+      const key = "c:" + active.section + ":" + active.row + ":" + active.cell + ":" + active.chord;
+      if (key === lastMarkerKey) return;               // no change → skip a redundant DOM re-query
+      lastMarkerKey = key;
+      view.highlight(active.section, active.row, active.cell, active.chord);
+    }
+
+    function clearMarker() {
+      if (view) view.clearHighlight();
+      lastMarkerKey = null;
+    }
+
+    // --- render (fed the unified reply's sheet projection by the shell) ---------
+    // Creates the ChordSheetR once and reuses it (display toggles go through its setters, so the marker
+    // survives); a null sheet clears the view.
+    function render(sheet, name) {
+      setError("");
+      if (name) sheetName = name;
+      if (!sheet) {
+        lastModel = null;
+        if (view) { view.dispose(); view = null; }
+        scheduleByBar = new Map();
+        lastMarkerKey = null;
+        return;
+      }
+      lastModel = sheet;
+      if (!view) {
+        view = window.ChordFlowChordSheet.create(sheetEl, {
+          layout: state.layout,
+          notation: { primary: state.primary, secondary: state.secondary || null },
+          toneLabels: state.toneLabels,
+          adornments: adornments(),
+          theme: state.theme,
+        });
+      }
+      view.render(lastModel);
+      clearMarker();
+    }
+
+    buildStrip();
+    if (Bridge.available) Bridge.onReceive(onHostMessage);
+
+    return {
+      render,        // render(sheet, name) — the unified reply's sheet projection (+ export filename base)
+      setSchedule,   // setSchedule(cellSchedule) — the marker feed of the same reply
+      onBeat,        // onBeat(bar, beat) — 1-based, from the shell's engine fan-out
+      clearMarker,   // clear the highlight (end of playback / stop)
+      dispose() {
+        if (view) { view.dispose(); view = null; }
+        container.innerHTML = "";
+      },
+    };
   }
 
-  return { show };
+  return { create };
 })();

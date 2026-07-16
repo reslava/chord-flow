@@ -28,7 +28,10 @@
 //     controls: "full",        // "full" | "mini" | "none"
 //     debugPanel: true,        // adds a collapsed editable alphaTex panel under the staff (default false)
 //     tripletFeel: true,       // adds a whole-song feel (swing) select to the transport (default false)
-//     key: true,               // adds a Key select to the transport — ScoreR owns key/tempo/feel (default false)
+//     key: true,               // adds a Key select to the transport (Content preview; Practice uses HarmonyControlsR)
+//     volumes: false,          // hides the Rhythm/Lead sliders (default true; Practice puts them in HarmonyControlsR)
+//     transport: false,        // skip the in-strip PlayerControlsR (default true; the Practice shell mounts its
+//                              // own at page level, bound to view.getEngine(), so it survives the view toggle)
 //     options: { chordNames:false, diagrams:false, voicing:"byDifficulty" },   // metronome/count-in live in PlayerControlsR
 //     onBeat:(bar,beat)=>…, onStateChange:(playing)=>…, onFinished:()=>…, onNeedsRerender:(ro)=>…,
 //   });
@@ -101,8 +104,13 @@ window.ChordFlowScore = (function () {
     const debugPanel = !!opts.debugPanel;                 // opt-in alphaTex scratchpad, default off
     const tripletFeelEnabled = !!opts.tripletFeel;        // opt-in feel select (Practice only), default off
     let tripletFeel = "None";                             // current whole-song feel (C# TripletFeel name)
-    const keyEnabled = !!opts.key;                        // opt-in Key control (Practice + Content preview), default off
+    const keyEnabled = !!opts.key;                        // opt-in Key control (Content preview), default off
     let key = 0;                                          // current key tonic pitch class (0 = C); ScoreR-owned
+    const volumesEnabled = opts.volumes !== false;        // Rhythm/Lead sliders (default on); Practice mounts
+                                                          // them off — they live in HarmonyControlsR there (C2)
+    const transportEnabled = opts.transport !== false;    // mount PlayerControlsR in the strip (default on);
+                                                          // the Practice shell mounts its OWN pc at page level
+                                                          // (bound via getEngine()) so it survives the view toggle
     const options = Object.assign({}, DEFAULT_OPTIONS, opts.options || {});
     const cb = {
       onBeat: opts.onBeat || function () {},
@@ -289,6 +297,9 @@ window.ChordFlowScore = (function () {
       // Ask the consumer to show/hide its Now/Next fretboards (the component doesn't own that container).
       toggleNowNext(visible) { cb.onToggleNowNext(!!visible); },
       getApi() { return engine.getApi(); },
+      // The underlying ChordFlowPlayback handle — for a shell that binds page-level controls to ScoreR's
+      // engine (PlayerControlsR with transport:false, HarmonyControlsR's volume sliders). One page, one engine.
+      getEngine() { return engine; },
       // The current tempo shown in the transport (BPM), else the loaded score's authored tempo. Lets a
       // consumer carry the user's tempo choice onto the next generate request.
       getTempo() {
@@ -390,11 +401,11 @@ window.ChordFlowScore = (function () {
     // The shared player-transport controls (PlayerControlsR), bound to ScoreR's engine handle: play/stop/tempo/
     // soundfont/metronome/count-in, plus the Now/Next toggle when the consumer wires the boards. ScoreR keeps
     // owning the engine, the surface, getApi, and its notation-display controls (below).
-    pc = player ? window.ChordFlowPlayerControls.create(null, engine, {
+    pc = (player && transportEnabled) ? window.ChordFlowPlayerControls.create(null, engine, {
       onToggleNowNext: opts.onToggleNowNext ? (v) => handle.toggleNowNext(v) : null,
     }) : null;
 
-    const strip = buildControls(player, controls, options, handle, ui, tripletFeelEnabled, { scrollMode, keyEnabled }, pc);
+    const strip = buildControls(player, controls, options, handle, ui, tripletFeelEnabled, { scrollMode, keyEnabled, volumesEnabled }, pc);
     if (strip) container.appendChild(strip);
     container.appendChild(surface);
     if (debugPanel) container.appendChild(buildDebugPanel());
@@ -438,11 +449,15 @@ window.ChordFlowScore = (function () {
     }
 
     if (player && controls === "full") {
-      strip.append(
-        scrollModeSelect(handle, ui, extra.scrollMode),
-        volumeSlider("rhythm", "Rhythm vol", handle, ui),
-        volumeSlider("lead", "Lead vol", handle, ui),
-      );
+      strip.append(scrollModeSelect(handle, ui, extra.scrollMode));
+      // Rhythm/Lead volume sliders — suppressed on the Practice page, where they live next to their voice in
+      // HarmonyControlsR (harmony-controls-r C2); other full-player consumers (Content preview) keep them here.
+      if (extra.volumesEnabled) {
+        strip.append(
+          volumeSlider("rhythm", "Rhythm vol", handle, ui),
+          volumeSlider("lead", "Lead vol", handle, ui),
+        );
+      }
     }
 
     // Staff-display profile — a display-only knob over any shown score, so it appears in both the full
