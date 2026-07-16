@@ -4,11 +4,12 @@ id: th_01KXGQFZWCXAN75K4YPZHAMPBT
 title: Harmonic analysis — functional labels, secondary dominants, borrowed chords
 status: active
 created: 2026-07-14
+updated: 2026-07-16
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 45
+priority: 20
 depends_on: []
 ---
 # Harmonic analysis — functional labels, secondary dominants, borrowed chords
