@@ -2,7 +2,7 @@
 type: chat
 id: ch_01KXMR432SEQVBR687BJEH6CCE
 title: player-controls-component now-next boards on Chord Sheets Chat 002
-status: active
+status: done
 created: 2026-07-16
 updated: 2026-07-16
 version: 1
