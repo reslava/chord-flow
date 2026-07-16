@@ -126,6 +126,38 @@ public class ChordSheetHandlerTests
     }
 
     [Fact]
+    public void Build_SurfacesChordSchedule_WithCompedGrips_EvenWhenAdornmentNone()
+    {
+        using var conn = SeededConnection();   // 4 bars: C7 F7 C7 C7
+        var handler = new ChordSheetHandler(Options(conn));
+
+        // Adornment "none" ⇒ the sheet draws no per-cell diagrams, but the now/next feed still carries the
+        // comped grips (IN2 — comping resolved unconditionally, not gated by the below-cell adornment toggle).
+        ChordSheetResultEnvelope result = handler.Build(Request(adornment: "none"));
+
+        Assert.NotEmpty(result.ChordSchedule);
+        Assert.All(result.ChordSchedule, c => Assert.NotNull(c.Diagram));
+        // One entry per chord CHANGE (dedup by label): C7, F7, C7 — bar 3 repeats bar 2's C7, so no 4th entry
+        // (IN6 per-chord granularity is inherent in the schedule the render pass already produces).
+        Assert.Equal(new[] { "C7", "F7", "C7" }, result.ChordSchedule.Select(c => c.Name));
+    }
+
+    [Fact]
+    public void Build_ChordScheduleAndCellSchedule_AreSeparateProjections()
+    {
+        using var conn = SeededConnection("17_47");   // one split bar: C7 then F7
+        var handler = new ChordSheetHandler(Options(conn));
+
+        ChordSheetResultEnvelope result = handler.Build(Request());
+
+        // chordSchedule is the now/next feed: one ChordChange per chord change, both onsets in the split bar —
+        // a distinct projection from cellSchedule's marker cell-addressing (C1).
+        Assert.Equal(new[] { "C7", "F7" }, result.ChordSchedule.Select(c => c.Name));
+        Assert.Contains(result.ChordSchedule, c => c is { Bar: 0, Beat: 0, Name: "C7" });
+        Assert.Contains(result.ChordSchedule, c => c.Bar == 0 && c.Beat > 0 && c.Name == "F7");
+    }
+
+    [Fact]
     public void Build_MissingReference_Throws()
     {
         using var conn = SeededConnection();

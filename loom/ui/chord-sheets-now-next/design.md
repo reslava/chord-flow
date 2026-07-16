@@ -2,7 +2,7 @@
 type: design
 id: de_01KXMS3Z1MTACNXG5R4NXKA5TR
 title: Now/Next boards on Chord Sheets — one shared current/next-chord feed
-status: draft
+status: done
 created: 2026-07-16
 version: 1
 idea_version: 1

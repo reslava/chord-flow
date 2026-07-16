@@ -79,7 +79,10 @@ public sealed class ChordSheetHandler
 
         IReadOnlyList<CellScheduleEntry> cellSchedule = BuildCellSchedule(built.BarSchedule, render.Schedule);
 
-        return new ChordSheetResultEnvelope(built.Sheet, cellSchedule, render.Tex);
+        // Surface the SAME render.Schedule (one ChordChange per chord change, with the comped diagram) as the
+        // now/next feed — the identical wire shape Practice's loadScore carries (IN1/IN3). It rides alongside
+        // the marker's cellSchedule: two separate projections of one realized-song pass (C1), never re-derived.
+        return new ChordSheetResultEnvelope(built.Sheet, cellSchedule, render.Schedule, render.Tex);
     }
 
     // Overlay the render schedule's mid-bar chord onsets onto the builder's per-bar downbeats (approach A):

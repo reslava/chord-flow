@@ -2,7 +2,7 @@
 type: idea
 id: id_01KXMS31BX5B4EABZKYSTP0SQQ
 title: Now/Next boards on Chord Sheets — one shared current/next-chord feed
-status: draft
+status: done
 created: 2026-07-16
 version: 1
 tags: []

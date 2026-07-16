@@ -27,6 +27,8 @@ window.ChordFlowChordSheets = (function () {
   let lastMarkerKey = null;         // last highlighted key — skip redundant re-highlights
   let markerMode = "metronome";     // "metronome" (per-beat, default) | "chord" (per-chord segment)
   let pc = null;   // shared PlayerControlsR (transport/tempo/soundfont/metronome/count-in), bound to this page's engine
+  let nowNext = null;    // ChordFlowNowNext handle — the current/next chord fretboards (fed chordSchedule)
+  let nowNextEl = null;  // its page container (above the sheet); the PlayerControlsR toggle hides THIS (no setVisible)
 
   const state = {
     harmonyEntity: null, harmonyId: null, key: "", // key "" = the song's own key
@@ -231,11 +233,19 @@ window.ChordFlowChordSheets = (function () {
       onBeat: onBeat,
       // Playback marker only: clear it at end-of-play. The transport button/label/enable + tempo + soundfont
       // picker are owned by PlayerControlsR (it self-subscribes to the engine); this page just drives the marker.
-      onFinished: () => { if (view) view.clearHighlight(); lastMarkerKey = null; },
+      onFinished: () => {
+        if (view) view.clearHighlight();
+        lastMarkerKey = null;
+        if (nowNext) nowNext.reset();   // back to the first chord on stop/end (schedule kept for replay)
+      },
     });
     // Mount the shared player-transport controls at the head of the transport strip — metronome + count-in come
-    // for free. The page owns the engine (C1); PlayerControlsR binds to its handle.
-    pc = window.ChordFlowPlayerControls.create(null, engine, {});
+    // for free. The page owns the engine (C1); PlayerControlsR binds to its handle. Passing onToggleNowNext
+    // renders the optional Now/Next checkbox (default checked → boards visible, matching Practice); since
+    // ChordFlowNowNext has no setVisible, the toggle hides the page container we mounted it in (like app.js).
+    pc = window.ChordFlowPlayerControls.create(null, engine, {
+      onToggleNowNext: (visible) => { if (nowNextEl) nowNextEl.hidden = !visible; },
+    });
     transportEl.insertBefore(pc.el, transportEl.firstChild);
   }
 
@@ -253,6 +263,10 @@ window.ChordFlowChordSheets = (function () {
   // The engine reports 1-based (bar,beat); the cellSchedule is 0-based (like NowNext). Both modes wash the
   // sounding bar (from its downbeat entry); they differ in the sub-highlight.
   function onBeat(bar, beat) {
+    // Now/next boards advance per CHORD change, independent of the marker mode below (IN6). The engine reports
+    // 1-based (bar,beat); ChordFlowNowNext (like the chordSchedule) is 0-based, so step down by one (as app.js).
+    if (nowNext) nowNext.onBeat(bar - 1, beat - 1);
+
     if (!view) return;
     const entries = scheduleByBar.get(bar - 1);
     if (!entries || entries.length === 0) return;   // out-of-range bar → keep the last marker
@@ -310,6 +324,7 @@ window.ChordFlowChordSheets = (function () {
       setError("");
       lastModel = msg.sheet;
       buildSchedule(msg.cellSchedule);
+      if (nowNext) nowNext.setSchedule(msg.chordSchedule);   // the now/next feed — a separate projection (C1)
       renderNow();
       lastMarkerKey = null;
       if (view) view.clearHighlight();
@@ -368,6 +383,9 @@ window.ChordFlowChordSheets = (function () {
     // The engine's staff surface — collapsed by default (Show tab reveals it); kept full-width so alphaTab lays out.
     scoreWrapEl = document.createElement("div");
     scoreWrapEl.style.cssText = "overflow:hidden;max-height:0;";
+    // The now/next chord fretboards live above the sheet (mirroring Practice's placement above the score); the
+    // PlayerControlsR Now/Next toggle shows/hides this container.
+    nowNextEl = document.createElement("div");
     sheetEl = document.createElement("div");
     sheetEl.style.cssText = "overflow:auto;";
     pageEl.appendChild(toolbarEl);
@@ -375,9 +393,12 @@ window.ChordFlowChordSheets = (function () {
     pageEl.appendChild(errorEl);
     pageEl.appendChild(hintEl);
     pageEl.appendChild(scoreWrapEl);
+    pageEl.appendChild(nowNextEl);
     pageEl.appendChild(sheetEl);
     buildToolbar();
     buildTransport();
+    // Mount the shared now/next boards (reused as-is); fed msg.chordSchedule on each result, advanced in onBeat.
+    if (window.ChordFlowNowNext) nowNext = window.ChordFlowNowNext.create(nowNextEl);
     if (Bridge.available) Bridge.onReceive(onHostMessage);
     setupEngine();
     initialized = true;
