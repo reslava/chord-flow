@@ -37,6 +37,17 @@ window.ChordFlowPlayback = (function () {
   const DEFAULT_SOUNDFONT = "sonivox.sf2";
   function fontUrl(id) { return "soundfont/" + id; }
 
+  // Live player-engine registry. Every player-mode engine self-registers on create() and drops out on
+  // dispose(), so a single stopAll() silences every sound surface (Practice, Content preview, Chord Sheets,
+  // and anything added later) with zero per-view wiring — the app's view toggle calls it on page change.
+  const liveEngines = new Set();
+  function stopAll() {
+    for (const engine of liveEngines) {
+      try { engine.stop(); }
+      catch (e) { console.error("[ChordFlowPlayback] stopAll failed for an engine:", e); }
+    }
+  }
+
   const SCROLL_MODES = { off: alphaTab.ScrollMode.Off, offscreen: alphaTab.ScrollMode.OffScreen, continuous: alphaTab.ScrollMode.Continuous };
 
   // The single alphaTab settings source of truth. Player settings are added only in player mode so a lite
@@ -204,7 +215,7 @@ window.ChordFlowPlayback = (function () {
       }
     }
 
-    return {
+    const handle = {
       // Render + prime an alphaTex string. `tempo` (authored BPM) re-bases setTempo's speed multiplier.
       load(tex, o) {
         if (o && o.tempo) baseTempo = o.tempo;
@@ -234,10 +245,16 @@ window.ChordFlowPlayback = (function () {
       getApi() { return api; },
       dispose() {
         disposed = true;   // a late soundFontsListed fan-out must not touch a destroyed api
+        liveEngines.delete(handle);
         try { api.destroy(); } catch (_) { /* already torn down */ }
       },
     };
+
+    // Only player-mode engines make sound, so only those join the stopAll() registry (a lite render-only
+    // preview has no synth to stop).
+    if (player) liveEngines.add(handle);
+    return handle;
   }
 
-  return { create, DEFAULT_SOUNDFONT, fontUrl };
+  return { create, stopAll, DEFAULT_SOUNDFONT, fontUrl };
 })();

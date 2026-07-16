@@ -290,6 +290,9 @@ const ChordFlow = (function () {
 
     function show(viewName) {
       const target = views[viewName] ? viewName : "practice";
+      // Changing pages silences audio: stop every live player engine (Practice, Content preview, Chord
+      // Sheets, …) before switching, so a score left playing doesn't keep sounding on the page you left.
+      if (window.ChordFlowPlayback) window.ChordFlowPlayback.stopAll();
       for (const [name, v] of Object.entries(views)) {
         const active = name === target;
         if (v.el) v.el.hidden = !active;
@@ -446,6 +449,15 @@ const ChordFlow = (function () {
 
     setupControls();
     setupViewToggle();
+
+    // Silence playback when the app window loses focus or is closing — a score shouldn't keep sounding while
+    // ChordFlow is in the background or on its way out. Reuses the same registry-wide stopAll() the page
+    // toggle uses, so every sound surface is covered. `pagehide` is the reliable close/navigate-away signal.
+    if (window.ChordFlowPlayback) {
+      const stopAll = () => window.ChordFlowPlayback.stopAll();
+      window.addEventListener("blur", stopAll);
+      window.addEventListener("pagehide", stopAll);
+    }
 
     if (Bridge.available) {
       // Register the inbound handler BEFORE announcing ready, or we could miss the host's loadScore reply.
