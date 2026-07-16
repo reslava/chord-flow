@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 11
+last_ai_block: 19
 ---
 # harmony-controls-r Chat 001
 
@@ -218,3 +218,140 @@ Step 7 marked done — and with it **the plan auto-closed: 7/7 ✅**. The thread
 Committing the whole thread now (code + tests + loom docs). Suggested follow-ups whenever you feel like them: `docs done` for this thread's idea/design/chat, and the charleston investigation.
 
 *(Small English note, since you asked me to flag these: "more clear and useful **that** 2 different pages" → "…**than** 2 different pages" — and "much more clear" reads more naturally as "much clearer".)*
+
+## Rafa:
+
+Update `loom/refs/chordflow-architecture-reference.md`, include the new `HarmonyControlsR`
+write quick
+
+how can I check what alphaTab version are we using?
+
+## AI:
+
+**Architecture ref — already done.** The HarmonyControlsR update landed as part of step 7 (req C6: ref updated in the same unit of work) and is in the commit. It's covered in three places in `chordflow-architecture-reference.md`:
+
+- §2 (solution shape): `harmony-controls-component.js` listed in the wwwroot map with its one-line role.
+- §5: a dedicated **"The shared harmony/definition controls … HarmonyControlsR"** paragraph — the definition state, the one-picker/no-drift population path, key/feel seeding rules, the tempo-stays-in-PlayerControlsR hook, and the live-param replay flow.
+- §7: the playback-seam diagram redrawn around the ONE Practice page (HarmonyControlsR + transport strip + two view surfaces over one engine).
+
+So no `write quick` needed — there's nothing new to ship, and the work is already recorded in plan-001's done doc. Give it a read and if you want anything expanded or worded differently, point at the section and I'll patch it.
+
+**How to check the alphaTab version** — two ways, no code changes:
+
+1. **The debug panel** (easiest): on the Practice page's Score view, expand the collapsed *alphaTex scratchpad* under the staff — its summary row shows **"alphaTab vX.Y.Z"** on the right (it reads `alphaTab.meta.version`, see `score-render-component.js:361`).
+2. **DevTools console**: launch with `CHORDFLOW_DEVTOOLS=1`, press F12, and type `alphaTab.meta.version`.
+
+(The bundled build lives at `src/ChordFlow.Desktop/wwwroot/alphaTab.min.js` — useful when you compare against alphaTab's changelog while investigating the charleston cursor easing.)
+
+## Rafa:
+
+I checked way 1, we are using v1.8.3 
+
+I tried to launch in bash terminal
+```bash
+CHORDFLOW_DEVTOOLS=1 
+dotnet run --project src/ChordFlow.Desktop
+```
+but F12 did not launch dev tools
+did I launch the env variable wrongly?
+
+### Cursor issue
+
+I got this from web:
+>This issue was accepted as a bug and targeted for the v1.8.3 milestone 
+>Disable the Native Cursor: If updating doesn't help, you can try disabling the built-in playback cursor and using a custom one if your implementation allows, as custom cursors sometimes avoid the specific "hit-testing" logic causing the regression 
+
+I think the jitter effect is common for alphaTab, I checked it even with v1.9.0. I also checked it in Guitar Pro an also has that effect. I think it is becuase notes/silence durations are not equaly scaled in the score.
+I think we are going to leave as is for now
+
+## AI:
+
+**Yes — the env var was set wrongly** (a classic bash subtlety). Written on its own line:
+
+```bash
+CHORDFLOW_DEVTOOLS=1
+dotnet run --project src/ChordFlow.Desktop
+```
+
+…the first line creates a plain **shell variable** — not exported, so the `dotnet` child process never sees it (and `Program.cs` reads it via `Environment.GetEnvironmentVariable`, i.e. from the process environment). Two correct forms:
+
+```bash
+# 1. prefix form — same line, env applies to that one command only:
+CHORDFLOW_DEVTOOLS=1 dotnet run --project src/ChordFlow.Desktop
+
+# 2. export — applies to everything you launch from this shell afterwards:
+export CHORDFLOW_DEVTOOLS=1
+dotnet run --project src/ChordFlow.Desktop
+```
+
+(In PowerShell it would be `$env:CHORDFLOW_DEVTOOLS = "1"` before the run.) With it actually set you get F12/right-click-Inspect plus `window.__cfApi` / `window.__cfEngine` in the console.
+
+**Cursor jitter — agreed, leave as is.** Your investigation is convincing: reproduced on v1.9.0 and even in Guitar Pro, so it's inherent to how notation is engraved — a score gives a dotted-quarter and a sixteenth very different horizontal widths than their durations proportionally deserve, and a time-linear cursor moving over duration-nonlinear spacing necessarily looks like it accelerates through the tight spots (the rests). Not our bug, not alphaTab's either really. Two crumbs for the future, no action now:
+
+- The Sheet view's **Visual metronome** marker is discrete (per-beat column steps, no easing), so practicing in Sheet view sidesteps the sensation entirely — a nice side-benefit of the view toggle.
+- If it ever bothers enough: alphaTab's player cursor can be hidden (`displayMode`/cursor settings) in favor of a custom bar-level highlight like ChordSheetR's — the "disable the native cursor" route your quote mentions. Worth a `playback/` thread only if that day comes.
+
+v1.8.3 noted. Anything else on this thread, or shall we `docs done` it?
+
+## Rafa:
+
+I did doc dones myself
+I asked about cursor jitter effect because even in Sheet view happens and in that view is really annoying, so we did not get the side-benefit at all.
+Maybe we can try to hide alphaTab Cursor when Sheet view is active.
+I also check alphaTab website and found this:
+https://next.alphatab.net/docs/reference/types/platform/cursors
+```
+barCursor​
+Gets the element that is positioned above the bar that is currently played.
+
+readonly barCursor: IContainer;
+
+beatCursor​
+Gets the element that is positioned above the beat that is currently played.
+
+readonly beatCursor: IContainer;
+
+cursorWrapper​
+Gets the element that spans across the whole music sheet and holds the other cursor elements.
+
+readonly cursorWrapper: IContainer;
+
+selectionWrapper​
+Gets the element that spans across the whole music sheet and will hold any selection related elements.
+
+readonly selectionWrapper: IContainer;
+```
+
+## AI:
+
+You're right, and I was wrong about the side-benefit — I dug into the signal chain and the Sheet marker was never metronomic. Here's the actual mechanics:
+
+**Why Sheet view jitters too.** The engine's `beat` event comes from alphaTab's `activeBeatsChanged` (`playback-component.js:192-198`), and the `beat` number it emits is **`beat.index` — the index of the rendered note/rest event within the bar, not a quarter-note position**. So for charleston (`X...--X.--------`) the events fire at *note/rest boundaries* — irregular in time by construction — and the "Visual metronome" marker steps exactly when those events fire. It's not a cursor-rendering problem at all; **the clock itself is event-driven, not time-driven**. Same signal feeds Now/Next and the score cursor easing, which is why the sensation is identical everywhere.
+
+**Why hiding the alphaTab cursor won't help Sheet view:** it's already invisible there — the score surface is collapsed to zero height when Sheet is active. The native cursor never appears in Sheet view; what you're seeing is our own marker driven by the irregular signal above. (The `cursors` API you found is from `next.alphatab.net` — the *upcoming* version's docs — and it's about grabbing/styling the cursor elements. Useful someday if we restyle the Score view's native cursor; irrelevant to the Sheet marker.)
+
+**The real fix — a time-based clock for the Visual-metronome mode.** alphaTab also exposes **`playerPositionChanged`**, which fires continuously with the current **tick/time position** (time-linear, unaffected by how notes are engraved or how sparse the rhythm is). The shape:
+
+1. `playback-component.js`: subscribe `api.playerPositionChanged`, derive `(bar, quarterBeat)` from `currentTick` (960 ticks per quarter in alphaTab's MIDI; 4/4 bars = 3840 ticks), emit a new `"position"` bus event alongside the existing `"beat"`.
+2. `chord-sheets.js`: **Visual metronome** mode consumes `"position"` → the marker steps once per quarter, perfectly even, silence or not. **Per chord** mode stays on the event-driven signal (chord onsets *are* events — correct as-is).
+3. Optionally Now/Next could switch too, but chord changes are events, so it's fine on the current signal.
+
+Small change (one engine subscription + one consumer switch), and it fixes the annoyance at the root instead of hiding cursors. The score view's native cursor keeps its inherent easing (that one genuinely is alphaTab/Guitar-Pro-inherent, as you found).
+
+This is new work beyond this thread's closed plan — want me to spin up a thread for it (suggest: `playback/metronome-true-marker`) with idea + design, or park it for now?
+
+## Rafa:
+
+Our investigation brings good news! Yes, we need a time-based clock for the Visual-metronome mode.
+Spin up thread `playback/metronome-true-marker` + idea + design
+
+## AI:
+
+Thread spun up: **`playback/metronome-true-marker`** (`th_01KXNW4VE3J659QNXGZKGMGSF9`, priority 50) with:
+
+- **`idea.md`** — the problem (event-driven `beat.index` clock, not the cursor, not fixable by cursor styling), the idea (a `"position"` engine event from `playerPositionChanged`, consumed only by the Visual-metronome mode), scope in/out, and validation (charleston steps evenly straight AND swing; per-chord + Now/Next untouched; pickup-bar alignment; tempo-change follows).
+- **`design.md`** — the signal chain (today → target), the engine derivation (960 ticks/quarter, **bar starts cached from the score model** — not a fixed 3840 division, so `\ac` pickup bars stay aligned; deduped emit, 1-based like `"beat"`), consumer wiring (shell subscribes via `getEngine()`, `sheetView.onPosition` drives metronome mode only), edge cases (count-in clamp, swing-safe, tempo-free ticks), rejected alternatives (fixed bars, `setInterval` drift, cursor hiding), and the verify notes (JS-only; architecture ref's event-bus line updates in the same unit of work).
+
+Two things flagged for implementation-time verification against **v1.8.3**: the exact `playerPositionChanged` arg shape (`currentTick`) and the master-bar start-tick property (fallback: derive cumulatively from time signatures).
+
+Since this discussion lives here in the harmony-controls-r chat, I'd continue the new thread's work in its own chat when we get to it. Next step there when you're ready: req + plan (`load playback/metronome-true-marker` and say `go`).

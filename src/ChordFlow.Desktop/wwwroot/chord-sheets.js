@@ -8,8 +8,10 @@
 // the #chord-sheet-print + host-print flow — EX3).
 //
 // It owns NO engine and issues NO render requests: the shell feeds it the sheet projection of the unified
-// generate/loadExercise reply — render(sheet, name) + setSchedule(cellSchedule) — and fans the engine's beat
-// signal into onBeat(bar, beat). Every strip control is a pure-JS re-render over the held model (req C3-style);
+// generate/loadExercise reply — render(sheet, name) + setSchedule(cellSchedule) — and fans the engine's two
+// playback signals in: onBeat(bar, beat) (event-driven → Per-chord mode) and onPosition(bar, quarterBeat)
+// (the PlaybackClock's time-linear steps → Visual-metronome mode; metronome-true-marker). Every strip
+// control is a pure-JS re-render over the held model (req C3-style);
 // Below cell too (IN10) — the model always carries tone + diagram data, so adornments never re-request.
 "use strict";
 
@@ -195,24 +197,31 @@ window.ChordFlowSheetView = (function () {
       lastMarkerKey = null;
     }
 
-    // The engine reports 1-based (bar,beat); the cellSchedule is 0-based. Both modes wash the sounding bar
-    // (from its downbeat entry); they differ in the sub-highlight. Runs even while the Sheet view is hidden,
-    // so a mid-playback Score ⇄ Sheet toggle reveals a marker already in the right place (IN7).
+    // The engine's time clock ("position", 1-based quarters — metronome-true-marker): drives ONLY the
+    // Visual-metronome marker, one even step per quarter through notes, sustains and silences alike. The
+    // event-driven onBeat below cannot do this — its beat number is the rendered note/rest index, so it
+    // accelerates through silences and drags through long notes. Shares lastMarkerKey with onBeat (the mode
+    // select resets it), so a mid-playback mode switch stays clean. Runs even while the Sheet view is
+    // hidden, so a mid-playback Score ⇄ Sheet toggle reveals a marker already in the right place (IN7).
+    function onPosition(bar, quarterBeat) {
+      if (!view || markerMode !== "metronome") return;
+      const entries = scheduleByBar.get(bar - 1);      // cellSchedule is 0-based
+      if (!entries || entries.length === 0) return;    // out-of-range bar → keep the last marker
+      const cell = entries[0];                         // downbeat entry → this bar's cell
+      const beatIx = quarterBeat - 1;
+      const key = "b:" + cell.section + ":" + cell.row + ":" + cell.cell + ":" + beatIx;
+      if (key === lastMarkerKey) return;
+      lastMarkerKey = key;
+      view.highlightBeat(cell.section, cell.row, cell.cell, beatIx);
+    }
+
+    // The engine reports 1-based (bar,beat); the cellSchedule is 0-based. Event-driven — drives ONLY the
+    // Per-chord mode (chord onsets ARE events, so this signal is correct there); the Visual-metronome mode
+    // follows onPosition's time clock instead. Runs even while the Sheet view is hidden (IN7, as above).
     function onBeat(bar, beat) {
-      if (!view) return;
+      if (!view || markerMode !== "chord") return;
       const entries = scheduleByBar.get(bar - 1);
       if (!entries || entries.length === 0) return;   // out-of-range bar → keep the last marker
-      const cell = entries[0];                         // downbeat entry → this bar's cell
-
-      if (markerMode === "metronome") {
-        // Visual metronome: light the current beat column of the bar.
-        const beatIx = beat - 1;
-        const key = "b:" + cell.section + ":" + cell.row + ":" + cell.cell + ":" + beatIx;
-        if (key === lastMarkerKey) return;
-        lastMarkerKey = key;
-        view.highlightBeat(cell.section, cell.row, cell.cell, beatIx);
-        return;
-      }
 
       // Per chord: the active segment = the last entry whose beat <= the current beat (sub-chord onsets + sustain).
       const b = beat - 1;
@@ -262,7 +271,8 @@ window.ChordFlowSheetView = (function () {
     return {
       render,        // render(sheet, name) — the unified reply's sheet projection (+ export filename base)
       setSchedule,   // setSchedule(cellSchedule) — the marker feed of the same reply
-      onBeat,        // onBeat(bar, beat) — 1-based, from the shell's engine fan-out
+      onBeat,        // onBeat(bar, beat) — 1-based event signal, from the shell's engine fan-out (Per-chord mode)
+      onPosition,    // onPosition(bar, quarterBeat) — 1-based time clock, same fan-out (Visual-metronome mode)
       clearMarker,   // clear the highlight (end of playback / stop)
       dispose() {
         if (view) { view.dispose(); view = null; }

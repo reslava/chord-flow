@@ -19,6 +19,7 @@
 //     onBeat:(bar,beat)=>…,     // 1-based, from activeBeatsChanged
 //     onStateChange:(playing)=>…, onFinished:()=>…, onReady:()=>…,  // onReady = soundFontLoaded
 //     onSoundFontsListed:(fonts, selectedId)=>…,   // host reply: fill the consumer's picker UI
+//     ticksPerStep: 960,        // PlaybackClock step size in MIDI ticks (default 960 = quarter)
 //   });
 //   engine.load(tex, { tempo }); engine.play(); engine.stop(); engine.setTempo(bpm);
 //   engine.setMetronome(on); engine.setCountIn(on); engine.setTrackVolume("rhythm", 0.5);
@@ -50,6 +51,71 @@ window.ChordFlowPlayback = (function () {
 
   const SCROLL_MODES = { off: alphaTab.ScrollMode.Off, offscreen: alphaTab.ScrollMode.OffScreen, continuous: alphaTab.ScrollMode.Continuous };
 
+  // PlaybackClock — the time-based playback clock behind the "position" event (a named component of the
+  // playback engine; loom/playback/metronome-true-marker). alphaTab's activeBeatsChanged is EVENT-driven —
+  // its beat.index is the rendered note/rest index within the bar, not a time position — so anything
+  // metronome-shaped (the Sheet view's Visual-metronome marker, a future metronome widget) must instead
+  // follow playerPositionChanged's continuous tick: the synth's own position is the only honest clock.
+  //
+  // The clock maps a raw tick to (bar, quarterBeat), both 1-based, against the PLAYBACK tick timeline
+  // (api.tickCache.masterBars — start/tickDuration in real playback ticks). NOT the score model's
+  // masterBar.start: on alphaTab v1.8.3 that timeline zero-widths a pickup (`\ac`) bar
+  // (start += prev.isAnacrusis ? 0 : duration), so it drifts one pickup-length off the synth position for
+  // every score with an anacrusis — the tickCache is the timeline the synth actually plays. The cache is
+  // rebuilt lazily whenever the api's tickCache identity changes (i.e. once per loaded score, no event
+  // coordination), and reset() drops the dedupe latch on each score load. ticksPerStep is a constructor
+  // param (960 = one quarter in alphaTab's MIDI model) so a future sub-beat consumer is a parameter change,
+  // not a refactor. step() returns {bar, quarterBeat} once per step change and null otherwise (dedupe:
+  // playerPositionChanged fires at animation rate; consumers see at most one event per step).
+  class PlaybackClock {
+    constructor(ticksPerStep) {
+      this.ticksPerStep = ticksPerStep || 960;
+      this.reset();
+    }
+    reset() {
+      this.entries = null;       // [{ start, end, bar }] in playback ticks, ascending by start
+      this.cacheSource = null;   // the tickCache the entries were built from (identity per load)
+      this.resetLatch();
+    }
+    // Drop only the dedupe latch (end of playback): the next play of the SAME score must re-emit its first
+    // step, which the latch would otherwise swallow. The timeline cache stays — the score didn't change.
+    resetLatch() {
+      this.lastKey = null;       // dedupe latch: "bar:quarterBeat" of the last emitted step
+    }
+    rebuild(tickCache) {
+      this.cacheSource = tickCache;
+      this.entries = [];
+      for (const mb of tickCache.masterBars) {
+        // MasterBarTickLookup carries plain start/end tick properties on v1.8.3 (probed at runtime —
+        // there is no tickDuration field on this build).
+        this.entries.push({ start: mb.start, end: mb.end, bar: mb.masterBar.index + 1 });
+      }
+    }
+    // tick → {bar, quarterBeat} on step change, else null. Out-of-range ticks past the last bar keep the
+    // last marker (null — mirrors the sheet marker's out-of-range guard); pre-score ticks (count-in) clamp
+    // to the first entry, so at worst the first quarter highlights one count-in early.
+    step(tickCache, tick) {
+      if (!tickCache || typeof tick !== "number") return null;
+      if (this.cacheSource !== tickCache) this.rebuild(tickCache);
+      const entries = this.entries;
+      if (!entries || entries.length === 0) return null;
+      if (tick >= entries[entries.length - 1].end) return null;
+      // Binary search: last entry with start <= tick (clamped to the first entry for count-in ticks).
+      let lo = 0, hi = entries.length - 1, idx = 0;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        if (entries[mid].start <= tick) { idx = mid; lo = mid + 1; }
+        else hi = mid - 1;
+      }
+      const entry = entries[idx];
+      const quarterBeat = Math.max(1, Math.floor((tick - entry.start) / this.ticksPerStep) + 1);
+      const key = entry.bar + ":" + quarterBeat;
+      if (key === this.lastKey) return null;
+      this.lastKey = key;
+      return { bar: entry.bar, quarterBeat };
+    }
+  }
+
   // The single alphaTab settings source of truth. Player settings are added only in player mode so a lite
   // preview never pays the soundfont/worker-player cost. `display` is supplied by the consumer (it owns layout).
   function buildSettings(player, scroll, soundFont, display) {
@@ -80,8 +146,9 @@ window.ChordFlowPlayback = (function () {
     // A small multi-subscriber event bus so several consumers (a page's playback marker AND a shared
     // PlayerControlsR) can each react to the same engine events without the page forwarding them. The
     // create()-time on* callbacks are sugar that register on these same buses.
-    //   beat(bar,beat 1-based) · stateChange(playing) · ready · finished · soundFontsListed(fonts, selectedId)
-    const listeners = { beat: [], stateChange: [], ready: [], finished: [], soundFontsListed: [] };
+    //   beat(bar,beat 1-based) · position(bar,quarterBeat 1-based) · stateChange(playing) · ready ·
+    //   finished · soundFontsListed(fonts, selectedId)
+    const listeners = { beat: [], position: [], stateChange: [], ready: [], finished: [], soundFontsListed: [] };
     function on(event, handler) {
       if (listeners[event] && typeof handler === "function") listeners[event].push(handler);
     }
@@ -171,20 +238,37 @@ window.ChordFlowPlayback = (function () {
     }
 
     if (player) {
+      // The engine's PlaybackClock — feeds the "position" bus (see the class above). One per engine; its
+      // tick-timeline cache self-rebuilds per loaded score, the dedupe latch resets on scoreLoaded below.
+      const clock = new PlaybackClock(opts.ticksPerStep);
+      let isPlaying = false;   // gates "position": stop() seeks back to tick 0, which must not re-highlight
+
       // Re-assert per-track volumes + metronome/count-in for each freshly loaded score (the synth rebuilds
       // its channels on every load, dropping any previously-set values otherwise).
       api.scoreLoaded.on(() => {
         applyTrackVolume("rhythm");
         applyTrackVolume("lead");
         applyMetronomeCountIn();
+        clock.reset();
       });
 
       // playerStateChanged: { state: Paused/Playing, stopped: bool }. `stopped` fires at natural end and on
       // stop() — both mean "session ended" for the consumer's onFinished.
       api.playerStateChanged.on((e) => {
-        const playing = e.state === PlayerState.Playing;
-        emit("stateChange", playing);
-        if (e.stopped) emit("finished");
+        isPlaying = e.state === PlayerState.Playing;
+        emit("stateChange", isPlaying);
+        if (e.stopped) { clock.resetLatch(); emit("finished"); }
+      });
+
+      // playerPositionChanged: the continuous synth tick (animation rate). The clock dedupes it down to one
+      // "position" step per (bar, quarterBeat) — the time-linear signal metronome-shaped consumers follow.
+      // isSeek reports are skipped: natural end / stop() seek back to tick 0 BEFORE the stopped state-change
+      // lands (verified on v1.8.3), so the isPlaying gate alone would let the echo re-highlight bar 1 — and
+      // the streaming (non-seek) reports resume within ~50ms after any real seek, so nothing is missed.
+      api.playerPositionChanged.on((e) => {
+        if (!isPlaying || e.isSeek) return;
+        const s = clock.step(api.tickCache, e.currentTick);
+        if (s) emit("position", s.bar, s.quarterBeat);
       });
 
       // activeBeatsChanged: report the first active beat's (bar, beat), both 1-based.
@@ -227,7 +311,7 @@ window.ChordFlowPlayback = (function () {
       setTempo(bpm) { if (player && bpm && baseTempo) api.playbackSpeed = bpm / baseTempo; },
       setMetronome(state) { metronomeOn = !!state; applyMetronomeCountIn(); },
       setCountIn(state) { countInOn = !!state; applyMetronomeCountIn(); },
-      // Subscribe to an engine event bus (beat/stateChange/ready/finished/soundFontsListed). Multiple
+      // Subscribe to an engine event bus (beat/position/stateChange/ready/finished/soundFontsListed). Multiple
       // consumers (page marker + PlayerControlsR) can each subscribe without the page forwarding events.
       on(event, handler) { on(event, handler); return this; },
       // Per-track playback volume (0..1). which = "rhythm" | "lead"; lead is a no-op on a single-track score.

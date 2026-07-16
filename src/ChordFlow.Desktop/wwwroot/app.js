@@ -328,10 +328,11 @@ const ChordFlow = (function () {
       scroll: true,       // auto-follow the cursor: bound the staff + scroll it so the played bar stays under Now/Next
       debugPanel: true,   // the alphaTex scratchpad lives on the score component
       onBeat: (bar, beat) => {
-        // The engine reports 1-based (bar, beat). Fan it out to every playback-synced surface — BOTH views'
-        // markers track even while hidden, so a mid-playback Score ⇄ Sheet toggle is seamless (IN7).
+        // The engine reports 1-based (bar, beat). Fan the EVENT signal out to every event-shaped surface —
+        // BOTH views' markers track even while hidden, so a mid-playback Score ⇄ Sheet toggle is seamless
+        // (IN7). The sheet's Visual-metronome mode ignores this — it follows the "position" time clock below.
         if (nowNext) nowNext.onBeat(bar - 1, beat - 1); // chord schedule is 0-based (alphaTab raw)
-        if (sheetView) sheetView.onBeat(bar, beat);      // Sheet view steps down internally
+        if (sheetView) sheetView.onBeat(bar, beat);      // Sheet view steps down internally (Per-chord mode)
         if (Bridge.available) Bridge.send({ type: "beatChanged", bar, beat });
       },
       onFinished: () => {
@@ -345,6 +346,13 @@ const ChordFlow = (function () {
         if (pane) pane.hidden = !visible;
       },
       onNeedsRerender: (renderOptions) => replayScoreRequest(renderOptions),
+    });
+
+    // The TIME-clock fan-out (metronome-true-marker): the engine's PlaybackClock emits "position" — one
+    // even step per quarter, silence or note — and the sheet's Visual-metronome marker follows it. Wired
+    // page-level via the engine handle (ScoreR needs no passthrough opt), like the volume sliders.
+    view.getEngine().on("position", (bar, quarterBeat) => {
+      if (sheetView) sheetView.onPosition(bar, quarterBeat);
     });
 
     // Page-level transport strip: the Score ⇄ Sheet toggle at its head, then PlayerControlsR bound to ScoreR's
