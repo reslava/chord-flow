@@ -36,6 +36,9 @@ public static class ChordSheetBuilder
     /// song's overall (sounding) key for the header; per-chord spelling uses each section's own realized key so
     /// accidentals follow modulations. Pass <paramref name="comping"/> (resolved over the same
     /// <paramref name="realized"/>) to fill the fret-diagram adornment; leave it null for no diagram.
+    /// Pass <paramref name="pickup"/> (the comping pattern's anacrusis) to emit the lead-in cell — voiced with
+    /// the first chord of the first section, mirroring the renderer's <c>\ac</c> bar — as schedule bar 0
+    /// (sheet-pickup-bar D2/D3); null renders exactly as before.
     /// </summary>
     public static ChordSheetBuildResult Build(
         Song song,
@@ -43,7 +46,8 @@ public static class ChordSheetBuilder
         Key sheetKey,
         TimeSignature ts,
         ChordSheetOptions options,
-        CompingPlan? comping = null)
+        CompingPlan? comping = null,
+        PickupMeasure? pickup = null)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentNullException.ThrowIfNull(realized);
@@ -65,9 +69,28 @@ public static class ChordSheetBuilder
 
         var sections = new List<ChordSheetSection>(realized.Sections.Count);
         var barSchedule = new List<CellScheduleEntry>();
-        // The running master-bar index, advanced once per bar across ALL sections — this lines up with the
-        // AlphaTexRenderer's BarIndex and alphaTab's master-bar index (both walk the same realized bars).
+        // The running master-bar index, advanced once per RENDERED bar across ALL sections — including a
+        // pickup lead-in, which the renderer and alphaTab both count as master bar 0. This is what keeps the
+        // schedule aligned with the AlphaTexRenderer's BarIndex and alphaTab's master-bar index for pickup
+        // and no-pickup songs alike (sheet-pickup-bar D1: without the lead-in the whole schedule sat one bar
+        // ahead whenever an \ac bar existed).
         int globalBar = 0;
+
+        // The pickup/anacrusis lead-in cell (sheet-pickup-bar D3): voiced with the first chord of the first
+        // section (the same rule the renderer uses for the \ac bar), BarTicks = the pickup's real length.
+        // Built OUTSIDE the section walk so `previous` never sees it — the first full bar can't become a "%"
+        // of the lead-in — and prepended to section 0 / row 0 below. Guarded like the renderer (no first bar
+        // → no lead-in).
+        ChordSheetCell? leadIn = null;
+        if (pickup is not null && realized.Sections.Count > 0 && realized.Sections[0].Bars.Count > 0)
+        {
+            RealizedSection first = realized.Sections[0];
+            RealizedSpan firstSpan = first.Bars[0].Spans[0];
+            ChordRef lead = ToChordRef(firstSpan, first.Key, comping) with { DurationTicks = pickup.LengthTicks };
+            leadIn = new ChordSheetCell(new[] { lead }, RepeatOfPrev: false, pickup.LengthTicks, IsPickup: true);
+            barSchedule.Add(new CellScheduleEntry(globalBar, 0, Section: 0, Row: 0, Cell: 0, Chord: 0));
+            globalBar++;
+        }
 
         for (int si = 0; si < realized.Sections.Count; si++)
         {
@@ -82,9 +105,20 @@ public static class ChordSheetBuilder
             {
                 int count = Math.Min(options.BarsPerRow, section.Bars.Count - i);
                 var cells = new List<ChordSheetCell>(count);
+
+                // The lead-in cell opens the very first row (a printed leadsheet shows the pickup at the
+                // start of the first line, not on a line of its own), so row 0 holds BarsPerRow + 1 cells
+                // and its full-bar cell indices shift by one — the schedule entries carry the shifted
+                // indices, so consumers stay index-blind.
+                bool hasLeadIn = leadIn is not null && si == 0 && rowIndex == 0;
+                if (hasLeadIn)
+                {
+                    cells.Add(leadIn!);
+                }
+
                 for (int b = i; b < i + count; b++)
                 {
-                    int cellIndex = b - i;
+                    int cellIndex = b - i + (hasLeadIn ? 1 : 0);
                     RealizedBar bar = section.Bars[b];
                     int barTicks = bar.Spans.Sum(s => s.DurationTicks);
 

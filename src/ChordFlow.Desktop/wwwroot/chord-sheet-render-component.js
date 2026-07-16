@@ -12,7 +12,11 @@
 //   { header:{ title, artist, keyName, tempo, feel, timeSig, capo },
 //     sections:[ { label, rows:[ { cells:[
 //       { chords:[ { concrete, degree, roman, durationTicks, tones:[{note,interval,function}], diagram } ],
-//         repeatOfPrev, barTicks } ] } ] } ] }
+//         repeatOfPrev, barTicks, isPickup } ] } ] } ] }
+//
+//   isPickup marks the anacrusis lead-in cell (sheet-pickup-bar): drawn narrower — proportional to its
+//   real barTicks share of a full bar, floored at 0.4×BAR_W — with a muted "pickup" tag, and its
+//   beat-highlight columns are its REAL quarter count (ceil(barTicks/48)), not the time signature's.
 //
 //   const sheet = ChordFlowChordSheet.create(containerEl, {
 //     layout:    "A",          // "A" flowing leadsheet | "B" fixed grid
@@ -126,23 +130,40 @@ window.ChordFlowChordSheet = (function () {
       return n > 0 ? n : 4;
     }
 
+    // Per-cell width: a full bar is BAR_W; a pickup lead-in draws proportionally narrower (its real tick
+    // share of a full bar), floored at 0.4×BAR_W so the chord token stays legible (sheet-pickup-bar D4).
+    function cellW(cell) {
+      if (!cell || !cell.isPickup) return BAR_W;
+      const fullBarTicks = beatsPerBar() * 48;   // 48-PPQ quarters per bar (4/4 v1)
+      return Math.max(0.4, (cell.barTicks || 0) / fullBarTicks) * BAR_W;
+    }
+
+    function rowWidth(cells) {
+      let w = 0;
+      for (const c of cells) w += cellW(c);
+      return w;
+    }
+
     // ---- svg builder (shared by on-screen render and export) -----------------------------------
     // Build the whole sheet as one detached <svg> in the given theme. render() attaches it; export serializes it.
     function buildSheetSvg(themeName) {
       const t = THEMES[themeName];
       const rowH = cellHeight();
 
-      // Layout the sheet into rows first so we know the total size, then size the <svg>.
+      // Layout the sheet into rows first so we know the total size, then size the <svg>. Content width is
+      // the widest laid-out row in PIXELS — cells are no longer uniform (a pickup lead-in is narrower and
+      // makes its row one cell longer than barsPerRow), so counting columns would misreport it.
       const rowsPerSection = model.sections.map((s) => layoutSection(s));
-      const cols = layout === "B" ? maxCols(rowsPerSection) : barsPerRow;
-      const width = MARGIN * 2 + cols * BAR_W;
+      let contentW = BAR_W;
+      for (const s of rowsPerSection) for (const row of s.rows) contentW = Math.max(contentW, rowWidth(row));
+      const width = MARGIN * 2 + contentW;
 
       const svg = el("svg", { xmlns: NS, style: `display:block;background:${t.bg};font-family:system-ui,sans-serif;` });
       const style = el("style");
       style.textContent = HIGHLIGHT_CSS;   // inert until a node carries `cf-playing` (screen-only marker)
       svg.appendChild(style);
       let y = MARGIN;
-      y = drawHeader(svg, MARGIN, y, cols * BAR_W, model.header, t);
+      y = drawHeader(svg, MARGIN, y, contentW, model.header, t);
 
       for (let si = 0; si < rowsPerSection.length; si++) {
         y = drawSection(svg, MARGIN, y, rowsPerSection[si], rowH, t, si);
@@ -251,16 +272,18 @@ window.ChordFlowChordSheet = (function () {
         rows = section.rows.map((r) => r.cells);
       } else {
         const flat = section.rows.flatMap((r) => r.cells);
+        // The pickup lead-in never consumes a bar slot: re-wrap the FULL bars to barsPerRow, then prepend
+        // the lead-in to the first line — the same shape Core chunks (lead-in + barsPerRow cells on row 0),
+        // so the marker's (row, cell) addressing stays aligned with the cellSchedule.
+        const lead = flat.length && flat[0].isPickup ? flat.shift() : null;
         rows = [];
         for (let i = 0; i < flat.length; i += barsPerRow) rows.push(flat.slice(i, i + barsPerRow));
+        if (lead) {
+          if (rows.length) rows[0].unshift(lead);
+          else rows.push([lead]);
+        }
       }
       return { label: section.label, rows };
-    }
-
-    function maxCols(sections) {
-      let m = 1;
-      for (const s of sections) for (const row of s.rows) m = Math.max(m, row.length);
-      return Math.max(m, 1);
     }
 
     // ---- header --------------------------------------------------------------------------------
@@ -310,39 +333,45 @@ window.ChordFlowChordSheet = (function () {
     }
 
     function maxRowWidth(section) {
-      let m = 1;
-      for (const row of section.rows) m = Math.max(m, row.length);
-      return m * BAR_W;
+      let m = BAR_W;
+      for (const row of section.rows) m = Math.max(m, rowWidth(row));
+      return m;
     }
 
     function drawRow(svg, x, y, cells, rowH, t, si, ri) {
+      let cx = x;   // cumulative: cells are no longer uniform (a pickup lead-in is narrower)
       for (let i = 0; i < cells.length; i++) {
-        const cx = x + i * BAR_W;
+        const cell = cells[i];
+        const w = cellW(cell);
         // Each bar-cell is an addressable <g> (section,row,cell) — the playback marker toggles a "cf-playing"
         // state on it. A backdrop rect (cf-cell-hl) is the first child so the highlight paints BEHIND the
         // tokens; it is invisible (fill:none) in a fresh build, so export is unaffected — the wash only shows
         // when the runtime state class is set (screen-only). These indices match Core's (barsPerRow-aligned).
         const cellG = el("g", { "data-section": si, "data-row": ri, "data-cell": i, class: "cf-cell" });
-        cellG.appendChild(el("rect", { class: "cf-cell-hl", x: cx, y, width: BAR_W, height: rowH, fill: "none" }));
+        cellG.appendChild(el("rect", { class: "cf-cell-hl", x: cx, y, width: w, height: rowH, fill: "none" }));
         // Per-beat highlight columns (visual-metronome mode): N equal-width slices, invisible until highlighted,
-        // behind the tokens. Drawn for every cell so any bar can tick beat-by-beat.
-        const nBeats = beatsPerBar();
+        // behind the tokens. Drawn for every cell so any bar can tick beat-by-beat. The pickup lead-in gets its
+        // REAL quarter count (ceil of its tick length) — exactly the steps the playback clock emits for the
+        // \ac bar — not the time signature's.
+        const nBeats = cell.isPickup ? Math.max(1, Math.ceil((cell.barTicks || 0) / 48)) : beatsPerBar();
         for (let k = 0; k < nBeats; k++) {
           const beatG = el("g", { class: "cf-beat", "data-beat": k });
-          beatG.appendChild(el("rect", { class: "cf-beat-hl", x: cx + (k / nBeats) * BAR_W, y, width: BAR_W / nBeats, height: rowH, fill: "none" }));
+          beatG.appendChild(el("rect", { class: "cf-beat-hl", x: cx + (k / nBeats) * w, y, width: w / nBeats, height: rowH, fill: "none" }));
           cellG.appendChild(beatG);
         }
         if (layout === "B") {
-          cellG.appendChild(el("rect", { x: cx, y, width: BAR_W, height: rowH, fill: "none", stroke: t.cellBorder, "stroke-width": 1 }));
+          cellG.appendChild(el("rect", { x: cx, y, width: w, height: rowH, fill: "none", stroke: t.cellBorder, "stroke-width": 1 }));
         } else {
           // Leadsheet barline at the left edge of each bar, plus a closing line after the last bar of the row.
           cellG.appendChild(el("line", { x1: cx, y1: y + 4, x2: cx, y2: y + CHORD_ROW_H - 2, stroke: t.rule, "stroke-width": 1.5 }));
           if (i === cells.length - 1) {
-            cellG.appendChild(el("line", { x1: cx + BAR_W, y1: y + 4, x2: cx + BAR_W, y2: y + CHORD_ROW_H - 2, stroke: t.rule, "stroke-width": 1.5 }));
+            cellG.appendChild(el("line", { x1: cx + w, y1: y + 4, x2: cx + w, y2: y + CHORD_ROW_H - 2, stroke: t.rule, "stroke-width": 1.5 }));
           }
         }
-        drawCell(cellG, cx, y, BAR_W, cells[i], t);
+        if (cell.isPickup) drawPickupTag(cellG, cx + w / 2, y, t);
+        drawCell(cellG, cx, y, w, cell, t);
         svg.appendChild(cellG);
+        cx += w;
       }
     }
 
@@ -399,6 +428,14 @@ window.ChordFlowChordSheet = (function () {
           x: cx, y: baselineY + SECONDARY_H, "text-anchor": "middle", "font-size": SECONDARY_FONT, fill: t.muted,
         }, tokenFor(chord, notation.secondary)));
       }
+    }
+
+    // The pickup lead-in's annotation: a small muted italic tag at the top of the cell — the narrow width
+    // alone could read as a glitch; the word names what the cell is (sheet-pickup-bar D4).
+    function drawPickupTag(svg, cx, y, t) {
+      svg.appendChild(el("text", {
+        x: cx, y: y + 9, "text-anchor": "middle", "font-size": 7.5, "font-style": "italic", fill: t.muted,
+      }, "pickup"));
     }
 
     // The one-bar-repeat simile: a bold diagonal with a dot each side (the `%`-like mark on the references).

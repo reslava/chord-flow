@@ -63,8 +63,11 @@ public static class ExerciseRendering
         (RenderResult render, RealizedSong realized, Key baseKey, CompingPlan plan) =
             RenderCore(exercise, store, renderer, voicings, options, references);
 
+        // The comping pattern's pickup rides along so the sheet emits the anacrusis lead-in cell as schedule
+        // bar 0, keeping the cellSchedule on the renderer/alphaTab master-bar axis (sheet-pickup-bar D1/D2).
         ChordSheetBuildResult built = ChordSheetBuilder.Build(
-            exercise.Song, realized, baseKey, TimeSignature.FourFour, new ChordSheetOptions(SheetBarsPerRow), plan);
+            exercise.Song, realized, baseKey, TimeSignature.FourFour, new ChordSheetOptions(SheetBarsPerRow), plan,
+            exercise.Comping.Pickup);
 
         return new ExerciseProjections(
             render, built.Sheet, ChordSheetBuilder.OverlaySchedule(built.BarSchedule, render.Schedule));

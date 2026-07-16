@@ -2,7 +2,7 @@
 type: idea
 id: id_01KXP2Z8NKMBG4QYX7EA93PA83
 title: ChordSheet model renders the pickup bar as a lead-in cell
-status: draft
+status: done
 created: 2026-07-16
 version: 1
 tags: []

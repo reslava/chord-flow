@@ -55,12 +55,16 @@ public sealed record ChordSheetRow(
 /// chord's <see cref="ChordRef.DurationTicks"/> against <see cref="BarTicks"/>). When
 /// <see cref="RepeatOfPrev"/> is set the bar repeats the previous bar's harmony and is drawn as a simile
 /// <c>%</c>; <see cref="Chords"/> is then empty. The repeat detection (bar-equality) is done in Core so the
-/// JS only prints the glyph (req IN13).
+/// JS only prints the glyph (req IN13). When <see cref="IsPickup"/> is set the cell is the song's
+/// pickup/anacrusis <b>lead-in</b> (sheet-pickup-bar): a shorter-than-a-bar leading cell voiced with the
+/// first chord, whose <see cref="BarTicks"/> is the pickup's real tick length — the JS draws it narrower
+/// with a "pickup" annotation, and it never takes part in simile detection.
 /// </summary>
 public sealed record ChordSheetCell(
     IReadOnlyList<ChordRef> Chords,
     bool RepeatOfPrev,
-    int BarTicks);
+    int BarTicks,
+    bool IsPickup = false);
 
 /// <summary>
 /// One chord in a cell, carrying <b>every notation the view might show</b> so a notation/label toggle needs no
@@ -103,6 +107,12 @@ public sealed record ChordSheetTone(
 /// highlight — because it walks harmony only and has no rhythm-slot layout. The handler then overlays the
 /// sub-chord onset beats for split bars from the render schedule (<see cref="ChordChange"/>), so the whole
 /// schedule lines up with the audio timeline by construction (design approach A / D1-a).
+/// </para>
+/// <para>
+/// <b>Bar-index contract (sheet-pickup-bar D1):</b> <see cref="Bar"/> counts every rendered bar including a
+/// pickup/anacrusis — a pickup's lead-in cell is bar 0 and the first full bar is bar 1 — so builder bars,
+/// the renderer's <c>BarIndex</c> (<see cref="ChordChange.Bar"/>), and alphaTab's master bars are the same
+/// axis whether or not the song has a pickup.
 /// </para>
 /// </summary>
 public sealed record CellScheduleEntry(int Bar, int Beat, int Section, int Row, int Cell, int Chord);

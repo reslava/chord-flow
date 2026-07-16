@@ -211,4 +211,97 @@ public class ChordSheetBuilderTests
         CellScheduleEntry entry = Assert.Single(BuildResult("17_47").BarSchedule);
         Assert.Equal(new CellScheduleEntry(0, 0, 0, 0, 0, 0), entry);
     }
+
+    // ── Pickup / anacrusis lead-in (sheet-pickup-bar) ─────────────────────────────────────────────────
+
+    /// <summary>A one-quarter pickup (the builder only reads <see cref="PickupMeasure.LengthTicks"/>).</summary>
+    private static readonly PickupMeasure QuarterPickup = new(new[] { RhythmEvent.Hit(0, 48) }, 48);
+
+    private static ChordSheetBuildResult BuildWithPickup(string dsl, PickupMeasure? pickup)
+    {
+        RealizedSong realized = Realize(dsl, CMajor);
+        Song song = Song.OfProgression(ProgressionParser.Parse("p", "P", dsl, Ts), CMajor);
+        return ChordSheetBuilder.Build(song, realized, CMajor, Ts, FourPerRow, comping: null, pickup);
+    }
+
+    [Fact]
+    public void Build_WithPickup_PrependsLeadInCellToFirstRow()
+    {
+        // 4 full bars + a 1-quarter pickup → row 0 holds BarsPerRow + 1 cells, the lead-in first,
+        // voiced with the first chord (C) at the pickup's real length.
+        IReadOnlyList<ChordSheetCell> cells =
+            BuildWithPickup("1 4 5 1", QuarterPickup).Sheet.Sections[0].Rows[0].Cells;
+
+        Assert.Equal(5, cells.Count);
+        Assert.True(cells[0].IsPickup);
+        Assert.False(cells[0].RepeatOfPrev);
+        Assert.Equal(48, cells[0].BarTicks);
+        ChordRef lead = cells[0].Chords.Single();
+        Assert.Equal("C", lead.Concrete);
+        Assert.Equal(48, lead.DurationTicks);
+        Assert.All(cells.Skip(1), c => Assert.False(c.IsPickup));
+    }
+
+    [Fact]
+    public void Build_WithPickup_ScheduleCountsLeadInAsBarZero()
+    {
+        // The bar-index contract (D1): the lead-in is schedule bar 0 — the renderer's BarIndex and
+        // alphaTab's master bars count the \ac bar too — and every full bar shifts +1 (row-0 cells shift
+        // +1 with it). Without this the whole schedule sat one bar ahead on pickup songs.
+        IReadOnlyList<CellScheduleEntry> schedule = BuildWithPickup("1 4 5 1", QuarterPickup).BarSchedule;
+
+        Assert.Equal(5, schedule.Count);
+        Assert.Equal(new CellScheduleEntry(0, 0, 0, 0, 0, 0), schedule[0]);              // lead-in cell
+        Assert.Equal(new CellScheduleEntry(1, 0, 0, 0, 1, 0), schedule[1]);              // first full bar
+        Assert.Equal(new CellScheduleEntry(4, 0, 0, 0, 4, 0), schedule[4]);              // last full bar
+        Assert.Equal(Enumerable.Range(0, 5), schedule.Select(e => e.Bar));
+    }
+
+    [Fact]
+    public void Build_WithPickup_FirstFullBarIsNeverASimileOfTheLeadIn()
+    {
+        // The lead-in sounds the same C the first full bar does, but it is not a bar — the first full
+        // bar must render its chords (C3), while full-bar similes keep working after it.
+        IReadOnlyList<ChordSheetCell> cells =
+            BuildWithPickup("1 1", QuarterPickup).Sheet.Sections[0].Rows[0].Cells;
+
+        Assert.True(cells[0].IsPickup);
+        Assert.False(cells[1].RepeatOfPrev);   // first full bar: real chords, no "%"
+        Assert.NotEmpty(cells[1].Chords);
+        Assert.True(cells[2].RepeatOfPrev);    // second full bar: still a simile of the first
+    }
+
+    [Fact]
+    public void Build_WithoutPickup_IsUnchanged()
+    {
+        // Null pickup → the projection of today: no lead-in cell anywhere, identical schedule (IN6).
+        ChordSheetBuildResult with = BuildWithPickup("1 4 5 1", null);
+        ChordSheetBuildResult baseline = BuildResult("1 4 5 1");
+
+        Assert.All(with.Sheet.Sections.SelectMany(s => s.Rows).SelectMany(r => r.Cells),
+            c => Assert.False(c.IsPickup));
+        Assert.Equal(4, with.Sheet.Sections[0].Rows[0].Cells.Count);
+        Assert.Equal(baseline.BarSchedule, with.BarSchedule);   // CellScheduleEntry is a value record
+    }
+
+    [Fact]
+    public void OverlaySchedule_WithPickup_AttachesMidBarOnsetToTheAlignedBar()
+    {
+        // "1 17_47" + pickup → builder bars: 0 lead-in · 1 full "1" · 2 split "17_47". The renderer counts
+        // the \ac bar as its bar 0 too, so its mid-bar F7 onset arrives at (bar 2, beat 2) and must land on
+        // the split bar's cell (row 0, cell 2) as chord segment 1 — before D1 it landed one bar late.
+        ChordSheetBuildResult built = BuildWithPickup("1 17_47", QuarterPickup);
+        var noDiagram = new FretboardDiagram("F7", Array.Empty<FretboardMarker>(), Array.Empty<int>(), null, null, null);
+        var renderSchedule = new[]
+        {
+            new ChordChange(0, 0, "C7", noDiagram with { Title = "C7" }),  // the \ac bar sounds the first chord
+            new ChordChange(2, 2, "F7", noDiagram),                        // mid-bar change in the split bar
+        };
+
+        IReadOnlyList<CellScheduleEntry> schedule = ChordSheetBuilder.OverlaySchedule(built.BarSchedule, renderSchedule);
+
+        Assert.Equal(4, schedule.Count);                                   // 3 downbeats + 1 overlay
+        Assert.Contains(new CellScheduleEntry(2, 2, 0, 0, 2, 1), schedule);
+        Assert.Equal(schedule.OrderBy(e => e.Bar).ThenBy(e => e.Beat), schedule);
+    }
 }

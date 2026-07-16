@@ -370,6 +370,29 @@ public class AlphaTexRendererTests
     }
 
     [Fact]
+    public void Render_Schedule_WithPickup_CountsTheAnacrusisAsBarZero()
+    {
+        // The bar-index contract the chord sheet relies on (sheet-pickup-bar D1): the \ac bar consumes
+        // render bar 0 — the first chord is recorded THERE (the pickup sounds it), and every full bar
+        // sits one higher, matching alphaTab's master bars. The ChordSheetBuilder counts its lead-in
+        // cell the same way, so the two schedules stay on one axis.
+        var pickup = new PickupMeasure(new[] { RhythmEvent.Hit(0, 48) }, LengthTicks: 48);
+        var rhythm = RhythmPattern.SingleBar("p", "Pickup", SeedData.Quarters.Bars[0].Events, TimeSignature.FourFour, pickup);
+        Progression prog = ProgressionParser.Parse("t", "Test", "17 47", TimeSignature.FourFour);
+        var realized = new RealizedSong(new[]
+        {
+            new RealizedSection(prog.Name, Bb, Transposer.RealizeBars(prog, Bb)),
+        });
+
+        RenderResult result = Renderer.Render(realized, rhythm, 80, Difficulty.Beginner);
+
+        // Bb7 lands in the pickup (bar 0); the IV7 change lands in the SECOND full bar = bar 2, not 1.
+        Assert.Equal(
+            new[] { (0, 0, "Bb7"), (2, 0, "Eb7") },
+            result.Schedule.Select(c => (c.Bar, c.Beat, c.Name)).ToArray());
+    }
+
+    [Fact]
     public void Render_DottedNote_EmitsDotBeatEffect()
     {
         // ":2 X..X----" = the Charleston: a dotted quarter + an eighth (then rests), all on Bb7.
