@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 9
+last_ai_block: 11
 ---
 # metronome-true-marker Chat 001
 
@@ -173,3 +173,13 @@ Done, both things:
 **New thread** — the `chord-sheets` **weave already existed** (chord-sheets-maker, chord-sheets-playback), so I created just the thread inside it: `chord-sheets/sheet-pickup-bar` — *"ChordSheet model renders the pickup bar as a lead-in cell"* — with the idea drafted: problem (ChordSheetBuilder emits no cell for the `\ac` bar; found in this thread's validation), the lead-in-cell approach (model flag → ChordSheetR distinct drawing in both layouts → `cellSchedule` covering the pickup so both marker modes track it), scope In/Out (playback engine explicitly Out — it's already anacrusis-correct), and a validation walk.
 
 **Commit** — going in now as the last action of this turn: the three JS files (`playback-component.js` with `PlaybackClock` + the `"position"` event, `app.js` fan-out, `chord-sheets.js` marker mode split), the architecture ref sync, this thread's full doc set (idea/design/req/plan/done/chat), and the new `sheet-pickup-bar` thread + idea.
+
+## AI:
+
+Added — `loom/ctx.md` §4 Rules now has a **"Scripted debugging via CDP"** bullet right under the existing `CHORDFLOW_DEVTOOLS` one: launch with `CHORDFLOW_DEVTOOLS=1` + `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223`, attach from a dependency-free Node script (`fetch` the `/json/list` target → WebSocket → `Runtime.evaluate` against `window.__cfEngine` / `__cfApi`), plus the two gotchas this thread proved the hard way: audio needs a **trusted click** (`Input.dispatchMouseEvent`) or the synth reports Playing while time stays frozen, and end-of-run listeners must subscribe **after** `load()` (its stop echo wins the race otherwise). It points at this thread's done doc for the full harness pattern.
+
+Left uncommitted for now — say `commit` (or bundle it with whatever comes next) and it goes in.
+
+## AI:
+
+Committing now: the `loom/ctx.md` CDP-debugging note (+ this chat's latest turns). That wraps the thread — marker metronome-true, verified, shipped; follow-up captured in `chord-sheets/sheet-pickup-bar`.

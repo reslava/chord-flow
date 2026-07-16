@@ -4,8 +4,8 @@ id: loom-ctx
 title: Loom — Global Context
 status: active
 created: 2026-06-07
-updated: 2026-07-15
-version: 12
+updated: 2026-07-16
+version: 13
 tags: [ctx, summary]
 parent_id: null
 requires_load: []
@@ -53,3 +53,4 @@ source_hash: 61c479f6d5a2f19917ec21349afc4694cf705f66
 - After each step, state what was done and what is next, then STOP.
 - **Guitar-weave dogfood rule:** every new guitar feature ships with a fretboard UI page that visualizes it (built on the `fretboard-render-component`) — fast visual confirmation before building the next layer on top. Add a "dogfood: render on the fretboard UI page" line to each guitar idea's Validation section.
 - **Live WebView debugging (`CHORDFLOW_DEVTOOLS`):** the desktop host ships a **default-off** debug facility for inspecting the WebView at runtime. Set the `CHORDFLOW_DEVTOOLS` env var before launching to (a) enable WebView2 devtools (F12 / right-click → Inspect) and (b) expose `window.__cfApi` (the alphaTab api) + `window.__cfEngine` (the `ChordFlowPlayback` handle) for live playback/synth inspection. Inert in normal runs; wired in `src/ChordFlow.Desktop/Program.cs` (env → `AreDevToolsEnabled` + injected `window.__cfDebug`) and `wwwroot/score-render-component.js` (gates the `window.__cf*` handles). Use it when hunting playback/render bugs instead of re-adding temporary debug lines.
+- **Scripted debugging via CDP (Chrome DevTools Protocol):** for automated in-app verification — driving real playback and asserting engine events from outside the app — launch with `CHORDFLOW_DEVTOOLS=1` **plus** `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223`, then attach from a plain Node script (no packages — global `fetch` + `WebSocket`): `GET http://127.0.0.1:9223/json/list` → find the `chordflow.local` page target → connect its `webSocketDebuggerUrl` → `Runtime.evaluate` (`awaitPromise:true, returnByValue:true`) runs async JS in the page against `window.__cfEngine` / `window.__cfApi`. Two gotchas proven in `playback/metronome-true-marker` (full harness pattern in its done doc): (1) **audio needs a trusted user gesture** — a purely programmatic `play()` reports Playing but time never advances (Chromium autoplay policy); dispatch a real click first via CDP `Input.dispatchMouseEvent` (protocol input counts as trusted); (2) subscribe end-of-run listeners (e.g. the engine's `finished`) only **after** `load()` settles — loading fires a stop echo that would win the race early.
