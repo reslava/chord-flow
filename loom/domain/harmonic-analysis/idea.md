@@ -2,12 +2,12 @@
 type: idea
 id: id_01KXGQGTSHN6WAK5KZBE4G4CC9
 title: Harmonic analysis — functional labels, secondary dominants, borrowed chords
-status: draft
+status: done
 created: 2026-07-14
 version: 1
 tags: []
 parent_id: null
-requires_load: []
+requires_load: [rf_01KTSAPAT132QTEY5BEPRKS3MB, rf_01KTM41K36DYJ0CE44FE7TMCGH, rf_01KTSAQ6990GY3J4CZ7HPVPW6K]
 ---
 # Harmonic analysis — functional labels, secondary dominants, borrowed chords
 
