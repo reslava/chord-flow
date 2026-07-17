@@ -2,7 +2,7 @@
 type: plan
 id: pl_01KXQWH3EHRG7JYEG7D5XREV8T
 title: First-class minor keys — Implementation
-status: implementing
+status: done
 created: 2026-07-17
 updated: 2026-07-17
 version: 2
@@ -71,7 +71,7 @@ steps:
     satisfies: [IN5]
   - id: ui-key-picker-offers-minor-keys
     order: 9
-    status: pending
+    status: done
     description: harmony-controls offers minor keys; carry isMinor through bridge → Features so a minor key realizes on Score and Sheet.
     files_touched: [src/ChordFlow.Desktop/wwwroot/harmony-controls-component.js, src/ChordFlow.Desktop/Program.cs, src/ChordFlow.Core/Bridge/, src/ChordFlow.Core/Features/GenerateExercise/GenerateExercise.cs, src/ChordFlow.Core/Features/ContentCrud/ContentCrudHandler.cs]
     blocked_by: [c-pivot-parent-major-realization-converter, minor-ks-token-round-trip-inverse]
@@ -97,7 +97,7 @@ Make minor keys a coherent, first-class citizen end-to-end under the **C** frame
 | ✅ | 6 | C goldens: converter round-trip; natural-minor i–iv–v & iiø–V–i; harmonic-minor vii°7→G♯, melodic-minor vi°→F♯ (replaces the A1 goldens from step 2). | tests/ChordFlow.Core.Tests/DegreeFrameConverterTests.cs, tests/ChordFlow.Core.Tests/TransposerTests.cs, tests/ChordFlow.Core.Tests/ChordSymbolTests.cs | c-pivot-parent-major-realization-converter, parser-applies-the-converter | IN7, IN4, C4 |
 | ✅ | 7 | AlphaTexRenderer golden: a minor tune emits \ks {tonic}minor + relative-major spelling; major render byte-identical. | tests/ChordFlow.Core.Tests/AlphaTexRendererTests.cs | c-pivot-parent-major-realization-converter, minor-ks-token-round-trip-inverse | IN7, IN4, C1 |
 | ✅ | 8 | 8a — bridge + Features mode threading: GenerateRequest/envelope carry keyIsMinor; GenerateExercise.Build + ContentCrud.Preview build new Key(pc, isMinor). | src/ChordFlow.Core/Bridge/WebMessageRouter.cs, src/ChordFlow.Core/Features/GenerateExercise/GenerateExercise.cs, src/ChordFlow.Core/Features/ContentCrud/ContentCrudHandler.cs, src/ChordFlow.Desktop/Program.cs, tests/ChordFlow.Core.Tests/GenerateExerciseTests.cs, tests/ChordFlow.Core.Tests/ContentCrudHandlerTests.cs | c-pivot-parent-major-realization-converter | IN5 |
-| 🔳 | 9 | harmony-controls offers minor keys; carry isMinor through bridge → Features so a minor key realizes on Score and Sheet. | src/ChordFlow.Desktop/wwwroot/harmony-controls-component.js, src/ChordFlow.Desktop/Program.cs, src/ChordFlow.Core/Bridge/, src/ChordFlow.Core/Features/GenerateExercise/GenerateExercise.cs, src/ChordFlow.Core/Features/ContentCrud/ContentCrudHandler.cs | c-pivot-parent-major-realization-converter, minor-ks-token-round-trip-inverse | IN5 |
+| ✅ | 9 | harmony-controls offers minor keys; carry isMinor through bridge → Features so a minor key realizes on Score and Sheet. | src/ChordFlow.Desktop/wwwroot/harmony-controls-component.js, src/ChordFlow.Desktop/Program.cs, src/ChordFlow.Core/Bridge/, src/ChordFlow.Core/Features/GenerateExercise/GenerateExercise.cs, src/ChordFlow.Core/Features/ContentCrud/ContentCrudHandler.cs | c-pivot-parent-major-realization-converter, minor-ks-token-round-trip-inverse | IN5 |
 ---
 
 ### Legend

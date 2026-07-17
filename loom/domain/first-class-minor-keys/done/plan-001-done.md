@@ -4,7 +4,7 @@ id: pl_01KXQWH3EHRG7JYEG7D5XREV8T-done
 title: Done — First-class minor keys — Implementation
 status: done
 created: 2026-07-17
-version: 8
+version: 9
 tags: []
 parent_id: pl_01KXQWH3EHRG7JYEG7D5XREV8T
 requires_load: []
@@ -97,3 +97,13 @@ Threaded the key's mode from the definition through the bridge into the Features
 Fixed the 7 existing `EntityPreviewRequested` subscriber lambdas in `WebMessageRouterContentTests` to the new 8-arg shape. Tests: `Build_MinorKey_CarriesMinorKeyOverride` (A-minor `KeyOverride`), `Preview_MinorKey_RendersInMinor` (`tonality: minor` + `keyIsMinor` → `\ks aminor`), `EntityPreview_CarriesKeyIsMinor` (envelope parse). Core suite **1008/1008 green**; Desktop builds clean.
 
 Deferred to **8b**: the JS mode toggle in `harmony-controls-component.js` + seeding the mode from a song's key. `loadExercise` re-key mode is a separate follow-up.
+
+## Step 9 — harmony-controls offers minor keys; carry isMinor through bridge → Features so a minor key realizes on Score and Sheet.
+
+8b — the UI. `harmony-controls-component.js`: added a **major/minor mode `<select>`** grouped beside the Key tonic control; a mode change fires the same live re-render as a tonic change. `getDefinition()` now emits `keyIsMinor` (`keyModeSel.value === "minor"`). Exposed `seedKeyMode(isMinor)` and seeded the toggle on a harmony switch from `item.initialKeyIsMinor` (defaults major) — forward-compatible with a minor song once the content-list payload carries the mode.
+
+`app.js`: `onGenerate` and `replayScoreRequest` (the live key/feel re-render) both include `keyIsMinor: def.keyIsMinor` in the envelope, so the mode reaches the bridge → 8a threading → `new Key(pc, isMinor)`.
+
+Verified: `node --check` on both JS files passes; Desktop builds clean; the C# path is covered by 8a's tests (1008/1008). End-to-end in-app confirmation (pick a minor key + a minor progression → play) is a manual dogfood — the whole wire is connected and each seam is tested.
+
+**Deferred follow-ups (noted):** (1) the content-list payload gaining `initialKeyIsMinor` (+ a progression's `tonality`) so a harmony switch *auto*-selects minor mode — the JS seed already reads it; (2) the Content-editor preview (`content-crud.js`) minor mode; (3) `loadExercise` re-key mode. None block picking a minor key on the Practice page.

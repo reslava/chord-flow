@@ -99,6 +99,7 @@ const ChordFlow = (function () {
     Bridge.send({
       ...lastScoreRequest,
       keyPitchClass: def.keyPitchClass,
+      keyIsMinor: def.keyIsMinor,
       tripletFeel: def.tripletFeel,
       renderOptions: { ...(renderOptions || view.getRenderOptions()), voicing: voicingOf(def) },
     });
@@ -114,6 +115,7 @@ const ChordFlow = (function () {
       compingPatternId: def.compingPatternId,
       leadPatternId: def.leadPatternId,
       keyPitchClass: def.keyPitchClass,
+      keyIsMinor: def.keyIsMinor,
       tempo: (pc && pc.getTempo()) || 80,
       difficulty: def.difficulty,
       tripletFeel: def.tripletFeel,

@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 34
+last_ai_block: 36
 ---
 # first-class-minor-keys Chat 001
 
@@ -727,3 +727,24 @@ Committed the completed C-frame + minor-progressions work (`6e24256`), then spli
 So the whole engine path is ready: a `keyIsMinor` request realizes and renders a minor key correctly. **All that's left is 8b** — the JS toggle beside the Key control + seeding the mode from a song's key (the seed needs the key's mode in the content-list payload; I'll wire that when we do 8b). `loadExercise` re-key mode is a small separate follow-up.
 
 Committing 8a now.
+
+## Rafa:
+
+I pushed
+do step 8b=9
+commit
+
+## AI:
+
+**Step 9 (8b) done — the plan is complete (all 9 steps ✅).** first-class-minor-keys is delivered end-to-end.
+
+**8b:** `harmony-controls-component.js` gained a **major/minor mode toggle** beside the Key control; `getDefinition()` emits `keyIsMinor`, a mode change live-re-renders like a tonic change, and the harmony switch seeds the mode (reads `item.initialKeyIsMinor`, defaults major — ready for minor songs). `app.js` threads `keyIsMinor` into the generate + replay envelopes. So the full wire is connected: **toggle → getDefinition → app.js → bridge → 8a → `new Key(pc, isMinor)` → realize + render.** `node --check` passes both JS files, Desktop builds, the C# path is covered by 8a's tests (1008/1008).
+
+**You can now pick a minor key on the Practice page and play the minor progressions** — e.g. select *Natural Minor i-iv-v* + Key A + minor → Am · Dm · Em. (In-app play is the one thing I can't auto-verify from here, so that's the manual dogfood.)
+
+**Deferred follow-ups (none block the above):**
+1. Content-list payload carrying `initialKeyIsMinor` / a progression's `tonality`, so a harmony switch *auto*-picks minor mode (the JS seed already reads it).
+2. Content-editor preview (`content-crud.js`) minor mode.
+3. `loadExercise` re-key mode.
+
+The whole thread (design → req → plan, 9 steps) is done; idea/design are marked done and req is locked. Committing 8b now.

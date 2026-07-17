@@ -28,8 +28,8 @@
 //   hc.el;                             // the strip node (also appended to `container` when one is given)
 //   hc.setCatalog(entity, items);      // feed raw entityList payloads ("song" | "progression" | "rhythm")
 //   hc.getDefinition();                // { harmonyEntity, harmonyId, compingPatternId, leadPatternId,
-//                                      //   keyPitchClass, tripletFeel, difficulty, voicingMinFret, voicingMaxFret }
-//   hc.seedKey(pc); hc.seedTripletFeel(v);   // load-path seeds (silent — no change events)
+//                                      //   keyPitchClass, keyIsMinor, tripletFeel, difficulty, voicingMinFret, voicingMaxFret }
+//   hc.seedKey(pc); hc.seedKeyMode(isMinor); hc.seedTripletFeel(v);   // load-path seeds (silent — no change events)
 //   hc.dispose();
 "use strict";
 
@@ -126,7 +126,23 @@ window.ChordFlowHarmonyControls = (function () {
     });
     keySel.value = "0";
     keySel.addEventListener("change", guard("key", () => cb.onDefinitionChange(getDefinition(), "key")));
-    el.append(labelled("Key", keySel));
+
+    // The key's MODE (major/minor) — the tonic above + the mode form the realization Key. A minor mode picks
+    // the parent major for realization and emits \ks {tonic}minor (first-class-minor-keys). A mode change is a
+    // live transpose, same as a tonic change.
+    const keyModeSel = select("cf-key-mode");
+    [{ value: "major", label: "major" }, { value: "minor", label: "minor" }].forEach((m) => {
+      const o = document.createElement("option");
+      o.value = m.value;
+      o.textContent = m.label;
+      keyModeSel.appendChild(o);
+    });
+    keyModeSel.value = "major";
+    keyModeSel.addEventListener("change", guard("keyMode", () => cb.onDefinitionChange(getDefinition(), "key")));
+
+    const keyGroup = document.createElement("span");
+    keyGroup.append(keySel, keyModeSel);
+    el.append(labelled("Key", keyGroup));
 
     const feelSel = select("cf-feel");
     fillOptions(feelSel, TRIPLET_FEELS, "None");
@@ -201,6 +217,9 @@ window.ChordFlowHarmonyControls = (function () {
       // Never blank (IN5): a song's own values when it has them, else the C / Straight defaults — a
       // key-independent progression (or a keyless song) seeds C; no feel directive seeds Straight.
       keySel.value = String(item && item.initialKey != null ? item.initialKey : 0);
+      // A song can carry its key's mode; a key-independent progression has none, so default major. (The
+      // content-list payload gains initialKeyIsMinor when minor songs land — this seed is already ready for it.)
+      keyModeSel.value = item && item.initialKeyIsMinor ? "minor" : "major";
       feelSel.value = item && item.defaultFeel ? item.defaultFeel : "None";
       cb.onHarmonySwitch(item); // the shell seeds tempo into PlayerControlsR from item.defaultTempo (C1)
     }
@@ -248,6 +267,7 @@ window.ChordFlowHarmonyControls = (function () {
         compingPatternId: compingSel.value || BOOT_COMPING,
         leadPatternId: leadSel.value || null,
         keyPitchClass: parseInt(keySel.value, 10) || 0,
+        keyIsMinor: keyModeSel.value === "minor",
         tripletFeel: feelSel.value || "None",
         difficulty: difficultySel.value || "Beginner",
         voicingMinFret: min,
@@ -270,6 +290,7 @@ window.ChordFlowHarmonyControls = (function () {
       // Load-path seeds (C3): reflect a loaded exercise's stored key/feel WITHOUT firing change events —
       // the override wins over content defaults and survives until the next harmony switch.
       seedKey(pc) { if (pc != null) keySel.value = String(((pc % 12) + 12) % 12); },
+      seedKeyMode(isMinor) { keyModeSel.value = isMinor ? "minor" : "major"; },
       seedTripletFeel(v) { if (v) feelSel.value = v; },
       dispose() { if (el.parentNode) el.parentNode.removeChild(el); },
     };
