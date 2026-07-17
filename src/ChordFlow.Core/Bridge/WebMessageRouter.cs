@@ -13,7 +13,7 @@ namespace ChordFlow.Bridge;
 /// </summary>
 public sealed record GenerateRequest(
     string HarmonyEntity, string HarmonyId, string CompingPatternId, string? LeadPatternId,
-    int? KeyPitchClass, int Tempo, Difficulty Difficulty, TripletFeel TripletFeel);
+    int? KeyPitchClass, int Tempo, Difficulty Difficulty, TripletFeel TripletFeel, bool KeyIsMinor = false);
 
 /// <summary>
 /// The faceted filter state for one <c>voicingGrid</c> request (GuitarVoicingsR): the chosen <see cref="Root"/>
@@ -106,7 +106,7 @@ public sealed class WebMessageRouter
     /// Key/tempo are the ScoreR render params carried on the preview so the editor renders in the seeded key/tempo
     /// and a live change re-voices it, symmetric with Practice (scorer-render-params IN7); absent ⇒ the C / 80 default.
     /// </summary>
-    public event Action<string, string, RenderOptions, TripletFeel, string?, int?, int?>? EntityPreviewRequested;
+    public event Action<string, string, RenderOptions, TripletFeel, string?, int?, bool, int?>? EntityPreviewRequested;
 
     /// <summary>Create/update a content definition — <c>(entity, id?, name, dsl)</c> (null id = create).</summary>
     public event Action<string, string?, string, string>? EntitySaveRequested;
@@ -188,7 +188,8 @@ public sealed class WebMessageRouter
                         envelope.KeyPitchClass,
                         envelope.Tempo ?? 80,
                         ParseEnum(envelope.Difficulty, Difficulty.Beginner),
-                        ParseEnum(envelope.TripletFeel, TripletFeel.None)),
+                        ParseEnum(envelope.TripletFeel, TripletFeel.None),
+                        envelope.KeyIsMinor ?? false),
                     ToRenderOptions(envelope.RenderOptions));
                 break;
             case "play":
@@ -238,7 +239,7 @@ public sealed class WebMessageRouter
                     EntityPreviewRequested?.Invoke(
                         prevEntity, prevDsl, ToRenderOptions(envelope.RenderOptions),
                         ParseEnum(envelope.TripletFeel, TripletFeel.None), envelope.CompingPatternId,
-                        envelope.KeyPitchClass, envelope.Tempo);
+                        envelope.KeyPitchClass, envelope.KeyIsMinor ?? false, envelope.Tempo);
                 }
                 break;
             case "entitySave":
@@ -355,7 +356,7 @@ public sealed class WebMessageRouter
         // an optional lead pattern id, the chosen key (null → the Song's own key), tempo, and the Difficulty/TripletFeel
         // param values (enum names). KeyPitchClass/Tempo are reused by setTempo's Bpm sibling below.
         string? HarmonyEntity, string? HarmonyId, string? CompingPatternId, string? LeadPatternId,
-        int? KeyPitchClass, int? Tempo, string? Difficulty, string? TripletFeel, int? Bpm,
+        int? KeyPitchClass, bool? KeyIsMinor, int? Tempo, string? Difficulty, string? TripletFeel, int? Bpm,
         // Content-CRUD fields: Entity discriminator, the string content id (distinct from the int Id used by
         // loadExercise), and the editor's Name/Dsl payload.
         string? Entity, string? EntityId, string? Name, string? Dsl,

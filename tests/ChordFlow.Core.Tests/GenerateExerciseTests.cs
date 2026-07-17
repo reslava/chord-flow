@@ -47,6 +47,20 @@ public class GenerateExerciseTests
     }
 
     [Fact]
+    public void Build_MinorKey_CarriesMinorKeyOverride() // first-class-minor-keys 8a: keyIsMinor threads into the override
+    {
+        (GenerateExerciseHandler handler, ChordFlowDbContext db, SqliteConnection conn) = NewHandler();
+        using SqliteConnection _ = conn;
+        using ChordFlowDbContext __ = db;
+
+        Exercise ex = handler.Build(
+            db, "progression", "12bar_blues", "beat_1_3", leadPatternId: null,
+            keyPitchClass: 9, tempo: 80, Difficulty.Beginner, TripletFeel.None, keyIsMinor: true);
+
+        Assert.Equal(new Key(new PitchClass(9), IsMinor: true), ex.KeyOverride); // A minor, not A major
+    }
+
+    [Fact]
     public void Build_Song_UsesStoredSong_NoOverrideWhenKeyAbsent()
     {
         (GenerateExerciseHandler handler, ChordFlowDbContext db, SqliteConnection conn) = NewHandler();

@@ -62,8 +62,15 @@ steps:
     files_touched: [tests/ChordFlow.Core.Tests/AlphaTexRendererTests.cs]
     blocked_by: [c-pivot-parent-major-realization-converter, minor-ks-token-round-trip-inverse]
     satisfies: [IN7, IN4, C1]
-  - id: ui-key-picker-offers-minor-keys
+  - id: 8a-bridge-features-mode-threading
     order: 8
+    status: done
+    description: "8a — bridge + Features mode threading: GenerateRequest/envelope carry keyIsMinor; GenerateExercise.Build + ContentCrud.Preview build new Key(pc, isMinor)."
+    files_touched: [src/ChordFlow.Core/Bridge/WebMessageRouter.cs, src/ChordFlow.Core/Features/GenerateExercise/GenerateExercise.cs, src/ChordFlow.Core/Features/ContentCrud/ContentCrudHandler.cs, src/ChordFlow.Desktop/Program.cs, tests/ChordFlow.Core.Tests/GenerateExerciseTests.cs, tests/ChordFlow.Core.Tests/ContentCrudHandlerTests.cs]
+    blocked_by: [c-pivot-parent-major-realization-converter]
+    satisfies: [IN5]
+  - id: ui-key-picker-offers-minor-keys
+    order: 9
     status: pending
     description: harmony-controls offers minor keys; carry isMinor through bridge → Features so a minor key realizes on Score and Sheet.
     files_touched: [src/ChordFlow.Desktop/wwwroot/harmony-controls-component.js, src/ChordFlow.Desktop/Program.cs, src/ChordFlow.Core/Bridge/, src/ChordFlow.Core/Features/GenerateExercise/GenerateExercise.cs, src/ChordFlow.Core/Features/ContentCrud/ContentCrudHandler.cs]
@@ -89,7 +96,8 @@ Make minor keys a coherent, first-class citizen end-to-end under the **C** frame
 | ✅ | 5 | ProgressionParser applies ToParent at parse (given Home); the .dsl stays author-frame, Bars become parent-major. | src/ChordFlow.Core/Music/Progressions/ProgressionParser.cs, src/ChordFlow.Core/Music/Songs/SongParser.cs, tests/ChordFlow.Core.Tests/ProgressionParserTests.cs, loom/refs/chordflow-dsl-reference.md | c-pivot-parent-major-realization-converter | IN10, IN1 |
 | ✅ | 6 | C goldens: converter round-trip; natural-minor i–iv–v & iiø–V–i; harmonic-minor vii°7→G♯, melodic-minor vi°→F♯ (replaces the A1 goldens from step 2). | tests/ChordFlow.Core.Tests/DegreeFrameConverterTests.cs, tests/ChordFlow.Core.Tests/TransposerTests.cs, tests/ChordFlow.Core.Tests/ChordSymbolTests.cs | c-pivot-parent-major-realization-converter, parser-applies-the-converter | IN7, IN4, C4 |
 | ✅ | 7 | AlphaTexRenderer golden: a minor tune emits \ks {tonic}minor + relative-major spelling; major render byte-identical. | tests/ChordFlow.Core.Tests/AlphaTexRendererTests.cs | c-pivot-parent-major-realization-converter, minor-ks-token-round-trip-inverse | IN7, IN4, C1 |
-| 🔳 | 8 | harmony-controls offers minor keys; carry isMinor through bridge → Features so a minor key realizes on Score and Sheet. | src/ChordFlow.Desktop/wwwroot/harmony-controls-component.js, src/ChordFlow.Desktop/Program.cs, src/ChordFlow.Core/Bridge/, src/ChordFlow.Core/Features/GenerateExercise/GenerateExercise.cs, src/ChordFlow.Core/Features/ContentCrud/ContentCrudHandler.cs | c-pivot-parent-major-realization-converter, minor-ks-token-round-trip-inverse | IN5 |
+| ✅ | 8 | 8a — bridge + Features mode threading: GenerateRequest/envelope carry keyIsMinor; GenerateExercise.Build + ContentCrud.Preview build new Key(pc, isMinor). | src/ChordFlow.Core/Bridge/WebMessageRouter.cs, src/ChordFlow.Core/Features/GenerateExercise/GenerateExercise.cs, src/ChordFlow.Core/Features/ContentCrud/ContentCrudHandler.cs, src/ChordFlow.Desktop/Program.cs, tests/ChordFlow.Core.Tests/GenerateExerciseTests.cs, tests/ChordFlow.Core.Tests/ContentCrudHandlerTests.cs | c-pivot-parent-major-realization-converter | IN5 |
+| 🔳 | 9 | harmony-controls offers minor keys; carry isMinor through bridge → Features so a minor key realizes on Score and Sheet. | src/ChordFlow.Desktop/wwwroot/harmony-controls-component.js, src/ChordFlow.Desktop/Program.cs, src/ChordFlow.Core/Bridge/, src/ChordFlow.Core/Features/GenerateExercise/GenerateExercise.cs, src/ChordFlow.Core/Features/ContentCrud/ContentCrudHandler.cs | c-pivot-parent-major-realization-converter, minor-ks-token-round-trip-inverse | IN5 |
 ---
 
 ### Legend
@@ -136,7 +144,12 @@ Revert/replace the A1 minor goldens added in step 2 with the C set: (1) converte
 
 Render a short A-minor tune end-to-end: assert the header carries `\ks aminor` (or the documented casing), diatonic notes spell from C's table, and a `#7dim7` chord root spells `G♯` via `RootSpelling`. Assert an existing major render is byte-identical (C1). The renderer already calls `NoteSpeller.KeySignatureToken`, so the minor `\ks` falls out of step 3 — this step is the end-to-end proof.
 
+<!-- step:8a-bridge-features-mode-threading -->
+### Step 8 — 8a — bridge + Features mode threading
+
+Thread the key's mode from the definition through the bridge into the Features layer, defaulting `false` so every existing call compiles and every major flow is byte-identical. `GenerateRequest` + the inbound envelope gain `KeyIsMinor`; the router's `generate` and `entityPreview` cases pass it (the `EntityPreviewRequested` event grows a bool). `GenerateExercise.Build` (all overloads) and `ContentCrudHandler.Preview` take `bool keyIsMinor = false` and build `new Key(pc, keyIsMinor)`. `Program.cs` handlers forward `req.KeyIsMinor` / the preview flag. Unit-test that a minor request builds a minor `KeyOverride` / realizes a minor-key preview. Deferred to 8b: the JS toggle and seeding the mode from a song's key; loadExercise re-key mode is a separate follow-up.
+
 <!-- step:ui-key-picker-offers-minor-keys -->
-### Step 8 — UI key picker offers minor keys — thread isMinor end-to-end
+### Step 9 — UI key picker offers minor keys — thread isMinor end-to-end
 
 Today the key is a bare `keyPitchClass` (int?) turned into `new Key(pc, false)` everywhere. Offer minor keys in `harmony-controls-component.js` (a major/minor mode toggle beside the Key select, or 24 entries) and emit `isMinor` from `getDefinition`. Carry `isMinor` through the bridge request DTOs + `Program.cs` router wiring into `GenerateExerciseHandler` and `ContentCrudHandler.Preview`, building `new Key(pc, isMinor)`. Absent ⇒ `false`, so existing major flows are unchanged. Dogfood: pick a minor key in the app → correct realized chords + spelling on Score and Sheet.

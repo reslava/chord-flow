@@ -74,11 +74,11 @@ public sealed class GenerateExerciseHandler
     /// </summary>
     public LoadScoreEnvelope Generate(
         string harmonyEntity, string harmonyId, string compingPatternId, string? leadPatternId,
-        int? keyPitchClass, int tempo, Difficulty difficulty, TripletFeel tripletFeel)
+        int? keyPitchClass, int tempo, Difficulty difficulty, TripletFeel tripletFeel, bool keyIsMinor = false)
     {
         using var db = new ChordFlowDbContext(_dbOptions);
         Exercise exercise = Build(
-            db, harmonyEntity, harmonyId, compingPatternId, leadPatternId, keyPitchClass, tempo, difficulty, tripletFeel);
+            db, harmonyEntity, harmonyId, compingPatternId, leadPatternId, keyPitchClass, tempo, difficulty, tripletFeel, keyIsMinor);
         return LoadScoreEnvelope.From(
             exercise, new ProgressionStore(db), _renderer, StoredVoicingSource.From(new VoicingStore(db)),
             references: VoicingReferenceSource.From(new VoicingStore(db)));
@@ -91,10 +91,10 @@ public sealed class GenerateExerciseHandler
     /// </summary>
     public Exercise Build(
         string harmonyEntity, string harmonyId, string compingPatternId, string? leadPatternId,
-        int? keyPitchClass, int tempo, Difficulty difficulty, TripletFeel tripletFeel)
+        int? keyPitchClass, int tempo, Difficulty difficulty, TripletFeel tripletFeel, bool keyIsMinor = false)
     {
         using var db = new ChordFlowDbContext(_dbOptions);
-        return Build(db, harmonyEntity, harmonyId, compingPatternId, leadPatternId, keyPitchClass, tempo, difficulty, tripletFeel);
+        return Build(db, harmonyEntity, harmonyId, compingPatternId, leadPatternId, keyPitchClass, tempo, difficulty, tripletFeel, keyIsMinor);
     }
 
     /// <summary>
@@ -108,9 +108,9 @@ public sealed class GenerateExerciseHandler
     public Exercise Build(
         ChordFlowDbContext db,
         string harmonyEntity, string harmonyId, string compingPatternId, string? leadPatternId,
-        int? keyPitchClass, int tempo, Difficulty difficulty, TripletFeel tripletFeel)
+        int? keyPitchClass, int tempo, Difficulty difficulty, TripletFeel tripletFeel, bool keyIsMinor = false)
     {
-        Key? keyOverride = keyPitchClass is int pc ? new Key(new PitchClass(pc), false) : null;
+        Key? keyOverride = keyPitchClass is int pc ? new Key(new PitchClass(pc), keyIsMinor) : null;
         Key liftKey = keyOverride ?? DefaultLiftKey;
 
         Song song = ExerciseRefs.ResolveHarmony(harmonyEntity, harmonyId, liftKey, db);

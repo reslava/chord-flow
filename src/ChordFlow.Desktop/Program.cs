@@ -192,7 +192,7 @@ internal static class Program
                     {
                         Exercise exercise = generate.Build(
                             req.HarmonyEntity, req.HarmonyId, req.CompingPatternId, req.LeadPatternId,
-                            req.KeyPitchClass, req.Tempo, req.Difficulty, req.TripletFeel);
+                            req.KeyPitchClass, req.Tempo, req.Difficulty, req.TripletFeel, req.KeyIsMinor);
                         if (TrySendScore(exercise, renderOptions))
                         {
                             currentExercise = exercise;
@@ -281,9 +281,9 @@ internal static class Program
                     }
                     catch (FormatException ex) { bridge.Send(new StatusEnvelope(ex.Message, true)); }
                 };
-                router.EntityPreviewRequested += (entity, dsl, renderOptions, tripletFeel, compingPatternId, keyPitchClass, tempo) =>
+                router.EntityPreviewRequested += (entity, dsl, renderOptions, tripletFeel, compingPatternId, keyPitchClass, keyIsMinor, tempo) =>
                 {
-                    try { bridge.Send(contentCrud.Preview(entity, dsl, renderOptions, tripletFeel, compingPatternId, keyPitchClass, tempo)); }
+                    try { bridge.Send(contentCrud.Preview(entity, dsl, renderOptions, tripletFeel, compingPatternId, keyPitchClass, keyIsMinor, tempo)); }
                     catch (FormatException ex) { bridge.Send(new EntityParseErrorEnvelope(entity, ex.Message)); }
                 };
                 router.EntitySaveRequested += (entity, id, name, dsl) =>

@@ -145,7 +145,7 @@ public sealed class ContentCrudHandler
     /// progression/song preview comps with <paramref name="compingPatternId"/> resolved against the rhythm
     /// catalog (blank → the app default <c>beat_1_3</c>); rhythm/voicing previews ignore it.
     /// </summary>
-    public EntityPreviewEnvelope Preview(string entity, string dsl, RenderOptions? options = null, TripletFeel tripletFeel = TripletFeel.None, string? compingPatternId = null, int? keyPitchClass = null, int? tempo = null)
+    public EntityPreviewEnvelope Preview(string entity, string dsl, RenderOptions? options = null, TripletFeel tripletFeel = TripletFeel.None, string? compingPatternId = null, int? keyPitchClass = null, bool keyIsMinor = false, int? tempo = null)
     {
         ContentEntity kind = ContentEntities.Parse(entity);
         ArgumentNullException.ThrowIfNull(dsl);
@@ -154,7 +154,7 @@ public sealed class ContentCrudHandler
         // ScoreR-seeded render params (scorer-render-params IN7): the key the preview renders in (a live transpose)
         // and the tempo it carries. A null key means "no opinion" — a lifted progression/rhythm falls back to C,
         // but a Song keeps its OWN authored InitialKey (never forced to C). Absent tempo ⇒ the 80 preview default.
-        Key? overrideKey = keyPitchClass is int pc ? new Key(new PitchClass(pc), IsMinor: false) : null;
+        Key? overrideKey = keyPitchClass is int pc ? new Key(new PitchClass(pc), IsMinor: keyIsMinor) : null;
         int previewTempo = tempo ?? PreviewTempo;
 
         try

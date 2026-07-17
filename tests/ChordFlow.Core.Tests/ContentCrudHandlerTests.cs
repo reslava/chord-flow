@@ -234,6 +234,20 @@ public class ContentCrudHandlerTests
     }
 
     [Fact]
+    public void Preview_MinorKey_RendersInMinor() // first-class-minor-keys 8a: keyIsMinor + a tonality: minor header
+    {
+        var (handler, conn) = NewHandler(withDefaultPack: true);
+        using (conn)
+        {
+            // A minor-home progression previewed in A minor emits the minor key signature (\ks aminor).
+            string tex = handler.Preview(
+                "progression", "tonality: minor\n1- 4- 5-", keyPitchClass: 9, keyIsMinor: true).Tex!;
+
+            Assert.Contains("\\ks aminor", tex);
+        }
+    }
+
+    [Fact]
     public void Preview_Tempo_DrivesTheEnvelopeTempo() // the seeded tempo rides back so playback matches the control
     {
         var (handler, conn) = NewHandler(withDefaultPack: true);

@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 32
+last_ai_block: 34
 ---
 # first-class-minor-keys Chat 001
 
@@ -713,3 +713,17 @@ Nice ideam do the quick_ship, thanks
 commit
 next step 8a — bridge + Features mode threading?
 if so, do step 8a
+
+## AI:
+
+Committed the completed C-frame + minor-progressions work (`6e24256`), then split step 8 into **8a (bridge/Features)** and **8b (UI)** and did **8a** — **1008 Core tests green, Desktop builds clean.**
+
+**8a:** the key's mode now threads from the definition all the way into realization:
+- `GenerateRequest` + inbound envelope carry `KeyIsMinor`; the router's `generate` and `entityPreview` cases pass it (the preview event grew to 8 args).
+- `GenerateExercise.Build` (all overloads) and `ContentCrud.Preview` take `keyIsMinor` and build `new Key(pc, isMinor)`; `Program.cs` forwards it.
+- All `false`-defaulted, so every existing major flow is byte-identical.
+- Tests: minor `Build` → A-minor override; minor `Preview` → `\ks aminor`; the envelope field parses.
+
+So the whole engine path is ready: a `keyIsMinor` request realizes and renders a minor key correctly. **All that's left is 8b** — the JS toggle beside the Key control + seeding the mode from a song's key (the seed needs the key's mode in the content-list payload; I'll wire that when we do 8b). `loadExercise` re-key mode is a small separate follow-up.
+
+Committing 8a now.

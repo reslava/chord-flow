@@ -4,7 +4,7 @@ id: pl_01KXQWH3EHRG7JYEG7D5XREV8T-done
 title: Done — First-class minor keys — Implementation
 status: done
 created: 2026-07-17
-version: 7
+version: 8
 tags: []
 parent_id: pl_01KXQWH3EHRG7JYEG7D5XREV8T
 requires_load: []
@@ -84,3 +84,16 @@ Full Core suite **989/989 green**.
 Renderer golden. Replaced the weak placeholder minor-render test with a C end-to-end one: `Render_MinorKey_EmitsMinorKeySignatureAndSpelledChordNames` parses `1- 4- 5- #7dim7` (tonality minor), renders in A minor with `ShowChordNames`, and asserts `\ks aminor` plus the `{ch "…"}` labels **Am / Dm / Em / G#dim7** — proving the renderer emits the minor key signature and spells the harmonic vii°7 raised root letter-pure (G♯, not A♭) all the way to the alphaTex label. `AlphaTexRendererTests` 27/27.
 
 C1 (major render byte-identical) is guarded by the pre-existing exact-byte major goldens (`Render_KnownExercise_ProducesExpectedAlphaTex`, etc.), all still passing — the C pivot changed no major output. The `\ks aminor` token and the removal of the `EnsureMajorSupported` guard landed in steps 3–4; this step is the end-to-end proof.
+
+## Step 8 — 8a — bridge + Features mode threading: GenerateRequest/envelope carry keyIsMinor; GenerateExercise.Build + ContentCrud.Preview build new Key(pc, isMinor).
+
+Threaded the key's mode from the definition through the bridge into the Features layer, `false`-defaulted so every existing call compiles and every major flow is byte-identical.
+- **`GenerateRequest`** gains `bool KeyIsMinor = false`; the inbound envelope gains `bool? KeyIsMinor`; the router's `generate` case passes `envelope.KeyIsMinor ?? false`.
+- **`EntityPreviewRequested`** event grows a `bool` (now 8-arg); the `entityPreview` case passes `envelope.KeyIsMinor ?? false`.
+- **`GenerateExercise.Generate`/`Build`** (all 3 overloads) take `bool keyIsMinor = false` → `new Key(pc, keyIsMinor)`.
+- **`ContentCrudHandler.Preview`** takes `bool keyIsMinor = false` → `new Key(pc, IsMinor: keyIsMinor)`.
+- **`Program.cs`** handlers forward `req.KeyIsMinor` / the preview flag.
+
+Fixed the 7 existing `EntityPreviewRequested` subscriber lambdas in `WebMessageRouterContentTests` to the new 8-arg shape. Tests: `Build_MinorKey_CarriesMinorKeyOverride` (A-minor `KeyOverride`), `Preview_MinorKey_RendersInMinor` (`tonality: minor` + `keyIsMinor` → `\ks aminor`), `EntityPreview_CarriesKeyIsMinor` (envelope parse). Core suite **1008/1008 green**; Desktop builds clean.
+
+Deferred to **8b**: the JS mode toggle in `harmony-controls-component.js` + seeding the mode from a song's key. `loadExercise` re-key mode is a separate follow-up.
