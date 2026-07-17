@@ -1,7 +1,7 @@
 ---
 type: thread
-id: th_01KXQFFWHCD1R5VQM00AKF9ANN
-title: Harmonic-analysis overlay on ChordSheetR
+id: th_01KXQNSBN61N6W1SS8JQBMR110
+title: Minor progressions set (default-pack content)
 status: active
 created: 2026-07-17
 updated: 2026-07-17
@@ -9,9 +9,9 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 30
-depends_on: [th_01KXGQFZWCXAN75K4YPZHAMPBT, th_01KXQFFVFV6GFXJ2W4B1BJ2J97]
+priority: 20
+depends_on: [th_01KXQFFVFV6GFXJ2W4B1BJ2J97]
 ---
-# Harmonic-analysis overlay on ChordSheetR
+# Minor progressions set (default-pack content)
 
 Thread manifest — authored roadmap metadata only (`priority` + `depends_on`). The thread's roadmap status and history are *derived* (`buildRoadmap`), never stored here.
