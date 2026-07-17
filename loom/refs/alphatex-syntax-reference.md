@@ -4,8 +4,8 @@ id: rf_01KTHJN829FMW964FTNCFSS2GM
 title: alphaTex Syntax Reference
 status: active
 created: 2026-06-07
-updated: 2026-06-25
-version: 12
+updated: 2026-07-17
+version: 14
 tags: []
 parent_id: null
 requires_load: []
@@ -57,7 +57,7 @@ ChordFlow emits two tracks **only** when an `Exercise.Lead` pattern is present; 
 | Subtitle | `\subtitle "..."` | |
 | Tempo | `\tempo 80` | BPM; also `\tempo (120 "Moderate")`, `\tempo (60 "" 0.5 hide)` |
 | Time signature | `\ts 4 4` | also `\ts common` (= 4/4 with C symbol), `\ts 6 8`, `\ts 3 4` |
-| Key signature | `\ks bb` | flat keys: `cb gb db ab eb bb f`; sharp/natural: `c g d a e b f# c#`; also `bbmajor`, `aminor`, etc. Docs show **lowercase** flats. |
+| Key signature | `\ks bb` | flat keys: `cb gb db ab eb bb f`; sharp/natural: `c g d a e b f# c#`; a **mode suffix** is accepted (`bbmajor`, `aminor`, `c#minor`). Docs show **lowercase** flats. **ChordFlow emits** a bare note for a major key and `{tonic}minor` for a minor key (`\ks aminor`) — `NoteSpeller.KeySignatureToken` (first-class-minor-keys); the minor tonic is spelled from its relative major. |
 | Clef | `\clef g2` | `g2 f4 c3 c4 n treble bass tenor alto neutral` |
 
 Bar-level metadata can also appear at the start of any bar, before notes: `\ts 3 4 | \ks C | ... |`.
@@ -154,7 +154,7 @@ A "beats 1 & 3" bar in 4/4 = four quarters: chord, rest, chord, rest. Frets belo
 
 | Domain concept | alphaTex |
 |----------------|----------|
-| `Key` | `\ks <flat-or-sharp>` |
+| `Key` | `\ks <flat-or-sharp>` (major) · `\ks {tonic}minor` (minor, e.g. `\ks aminor`) |
 | `Exercise.Tempo` | `\tempo N` |
 | 4/4 | `\ts 4 4` |
 | `Duration.Quarter` | `:4` (emit once, it persists) |

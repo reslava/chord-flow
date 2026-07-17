@@ -126,16 +126,23 @@ public class AlphaTexRendererTests
     }
 
     [Fact]
-    public void Render_MinorKey_Throws()
+    public void Render_MinorKey_EmitsMinorKeySignatureAndSpelledChordNames()
     {
-        // The renderer rejects a minor section key (MVP is major-only). Bars are realized in a major key so
-        // only the section's declared key drives the rejection.
-        var aMinor = new Key(new PitchClass(9), true); // A minor
-        var bars = Transposer.RealizeBars(SeedData.TwelveBarBlues, Bb);
-        var realized = new RealizedSong(new[] { new RealizedSection("blues", aMinor, bars) });
+        // first-class-minor-keys (C), end-to-end through the renderer: a minor tune authored tonic-relative
+        // (`tonality: minor`) emits `\ks aminor`, spells its chords from the relative major, and spells the
+        // harmonic vii°7 raised root letter-pure — G♯dim7, not A♭dim7. The old MVP-only minor guard is gone.
+        var aMinor = new Key(new PitchClass(9), IsMinor: true);
+        Progression prog = ProgressionParser.Parse(
+            "t", "A minor tune", "1- 4- 5- #7dim7", TimeSignature.FourFour, home: Tonality.Minor);
 
-        Assert.Throws<NotSupportedException>(
-            () => Renderer.Render(realized, SeedData.Beat1, 80, Difficulty.Beginner));
+        string tex = Renderer.RenderProgression(aMinor, prog, SeedData.Beat1, 80, Difficulty.Beginner,
+            options: new RenderOptions(ShowChordNames: true));
+
+        Assert.Contains("\\ks aminor", tex);
+        Assert.Contains("{ch \"Am\"}", tex);
+        Assert.Contains("{ch \"Dm\"}", tex);
+        Assert.Contains("{ch \"Em\"}", tex);
+        Assert.Contains("{ch \"G#dim7\"}", tex); // raised leading tone spelled G♯, not A♭
     }
 
     [Fact]

@@ -196,7 +196,10 @@ public sealed class ContentCrudHandler
 
     private static Exercise ProgressionPreview(string dsl, TripletFeel tripletFeel, RhythmPattern comping, Key liftKey, int tempo)
     {
-        Progression progression = ProgressionParser.Parse("preview", "Preview", dsl, TimeSignature.FourFour);
+        // A previewed progression may carry a `tonality:` header (first-class-minor-keys); strip it and hand
+        // the resolved Home to the parser so a minor progression previews with the correct realized chords.
+        (CatalogMetadata meta, string body) = CatalogHeader.Parse(dsl);
+        Progression progression = ProgressionParser.Parse("preview", "Preview", body, TimeSignature.FourFour, home: meta.Tonality);
         return new Exercise(
             Song.OfProgression(progression, liftKey), comping, Lead: null, KeyOverride: null,
             tempo, Difficulty.Beginner, tripletFeel);

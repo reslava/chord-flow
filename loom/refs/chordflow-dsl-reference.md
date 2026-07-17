@@ -5,7 +5,7 @@ title: ChordFlow DSL
 status: active
 created: 2026-06-10
 updated: 2026-07-17
-version: 31
+version: 33
 tags: []
 parent_id: null
 requires_load: []
@@ -126,6 +126,7 @@ ChordFlow validates as it parses and tells you which token is wrong:
 ## Notes
 
 - Degrees are **key-independent** — `1 4 5` is C–F–G in C, or G–C–D in G. Choose the key in the app.
+- **Minor progressions declare `tonality: minor`** in the catalog header and are authored **tonic-relative**: the minor tonic is `1-`, and the natural minor scale reads with **bare** degrees — a natural-minor i–ii°–III–iv–v–VI–VII is `1- 2° 3 4- 5- 6 7`. The raised tones of harmonic/melodic minor are accidentals on the author frame: a dominant/major V is `5`/`57`, the vii°7 is `#7dim7` (spells G♯…), the melodic vi° is `#6ø` (spells F♯…). Behind the scenes a converter rotates these to a single **parent-major** storage frame, so the engine stays one frame for every key and the chromatic tones spell letter-pure — but as an author you just think in the minor scale. The **song** picks the actual minor key (`key Am`); the progression only declares its `tonality`.
 - Whitespace is flexible: extra spaces between bars are fine.
 - Time signature affects how slots add up (4/4 → 4 beats per bar); the default exercises are 4/4.
 

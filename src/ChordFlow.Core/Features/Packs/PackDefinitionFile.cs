@@ -13,8 +13,8 @@ public static class PackDefinitionFile
 {
     // The recognized leading-header keys. `name` is this layer's concern (identity, peeled out); the rest
     // mirror CatalogHeader's keys so a `name:` line placed after them is still inside the header block and
-    // gets found. (These three must stay in sync with CatalogHeader's recognized set — a stable v1 set.)
-    private static readonly string[] HeaderKeys = { "name", "genre", "subgenre", "tags" };
+    // gets found. (These must stay in sync with CatalogHeader's recognized set — a stable v1 set.)
+    private static readonly string[] HeaderKeys = { "name", "genre", "subgenre", "tags", "description", "tonality" };
 
     /// <summary>
     /// Build a <see cref="PackDefinition"/> from a file's <paramref name="fileName"/> (its stem is the id)

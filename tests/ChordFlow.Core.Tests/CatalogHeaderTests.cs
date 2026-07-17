@@ -12,6 +12,41 @@ namespace ChordFlow.Core.Tests;
 /// </summary>
 public class CatalogHeaderTests
 {
+    // first-class-minor-keys (C): a `tonality:` header key carries a progression's authoring frame; it rides
+    // in the stored DSL and re-parses on load, so no dedicated column (like `description`).
+    [Fact]
+    public void Parse_TonalityMinor_IsExtracted_AndBodyUnchanged()
+    {
+        (CatalogMetadata meta, string body) = CatalogHeader.Parse("genre: Jazz\ntonality: minor\n1- 2ø 5 1-");
+
+        Assert.Equal(Tonality.Minor, meta.Tonality);
+        Assert.False(meta.IsEmpty);
+        Assert.Equal("1- 2ø 5 1-", body);
+    }
+
+    [Fact]
+    public void Tonality_RoundTripsThroughSerialize()
+    {
+        var meta = new CatalogMetadata("Jazz", null, Array.Empty<string>(), Tonality: Tonality.Minor);
+
+        (CatalogMetadata back, string body) = CatalogHeader.Parse(CatalogHeader.Serialize(meta, "1- 2ø 5 1-"));
+
+        Assert.Equal(Tonality.Minor, back.Tonality);
+        Assert.Equal("1- 2ø 5 1-", body);
+    }
+
+    [Fact]
+    public void Serialize_MajorTonality_EmitsNoTonalityLine()
+    {
+        Assert.Equal("17 47", CatalogHeader.Serialize(CatalogMetadata.Empty, "17 47"));
+    }
+
+    [Fact]
+    public void Parse_UnknownTonality_Throws()
+    {
+        Assert.Throws<FormatException>(() => CatalogHeader.Parse("tonality: bogus\n1"));
+    }
+
     [Fact]
     public void Parse_NoHeader_ReturnsEmptyMetadata_AndBodyUnchanged()
     {

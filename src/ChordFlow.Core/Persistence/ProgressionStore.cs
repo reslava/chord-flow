@@ -108,8 +108,10 @@ public sealed class ProgressionStore : IProgressionStore, IContentStore
             return null;
         }
 
-        // The DSL may carry a catalog header; the pure ProgressionParser only ever sees the bar grammar.
-        (_, string body) = CatalogHeader.Parse(row.Dsl);
-        return ProgressionParser.Parse(row.Id, row.Name, body, _ts);
+        // The DSL may carry a catalog header; the pure ProgressionParser only ever sees the bar grammar, but
+        // the header's `tonality:` reaches it as the resolved Home so a minor progression's degrees convert to
+        // the parent-major frame (first-class-minor-keys, IN10).
+        (CatalogMetadata meta, string body) = CatalogHeader.Parse(row.Dsl);
+        return ProgressionParser.Parse(row.Id, row.Name, body, _ts, home: meta.Tonality);
     }
 }

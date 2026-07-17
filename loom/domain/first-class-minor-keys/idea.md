@@ -2,12 +2,12 @@
 type: idea
 id: id_01KXQFGY5B575DAS8HPQNBX4T1
 title: First-class minor keys (end-to-end)
-status: draft
+status: done
 created: 2026-07-17
 version: 1
 tags: []
 parent_id: null
-requires_load: []
+requires_load: [rf_01KTM41K36DYJ0CE44FE7TMCGH, rf_01KTSAQ6990GY3J4CZ7HPVPW6K]
 ---
 # First-class minor keys (end-to-end)
 

@@ -52,7 +52,9 @@ public static class ProgressionParser
     /// progression) a per-chord <c>{…}</c> voicing annotation is rejected — progressions stay pure
     /// harmony (req <c>IN7</c>). A Song passes <c>true</c> when parsing an <b>inline</b> progression, where
     /// the annotation is an arrangement concern.</param>
-    public static Progression Parse(string id, string name, string dsl, TimeSignature ts, bool allowVoicingAnnotations = false)
+    public static Progression Parse(
+        string id, string name, string dsl, TimeSignature ts,
+        bool allowVoicingAnnotations = false, Tonality home = Tonality.Major)
     {
         ArgumentNullException.ThrowIfNull(dsl);
 
@@ -65,11 +67,12 @@ public static class ProgressionParser
         var bars = new HarmonicBar[barTokens.Length];
         for (int i = 0; i < barTokens.Length; i++)
         {
-            bars[i] = ParseBar(barTokens[i], ts, allowVoicingAnnotations);
+            bars[i] = ParseBar(barTokens[i], ts, allowVoicingAnnotations, home);
         }
 
-        // Re-uses Step 1's per-bar validation (sum == BarTicks, > 0, quarter-aligned).
-        return Progression.FromBars(id, name, bars, ts);
+        // Re-uses Step 1's per-bar validation (sum == BarTicks, > 0, quarter-aligned). `Home` records the
+        // author frame; the bars now hold parent-major degrees (first-class-minor-keys, C: converted below).
+        return Progression.FromBars(id, name, bars, ts) with { Home = home };
     }
 
     /// <summary>
@@ -167,7 +170,7 @@ public static class ProgressionParser
         return folded.ToArray();
     }
 
-    private static HarmonicBar ParseBar(string barToken, TimeSignature ts, bool allowVoicingAnnotations)
+    private static HarmonicBar ParseBar(string barToken, TimeSignature ts, bool allowVoicingAnnotations, Tonality home)
     {
         string[] chordTokens = barToken.Split('_');
         if (chordTokens.Any(string.IsNullOrEmpty))
@@ -205,7 +208,9 @@ public static class ProgressionParser
         var spans = new ChordSpan[chordTokens.Length];
         for (int i = 0; i < chordTokens.Length; i++)
         {
-            spans[i] = new ChordSpan(degrees[i], tickDurations[i], annotations[i]);
+            // The author writes tonic-relative degrees; DegreeFrameConverter.ToParent normalizes them to the
+            // single parent-major frame the kernel realizes (identity for Major home — existing progs unchanged).
+            spans[i] = new ChordSpan(DegreeFrameConverter.ToParent(degrees[i], home), tickDurations[i], annotations[i]);
         }
 
         return new HarmonicBar(spans);

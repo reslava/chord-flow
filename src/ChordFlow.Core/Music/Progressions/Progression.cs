@@ -22,6 +22,14 @@ public sealed record Progression
     /// <summary>The bars, in order. Each bar's spans sum to <see cref="TimeSignature.BarTicks"/>.</summary>
     public IReadOnlyList<HarmonicBar> Bars { get; }
 
+    /// <summary>
+    /// The tonality the DSL was authored in (first-class-minor-keys, C frame). The stored <see cref="Bars"/>
+    /// are always in the single <b>parent-major</b> frame; <see cref="Home"/> records the author frame so the
+    /// <see cref="DegreeFrameConverter"/> can present/parse degrees tonic-relative. Default
+    /// <see cref="Tonality.Major"/> ⇒ existing progressions are unchanged (their degrees already are parent-major).
+    /// </summary>
+    public Tonality Home { get; init; } = Tonality.Major;
+
     // Private full constructor: the only way bars reach the record. Public entry points either validate
     // (FromBars) or build provably-valid single-span bars (the degree constructor).
     private Progression(string id, string name, IReadOnlyList<HarmonicBar> bars)

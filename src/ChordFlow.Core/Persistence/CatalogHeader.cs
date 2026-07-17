@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using ChordFlow.Music.Progressions;
 
 namespace ChordFlow.Persistence;
 
@@ -25,6 +26,7 @@ public static class CatalogHeader
     private const string SubgenreKey = "subgenre";
     private const string TagsKey = "tags";
     private const string DescriptionKey = "description";
+    private const string TonalityKey = "tonality";
 
     /// <summary>
     /// Split <paramref name="dslText"/> into its catalog metadata and the remaining body. A definition
@@ -40,6 +42,7 @@ public static class CatalogHeader
         string? subgenre = null;
         IReadOnlyList<string> tags = Array.Empty<string>();
         string? description = null;
+        Tonality tonality = Tonality.Major;
 
         int pos = 0;
         int bodyStart = 0;
@@ -60,6 +63,7 @@ public static class CatalogHeader
                 case SubgenreKey: subgenre = NullIfEmpty(value); break;
                 case TagsKey: tags = ParseTagList(value); break;
                 case DescriptionKey: description = NullIfEmpty(value); break;
+                case TonalityKey: tonality = ParseTonality(value); break;
             }
 
             pos = newline < 0 ? dslText.Length : newline + 1;
@@ -67,7 +71,7 @@ public static class CatalogHeader
         }
 
         string body = dslText[bodyStart..];
-        return (new CatalogMetadata(genre, subgenre, tags, description), body);
+        return (new CatalogMetadata(genre, subgenre, tags, description, tonality), body);
     }
 
     /// <summary>
@@ -94,6 +98,11 @@ public static class CatalogHeader
         if (metadata.Subgenre is not null)
         {
             sb.Append(SubgenreKey).Append(": ").Append(metadata.Subgenre).Append('\n');
+        }
+
+        if (metadata.Tonality != Tonality.Major)
+        {
+            sb.Append(TonalityKey).Append(": ").Append(metadata.Tonality.ToString().ToLowerInvariant()).Append('\n');
         }
 
         if (metadata.Description is not null)
@@ -142,7 +151,7 @@ public static class CatalogHeader
         }
 
         string candidate = trimmed[..colon].Trim().ToLowerInvariant();
-        if (candidate is not (GenreKey or SubgenreKey or TagsKey or DescriptionKey))
+        if (candidate is not (GenreKey or SubgenreKey or TagsKey or DescriptionKey or TonalityKey))
         {
             return false;
         }
@@ -164,6 +173,15 @@ public static class CatalogHeader
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToArray();
     }
+
+    // Map a `tonality:` header value to the enum. v1 supports major/minor (the growth path adds the diatonic
+    // modes); an unrecognized value fails loud so a typo isn't silently treated as major.
+    private static Tonality ParseTonality(string value) => value.Trim().ToLowerInvariant() switch
+    {
+        "" or "major" => Tonality.Major,
+        "minor" => Tonality.Minor,
+        _ => throw new FormatException($"Unknown tonality \"{value}\" (expected \"major\" or \"minor\")."),
+    };
 
     private static string? NullIfEmpty(string value) => value.Length == 0 ? null : value;
 }

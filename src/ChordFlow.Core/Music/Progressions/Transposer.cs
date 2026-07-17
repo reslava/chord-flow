@@ -53,6 +53,15 @@ public sealed record RealizedBar(IReadOnlyList<RealizedSpan> Spans)
 /// Pure transposition: realizes a key-independent <see cref="Progression"/> into concrete
 /// <see cref="Chord"/>s for a given <see cref="Key"/> (or <see cref="Scale"/>). No I/O, no state.
 /// The scale-degree offsets live in <see cref="Scale"/>; this type just maps degrees through it.
+/// <para>
+/// <b>C frame (first-class-minor-keys):</b> a progression's stored degrees are always in one absolute
+/// <b>parent-major</b> frame, so realization is <i>always</i> against <c>Scale.Major(ParentTonic(key))</c>
+/// (<see cref="DegreeFrameConverter.ParentTonic"/>) — the tonic for a major key, its relative major for a
+/// minor key. The kernel never branches on mode; `Key.IsMinor` only selects the parent major (for
+/// realization) and the spelling. `Scale.ForKey` is deliberately not used here — it stays for
+/// `HarmonicAnalyzer`'s natural-minor classification (C3). For a major key `ParentTonic` is the tonic, so
+/// output is byte-identical (C1).
+/// </para>
 /// </summary>
 public static class Transposer
 {
@@ -64,7 +73,7 @@ public static class Transposer
     public static Chord[] Realize(Progression progression, Key key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        return Realize(progression, Scale.ForKey(key), key);
+        return Realize(progression, Scale.Major(DegreeFrameConverter.ParentTonic(key)), key);
     }
 
     /// <summary>
@@ -94,7 +103,7 @@ public static class Transposer
     public static IReadOnlyList<RealizedBar> RealizeBars(Progression progression, Key key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        return RealizeBars(progression, Scale.ForKey(key), key);
+        return RealizeBars(progression, Scale.Major(DegreeFrameConverter.ParentTonic(key)), key);
     }
 
     /// <summary>Realizes the full harmonic-rhythm layer in <paramref name="scale"/>.</summary>
@@ -146,17 +155,19 @@ public static class Transposer
         // Only an accidental'd degree carries a letter-pure RootSpelling (IN5); a diatonic degree leaves it
         // null so ChordSymbol falls back to the key-table and existing output stays byte-identical (C2).
         NoteName? spelling = key is not null && degree.Accidental != Accidental.Natural
-            ? SpellRoot(degree, key, rootPc)
+            ? SpellRoot(degree, scale, key, rootPc)
             : null;
         return new Chord(new PitchClass(rootPc), degree.Quality, spelling);
     }
 
-    // Letter-pure spelling: the letter is the tonic's letter advanced (degree - 1) places through the
-    // musical alphabet, and the accidental is whatever turns that letter into the sounding pitch — even
-    // when that yields a rare F♭/B♯/double accidental. The written degree, not the key, names the root.
-    private static NoteName SpellRoot(RomanDegree degree, Key key, int rootPc)
+    // Letter-pure spelling: the letter is the realized scale's tonic letter advanced (degree - 1) places
+    // through the musical alphabet, and the accidental is whatever turns that letter into the sounding pitch —
+    // even when that yields a rare F♭/B♯/double accidental. The written (parent-major) degree, not the key,
+    // names the root. Under the C frame the scale's tonic is the key's PARENT major (A minor → C), so the raised
+    // leading tone `#5dim7` spells G♯ from C's letter, not A♭ from A's — the whole point of the parent-major frame.
+    private static NoteName SpellRoot(RomanDegree degree, Scale scale, Key key, int rootPc)
     {
-        char tonicLetter = NoteSpeller.Name(key.Tonic, key)[0];
+        char tonicLetter = NoteSpeller.Name(scale.Tonic, key)[0];
         int letterIndex = (Alphabet.IndexOf(tonicLetter) + degree.Degree - 1) % Alphabet.Length;
         int naturalPc = LetterPitchClasses[letterIndex];
 

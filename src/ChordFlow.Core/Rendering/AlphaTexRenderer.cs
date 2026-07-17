@@ -46,7 +46,6 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         // Seeded from the first section's key (\ks is legal mid-score, so later key changes are emitted
         // inline — no per-key score splitting; design §8.3).
         RealizedSection first = song.Sections[0];
-        EnsureMajorSupported(first.Key);
 
         // Comping (rhythm-guitar) track body: pickup + section bars, with inline \ks on key change. The state
         // collects each \chord diagram definition once for the score metadata block.
@@ -111,8 +110,6 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         Key? previousKey = null;
         foreach (RealizedSection section in song.Sections)
         {
-            EnsureMajorSupported(section.Key);
-
             // Inline \ks only when the key changes; the first section's key already sits in the header.
             if (previousKey is not null && !section.Key.Equals(previousKey))
             {
@@ -166,14 +163,6 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         }
 
         return barLines;
-    }
-
-    private static void EnsureMajorSupported(Key key)
-    {
-        if (key.IsMinor)
-        {
-            throw new NotSupportedException("The MVP renderer supports major keys only.");
-        }
     }
 
     // Single-track header: score metadata with \ts/\ks folded in before the lone "." (no \track wrapper).

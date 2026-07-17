@@ -11,6 +11,41 @@ public class ProgressionParserTests
 
     private static Progression Parse(string dsl) => ProgressionParser.Parse("t", "Test", dsl, Ts);
 
+    // first-class-minor-keys (C): a minor-home progression is authored tonic-relative; the parser applies
+    // DegreeFrameConverter.ToParent so the stored Bars are parent-major, and records Home = Minor (IN10).
+    [Fact]
+    public void Parse_MinorHome_ConvertsAuthorDegreesToParentMajorAndSetsHome()
+    {
+        Progression prog = ProgressionParser.Parse("t", "T", "1- 4- 5-", Ts, home: Tonality.Minor);
+
+        Assert.Equal(Tonality.Minor, prog.Home);
+        Assert.Equal(new[] { 6, 2, 3 }, prog.Degrees.Select(d => d.Degree)); // parent-major 6- 2- 3-
+        Assert.All(prog.Degrees, d => Assert.Equal(Quality.Minor, d.Quality));
+
+        // Realized in A minor (parent major C) → Am, Dm, Em.
+        Chord[] chords = Transposer.Realize(prog, new Key(new PitchClass(9), IsMinor: true));
+        Assert.Equal(new[] { 9, 2, 4 }, chords.Select(c => c.Root.Value));
+    }
+
+    [Fact]
+    public void Parse_MinorHome_RaisedLeadingToneSpellsLetterPure()
+    {
+        // Author `#7dim7` (harmonic-minor vii°7) in A minor → ToParent `#5dim7` → G♯dim7, spelled G♯.
+        Progression prog = ProgressionParser.Parse("t", "T", "#7dim7", Ts, home: Tonality.Minor);
+        Chord chord = Transposer.Realize(prog, new Key(new PitchClass(9), IsMinor: true))[0];
+
+        Assert.Equal(8, chord.Root.Value);
+        Assert.Equal(new NoteName('G', 1), chord.RootSpelling); // G♯, not A♭
+    }
+
+    [Fact]
+    public void Parse_MajorHome_IsUnchanged()
+    {
+        Progression prog = Parse("1 4 5");
+        Assert.Equal(Tonality.Major, prog.Home);
+        Assert.Equal(new[] { 1, 4, 5 }, prog.Degrees.Select(d => d.Degree));
+    }
+
     [Fact]
     public void Parse_Blues_RoundTripsToTwelveSingleSpanDominant7Bars()
     {

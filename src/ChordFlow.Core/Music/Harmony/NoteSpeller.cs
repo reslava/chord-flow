@@ -43,40 +43,51 @@ public static class NoteSpeller
 
     /// <summary>
     /// The alphaTex <c>\ks</c> key-signature token for <paramref name="key"/> — its tonic spelled
-    /// and lowercased (e.g. <c>bb</c>, <c>f#</c>).
+    /// and lowercased (e.g. <c>bb</c>, <c>f#</c>). A minor key appends the <c>minor</c> mode suffix
+    /// (<c>aminor</c>, <c>c#minor</c>), which alphaTab accepts natively (<c>\ks Aminor</c>); a major
+    /// key stays a bare note so existing output is byte-identical (first-class-minor-keys, IN3).
     /// </summary>
     public static string KeySignatureToken(Key key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        return Name(key.Tonic, key).ToLowerInvariant();
+        string tonic = Name(key.Tonic, key).ToLowerInvariant();
+        return key.IsMinor ? tonic + "minor" : tonic;
     }
 
     /// <summary>
-    /// Inverse of <see cref="KeySignatureToken"/>: parse a <c>\ks</c>-style tonic token (e.g. <c>bb</c>,
-    /// <c>f#</c>, <c>c</c>) back into a major <see cref="Key"/>. v1 keys are major-only, so the token has no
-    /// mode suffix; used to round-trip a persisted <c>Exercise.KeyOverride</c>.
+    /// Inverse of <see cref="KeySignatureToken"/>: parse a <c>\ks</c>-style token (e.g. <c>bb</c>,
+    /// <c>f#</c>, <c>c</c>, or a minor <c>aminor</c> / <c>c#minor</c>) back into a <see cref="Key"/>.
+    /// Used to round-trip a persisted <c>Exercise.KeyOverride</c>; a trailing <c>minor</c> suffix sets
+    /// <see cref="Key.IsMinor"/> (first-class-minor-keys, IN3).
     /// </summary>
     public static Key KeyFromSignatureToken(string token)
     {
         ArgumentException.ThrowIfNullOrEmpty(token);
 
-        int basePc = char.ToUpperInvariant(token[0]) switch
+        bool isMinor = token.EndsWith("minor", StringComparison.OrdinalIgnoreCase);
+        string note = isMinor ? token[..^"minor".Length] : token;
+        if (note.Length == 0)
+        {
+            throw new FormatException($"Key token \"{token}\" has no note letter.");
+        }
+
+        int basePc = char.ToUpperInvariant(note[0]) switch
         {
             'C' => 0, 'D' => 2, 'E' => 4, 'F' => 5, 'G' => 7, 'A' => 9, 'B' => 11,
             _ => throw new FormatException($"Key token \"{token}\" has an unknown note letter."),
         };
 
-        if (token.Length > 1)
+        if (note.Length > 1)
         {
-            basePc += token[1] switch
+            basePc += note[1] switch
             {
                 '#' => 1,
                 'b' => -1,
-                _ => throw new FormatException($"Key token \"{token}\" has an unknown accidental \"{token[1]}\"."),
+                _ => throw new FormatException($"Key token \"{token}\" has an unknown accidental \"{note[1]}\"."),
             };
         }
 
-        return new Key(new PitchClass(Mod12(basePc)), IsMinor: false);
+        return new Key(new PitchClass(Mod12(basePc)), IsMinor: isMinor);
     }
 
     // A key spells with sharps based on its (relative) major. The relative major of a minor key is
