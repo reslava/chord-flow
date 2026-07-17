@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 27
+last_ai_block: 29
 ---
 # harmonic-analysis Chat 001
 
@@ -390,3 +390,18 @@ A few **implementation calls I made while building** (all defensible, but flaggi
 commit
 then the small `description:` catalog-header field + the major-frame progressions added to the default pack with descriptions + a harmonic-concept/difficulty tag vocabulary
 code quick
+
+## AI:
+
+Both done, both committed.
+
+**1. Analyzer** — committed as `af3889d` (source + tests + all the Loom docs).
+
+**2. Content unit** (`code quick`, decisions 1A + (a)) — implemented, green, quick-shipped as **plan-002**:
+- **`description:` catalog-header field** — added to `CatalogHeader` (parse/serialize) + `CatalogMetadata.Description`. It's a **recognized header key** now (so it never leaks into the pure Domain parser — that was the trap, since `Parse` treats an unknown `key:` as body), round-trips 1:1, and rides in the stored DSL with no dedicated column. Cross-cutting: every content kind gets it.
+- **10 major-frame progressions** added to the default pack, each with a description + concept/difficulty tags: `ii-V-I`, `I-vi-ii-V turnaround`, secondary-dominant turnaround, circle of secondary dominants, tritone-sub `ii-V-I`, Tadd Dameron turnaround, borrowed `iv`, Mixolydian `♭VII`, Aeolian cadence, chromatic passing diminished. Tag vocabulary: concepts (`ii-V-I`, `secondary-dominant`, `tritone-sub`, `borrowed-iv`, `modal-mixture`, `diminished-passing`, `circle-of-fifths`, …) + level (`beginner`/`intermediate`/`advanced`) — immediately filterable via the existing Content tag filter.
+- **Verified**: full Core suite **944 passing** — `ProgressionSeedTests` drives every new progression DSL→model→render (Bb), `CatalogHeaderTests` covers the description round-trip. DSL reference updated with the new header key.
+
+**Held for `domain/first-class-minor-keys`**: the minor-tonic progressions (minor `iiø–V–i`, Picardy). **Future** (noted in the harmonic-analysis design): the v2 sequence-aware blues-tonality detector, tritone-subs of secondary dominants, and extended/altered qualities.
+
+That closes out everything from this chat. The three-thread roadmap stands: **1 harmonic-analysis ✅ (engine shipped)** → 2 first-class-minor-keys → 3 harmonic-overlay.

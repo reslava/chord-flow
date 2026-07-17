@@ -13,7 +13,7 @@ namespace ChordFlow.Persistence;
 /// 17 17 17 17 47 47 17 17 57 47 17 57
 /// </code>
 /// The header is an optional leading block of <c>key: value</c> lines (recognized keys: <c>genre</c>,
-/// <c>subgenre</c>, <c>tags</c>); the first line that is not a recognized header line begins the
+/// <c>subgenre</c>, <c>tags</c>, <c>description</c>); the first line that is not a recognized header line begins the
 /// entity-specific <b>body</b> (e.g. the Nashville bar grammar). This lives on the Entity layer — the pure
 /// <c>Domain/</c> parsers (e.g. <c>ProgressionParser</c>) only ever see the body and stay metadata-unaware
 /// (constraint C1). The split round-trips 1:1: <c>Parse(Serialize(m, body))</c> yields <c>(m, body)</c>.
@@ -24,6 +24,7 @@ public static class CatalogHeader
     private const string GenreKey = "genre";
     private const string SubgenreKey = "subgenre";
     private const string TagsKey = "tags";
+    private const string DescriptionKey = "description";
 
     /// <summary>
     /// Split <paramref name="dslText"/> into its catalog metadata and the remaining body. A definition
@@ -38,6 +39,7 @@ public static class CatalogHeader
         string? genre = null;
         string? subgenre = null;
         IReadOnlyList<string> tags = Array.Empty<string>();
+        string? description = null;
 
         int pos = 0;
         int bodyStart = 0;
@@ -57,6 +59,7 @@ public static class CatalogHeader
                 case GenreKey: genre = NullIfEmpty(value); break;
                 case SubgenreKey: subgenre = NullIfEmpty(value); break;
                 case TagsKey: tags = ParseTagList(value); break;
+                case DescriptionKey: description = NullIfEmpty(value); break;
             }
 
             pos = newline < 0 ? dslText.Length : newline + 1;
@@ -64,7 +67,7 @@ public static class CatalogHeader
         }
 
         string body = dslText[bodyStart..];
-        return (new CatalogMetadata(genre, subgenre, tags), body);
+        return (new CatalogMetadata(genre, subgenre, tags, description), body);
     }
 
     /// <summary>
@@ -91,6 +94,11 @@ public static class CatalogHeader
         if (metadata.Subgenre is not null)
         {
             sb.Append(SubgenreKey).Append(": ").Append(metadata.Subgenre).Append('\n');
+        }
+
+        if (metadata.Description is not null)
+        {
+            sb.Append(DescriptionKey).Append(": ").Append(metadata.Description).Append('\n');
         }
 
         if (metadata.Tags.Count > 0)
@@ -134,7 +142,7 @@ public static class CatalogHeader
         }
 
         string candidate = trimmed[..colon].Trim().ToLowerInvariant();
-        if (candidate is not (GenreKey or SubgenreKey or TagsKey))
+        if (candidate is not (GenreKey or SubgenreKey or TagsKey or DescriptionKey))
         {
             return false;
         }

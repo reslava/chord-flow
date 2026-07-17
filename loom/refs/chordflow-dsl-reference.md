@@ -4,8 +4,8 @@ id: rf_01KTSAQ6990GY3J4CZ7HPVPW6K
 title: ChordFlow DSL
 status: active
 created: 2026-06-10
-updated: 2026-07-08
-version: 29
+updated: 2026-07-17
+version: 31
 tags: []
 parent_id: null
 requires_load: []
@@ -239,7 +239,7 @@ chorus
 verse
 ```
 
-Intro, two verses (the 12-bar blues), then up a fifth for the chorus and a final verse — all from one reusable definition. The optional `genre:`/`subgenre:`/`tags:` header at the top is catalog metadata for filtering; it isn't part of the arrangement.
+Intro, two verses (the 12-bar blues), then up a fifth for the chorus and a final verse — all from one reusable definition. The optional `genre:`/`subgenre:`/`tags:`/`description:` header at the top is catalog metadata (genre/subgenre/tags for filtering, `description:` a human-readable blurb); it isn't part of the arrangement.
 
 ### Pinning voicings — per-chord `{…}` and the `voice` default
 
@@ -497,7 +497,8 @@ Every definition needs a stable **Id** and a display **Name**. In a pack:
   song's `verse: 12bar_blues` points at a file you can find on disk.
 - **An optional leading `name:` line** is the display name. Omit it and the Id is
   title-cased into one (`12bar_blues` → "12bar Blues").
-- `genre:` / `subgenre:` / `tags:` follow as usual (the catalog header); then the
+- `genre:` / `subgenre:` / `tags:` / `description:` follow as usual (the catalog header;
+  `description:` is a free-text, human-readable blurb of what the content is / teaches); then the
   entity's own grammar is the body. Rhythm files carry no catalog metadata.
 
 ```

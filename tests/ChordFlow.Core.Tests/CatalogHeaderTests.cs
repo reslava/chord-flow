@@ -76,6 +76,21 @@ public class CatalogHeaderTests
     }
 
     [Fact]
+    public void Parse_Description_IsExtracted_AndRoundTrips()
+    {
+        const string dsl = "genre: Jazz\ndescription: The fundamental jazz cadence.\ntags: [ii-V-I]\n2-7 57 1maj7";
+
+        (CatalogMetadata meta, string body) = CatalogHeader.Parse(dsl);
+        Assert.Equal("The fundamental jazz cadence.", meta.Description);
+        Assert.Equal("2-7 57 1maj7", body);
+
+        // Serialize → Parse round-trips the description (and never leaks into the body).
+        (CatalogMetadata back, string parsedBody) = CatalogHeader.Parse(CatalogHeader.Serialize(meta, body));
+        Assert.Equal("The fundamental jazz cadence.", back.Description);
+        Assert.Equal("2-7 57 1maj7", parsedBody);
+    }
+
+    [Fact]
     public void Tags_JsonColumn_RoundTrips()
     {
         var tags = new[] { "12-bar", "beginner", "shuffle" };
