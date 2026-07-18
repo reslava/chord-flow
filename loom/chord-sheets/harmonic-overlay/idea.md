@@ -2,12 +2,12 @@
 type: idea
 id: id_01KXQFHDBQC1NNZMC15CNK8TPW
 title: Harmonic-analysis overlay on ChordSheetR
-status: draft
+status: done
 created: 2026-07-17
 version: 1
 tags: []
 parent_id: null
-requires_load: []
+requires_load: [rf_01KTSAPAT132QTEY5BEPRKS3MB]
 ---
 # Harmonic-analysis overlay on ChordSheetR
 

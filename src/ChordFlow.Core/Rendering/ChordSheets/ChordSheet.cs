@@ -68,12 +68,15 @@ public sealed record ChordSheetCell(
 
 /// <summary>
 /// One chord in a cell, carrying <b>every notation the view might show</b> so a notation/label toggle needs no
-/// round-trip (req IN6/C3): the concrete symbol, the Nashville degree, and the diatonic Roman function. The
-/// tone strip and the optional fret diagram are the two "below-cell" adornments (req IN10).
+/// round-trip (req IN6/C3): the concrete symbol, the Nashville degree, the honest diatonic Roman function, and
+/// the analysis glyph + category from the <see cref="ChordFlow.Music.Harmony.HarmonicAnalyzer"/> pass. The tone
+/// strip and the optional fret diagram are the two "below-cell" adornments (req IN10).
 /// </summary>
 /// <param name="Concrete">Conventional symbol in the sounding key (<c>C</c> / <c>Fmaj7</c> / <c>F/C</c>) — <see cref="ChordSymbol.Format"/>.</param>
 /// <param name="Degree">Nashville scale-degree token (<c>1</c> / <c>5-</c> / <c>#4</c>) from the <c>RomanDegree</c>.</param>
-/// <param name="Roman">Diatonic Roman function (<c>I</c> / <c>V7</c> / <c>ii</c>). In v1 this is the honest diatonic degree only — no secondary-dominant/borrowed inference (that arrives from the harmonic-analysis thread; req IN7/EX2).</param>
+/// <param name="Roman">The <b>honest</b> diatonic Roman function (<c>I</c> / <c>V7</c> / <c>ii</c> / <c>VI7</c>) — the chord's position + its own quality, no applied-function inference. Sourced from the analyzer's <c>Function</c> (harmonic-overlay IN2), so it agrees with <see cref="Analysis"/> by construction.</param>
+/// <param name="Analysis">The <b>functional</b> glyph from the harmonic-analysis pass (<c>V7/ii</c> / <c>vii°/V</c> / <c>iv</c> / <c>♭II7</c>) — the chord's role. Equals <see cref="Roman"/> except for secondary dominants / leading-tones (the <c>/target</c> notation); the drawer picks Roman vs Analysis vs both (harmonic-overlay IN4/IN6).</param>
+/// <param name="Category">The analysis colour-key (<c>diatonic</c> / <c>secondaryDominant</c> / <c>secondaryLeadingTone</c> / <c>borrowed</c> / <c>tritoneSub</c> / <c>chromatic</c>) — the drawer's palette key for the non-diatonic tint (harmonic-overlay IN7). The FretR-function-palette equivalent for harmonic colour.</param>
 /// <param name="DurationTicks">The chord's span length in 48-PPQ ticks; its share of <see cref="ChordSheetCell.BarTicks"/> gives the cell-split proportion.</param>
 /// <param name="Tones">The chord's spelled tones for the note-name ⇄ interval-degree tone strip.</param>
 /// <param name="Diagram">The comped voicing as a fret diagram, present only when the diagram adornment is on; else null.</param>
@@ -81,6 +84,8 @@ public sealed record ChordRef(
     string Concrete,
     string Degree,
     string Roman,
+    string Analysis,
+    string Category,
     int DurationTicks,
     IReadOnlyList<ChordSheetTone> Tones,
     FretboardDiagram? Diagram);

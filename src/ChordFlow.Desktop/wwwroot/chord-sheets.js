@@ -58,7 +58,8 @@ window.ChordFlowSheetView = (function () {
     let markerMode = "metronome"; // "metronome" (per-beat, default) | "chord" (per-chord segment)
 
     const state = {
-      layout: "A", primary: "concrete", secondary: "", toneLabels: "notes", adornment: "none", theme: "auto",
+      layout: "A", primary: "concrete", secondary: "", analysis: "analysis",
+      toneLabels: "notes", adornment: "none", theme: "auto",
     };
 
     const stripEl = document.createElement("div");
@@ -91,6 +92,13 @@ window.ChordFlowSheetView = (function () {
       stripEl.appendChild(select("+ line",
         [{ value: "", label: "None" }].concat(notationOpts), state.secondary,
         (v) => { state.secondary = v; if (view) view.setNotation({ primary: state.primary, secondary: v || null }); }).wrap);
+
+      // The harmonic-analysis overlay (harmonic-overlay IN6): how the Roman label reads + the non-diatonic
+      // colour. Diatonic = honest degree, overlay off; Analysis = functional glyph (default); Both = paired.
+      // A pure re-render — the analysis fields always ride the model, so this never re-requests (IN8/C3).
+      stripEl.appendChild(select("Analysis",
+        [{ value: "diatonic", label: "Diatonic" }, { value: "analysis", label: "Analysis" }, { value: "both", label: "Both" }],
+        state.analysis, (v) => { state.analysis = v; if (view) view.setAnalysis(v); }).wrap);
 
       // Below cell is a pure display toggle now (IN10): the unified reply's sheet model ALWAYS carries the
       // tone strips + comped fret diagrams, so flipping adornments never re-requests.
@@ -256,6 +264,7 @@ window.ChordFlowSheetView = (function () {
         view = window.ChordFlowChordSheet.create(sheetEl, {
           layout: state.layout,
           notation: { primary: state.primary, secondary: state.secondary || null },
+          analysis: state.analysis,
           toneLabels: state.toneLabels,
           adornments: adornments(),
           theme: state.theme,

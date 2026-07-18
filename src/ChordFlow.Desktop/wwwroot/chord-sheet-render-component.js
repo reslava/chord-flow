@@ -11,8 +11,13 @@
 // The model (camelCase over the bridge, matching Rendering/ChordSheets/ChordSheet):
 //   { header:{ title, artist, keyName, tempo, feel, timeSig, capo },
 //     sections:[ { label, rows:[ { cells:[
-//       { chords:[ { concrete, degree, roman, durationTicks, tones:[{note,interval,function}], diagram } ],
+//       { chords:[ { concrete, degree, roman, analysis, category, durationTicks, tones:[{note,interval,function}], diagram } ],
 //         repeatOfPrev, barTicks, isPickup } ] } ] } ] }
+//
+//   roman is the honest diatonic degree ("VI7"); analysis is the functional glyph ("V7/ii") — they differ only
+//   for secondary dominants / leading-tones. category is the harmonic-analysis colour-key
+//   ("diatonic"/"secondaryDominant"/"secondaryLeadingTone"/"borrowed"/"tritoneSub"/"chromatic"). Both formatted
+//   in Core (harmonic-overlay) — this stays a dumb drawer, it only picks which string to paint + a palette key.
 //
 //   isPickup marks the anacrusis lead-in cell (sheet-pickup-bar): drawn narrower — proportional to its
 //   real barTicks share of a full bar, floored at 0.4×BAR_W — with a muted "pickup" tag, and its
@@ -21,6 +26,7 @@
 //   const sheet = ChordFlowChordSheet.create(containerEl, {
 //     layout:    "A",          // "A" flowing leadsheet | "B" fixed grid
 //     notation:  { primary:"concrete", secondary:null },  // each ∈ "concrete"|"nashville"|"roman"; secondary may be null
+//     analysis:  "analysis",   // "diatonic" | "analysis" | "both" — how the Roman label reads + non-diatonic colour
 //     toneLabels:"notes",      // "notes" | "intervals"  (the tone-strip label toggle)
 //     adornments:{ tones:false, diagrams:false },  // which below-cell adornments to paint
 //     theme:     "auto",       // "light" | "dark" | "auto" (follows prefers-color-scheme)
@@ -43,15 +49,26 @@ window.ChordFlowChordSheet = (function () {
     sixth: "#f59e0b", seventh: "#a855f7", tension: "#9aa0a6",
   };
 
-  // Theme tables (chrome only; the function palette reads on both). "light" is pinned on export.
+  // Theme tables (chrome only; the function palette reads on both). "light" is pinned on export. `cat` is the
+  // harmonic-analysis category palette (harmonic-overlay D3): one pastel per non-diatonic category, per theme —
+  // slightly deeper on the light surface, lighter on the dark. `diatonic` is intentionally absent → the token
+  // stays the neutral ink (only the interesting chords take colour).
   const THEMES = {
     light: {
       bg: "#ffffff", ink: "#1a1a1a", muted: "#5a5f64", rule: "#333", cellBorder: "#c4c8cd",
       sectionBorder: "#9aa0a6", tag: "#eceef1", tagText: "#222", diagLine: "#999", diagMuted: "#888",
+      cat: {
+        secondaryDominant: "#c2681e", secondaryLeadingTone: "#0e7490", borrowed: "#7c3aed",
+        tritoneSub: "#be2d6f", chromatic: "#6b7280",
+      },
     },
     dark: {
       bg: "#242427", ink: "#ededed", muted: "#9aa0a6", rule: "#c9c9cd", cellBorder: "#4a4a4f",
       sectionBorder: "#6b6b70", tag: "#3a3a3d", tagText: "#e6e6e6", diagLine: "#6b6b70", diagMuted: "#cfcfd2",
+      cat: {
+        secondaryDominant: "#f0b76a", secondaryLeadingTone: "#67d3e6", borrowed: "#b99cf7",
+        tritoneSub: "#f19bc4", chromatic: "#b6bbc0",
+      },
     },
   };
 
@@ -100,6 +117,7 @@ window.ChordFlowChordSheet = (function () {
     opts = opts || {};
     let layout = opts.layout === "B" ? "B" : "A";
     let notation = normalizeNotation(opts.notation);
+    let analysisMode = normalizeAnalysis(opts.analysis);
     let toneLabels = opts.toneLabels === "intervals" ? "intervals" : "notes";
     let adornments = { tones: false, diagrams: false, ...(opts.adornments || {}) };
     let theme = opts.theme || "auto";
@@ -112,6 +130,35 @@ window.ChordFlowChordSheet = (function () {
       n = n || {};
       const valid = (v) => (v === "nashville" || v === "roman" || v === "concrete" ? v : null);
       return { primary: valid(n.primary) || "concrete", secondary: valid(n.secondary) };
+    }
+
+    // The analysis overlay's 3 states (harmonic-overlay D2): "diatonic" = overlay off (honest degree, no colour),
+    // "analysis" = the functional glyph + non-diatonic colour (default), "both" = honest → functional paired
+    // (only where they differ). Anything else falls back to the default.
+    function normalizeAnalysis(m) {
+      return m === "diatonic" || m === "both" ? m : "analysis";
+    }
+
+    // The Roman label under the current analysis mode. Both-mode pairs the honest degree with the functional
+    // glyph ONLY when they differ (i.e. the secondary categories) — diatonic bars stay a single clean label.
+    function romanToken(chord) {
+      const glyph = chord.analysis || chord.roman;
+      if (analysisMode === "diatonic") return chord.roman;
+      if (analysisMode === "both") return glyph === chord.roman ? chord.roman : chord.roman + " → " + glyph;
+      return glyph;
+    }
+
+    // Notation token, analysis-aware for the Roman slot (the other notations are verbatim Core strings).
+    function token(chord, which) {
+      return which === "roman" ? romanToken(chord) : tokenFor(chord, which);
+    }
+
+    // The non-diatonic tint for a chord token: the category palette colour when the overlay is on, else the
+    // neutral ink. `diatonic` (and an unknown category) has no entry → neutral, so only the interesting chords
+    // take colour.
+    function tokenFill(chord, t) {
+      if (analysisMode === "diatonic") return t.ink;
+      return (chord.category && t.cat && t.cat[chord.category]) || t.ink;
     }
 
     // The height one cell occupies with the current toggles (uniform, so grids/rows align).
@@ -420,13 +467,15 @@ window.ChordFlowChordSheet = (function () {
     }
 
     function drawChord(svg, cx, baselineY, chord, t) {
+      // The primary token carries the non-diatonic tint (whatever notation it shows) so a borrowed/secondary
+      // chord reads as special even in Letter mode; the secondary line stays muted.
       svg.appendChild(el("text", {
-        x: cx, y: baselineY, "text-anchor": "middle", "font-size": PRIMARY_FONT, "font-weight": 600, fill: t.ink,
-      }, tokenFor(chord, notation.primary)));
+        x: cx, y: baselineY, "text-anchor": "middle", "font-size": PRIMARY_FONT, "font-weight": 600, fill: tokenFill(chord, t),
+      }, token(chord, notation.primary)));
       if (notation.secondary) {
         svg.appendChild(el("text", {
           x: cx, y: baselineY + SECONDARY_H, "text-anchor": "middle", "font-size": SECONDARY_FONT, fill: t.muted,
-        }, tokenFor(chord, notation.secondary)));
+        }, token(chord, notation.secondary)));
       }
     }
 
@@ -512,6 +561,7 @@ window.ChordFlowChordSheet = (function () {
     // ---- setters / accessors -------------------------------------------------------------------
     function setLayout(next) { layout = next === "B" ? "B" : "A"; render(); }
     function setNotation(next) { notation = normalizeNotation({ ...notation, ...(next || {}) }); render(); }
+    function setAnalysis(mode) { analysisMode = normalizeAnalysis(mode); render(); }
     function setToneLabels(mode) { toneLabels = mode === "intervals" ? "intervals" : "notes"; render(); }
     function setAdornments(next) { adornments = { ...adornments, ...(next || {}) }; render(); }
     function setTheme(next) { theme = next || "auto"; render(); }
@@ -520,7 +570,7 @@ window.ChordFlowChordSheet = (function () {
     function dispose() { container.innerHTML = ""; model = null; svgNode = null; }
 
     return {
-      render, setLayout, setNotation, setToneLabels, setAdornments, setTheme, setBarsPerRow,
+      render, setLayout, setNotation, setAnalysis, setToneLabels, setAdornments, setTheme, setBarsPerRow,
       highlight, highlightBeat, clearHighlight,
       svgElement, toSvgString, toPngBlob, lightSvg, dispose,
     };

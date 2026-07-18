@@ -21,6 +21,7 @@ namespace ChordFlow.Core.Tests.ChordSheets;
 public class ChordSheetBuilderTests
 {
     private static readonly Key CMajor = new(new PitchClass(0), false);
+    private static readonly Key AMinor = new(new PitchClass(9), true);
     private static readonly TimeSignature Ts = TimeSignature.FourFour;
     private static readonly ChordSheetOptions FourPerRow = new(BarsPerRow: 4);
 
@@ -38,6 +39,13 @@ public class ChordSheetBuilderTests
         RealizedSong realized = Realize(dsl, CMajor);
         Song song = Song.OfProgression(ProgressionParser.Parse("p", "Blues", dsl, Ts), CMajor);
         return ChordSheetBuilder.Build(song, realized, CMajor, Ts, opts ?? FourPerRow, comping);
+    }
+
+    private static ChordSheet BuildInKey(string dsl, Key key)
+    {
+        RealizedSong realized = Realize(dsl, key);
+        Song song = Song.OfProgression(ProgressionParser.Parse("p", "P", dsl, Ts), key);
+        return ChordSheetBuilder.Build(song, realized, key, Ts, FourPerRow).Sheet;
     }
 
     [Fact]
@@ -76,6 +84,64 @@ public class ChordSheetBuilderTests
         Assert.Equal(concrete, chord.Concrete);
         Assert.Equal(degree, chord.Degree);
         Assert.Equal(roman, chord.Roman);
+    }
+
+    [Theory]
+    // dsl,   concrete, roman (honest), analysis (functional glyph), category
+    [InlineData("67", "A7", "VI7", "V7/ii", "secondaryDominant")]  // A7 tonicizes ii (Dm): honest VI7 ≠ functional V7/ii
+    [InlineData("4-", "Fm", "iv", "iv", "borrowed")]               // Fm borrowed from parallel minor: colour carries it, glyph == honest
+    [InlineData("b27", "Db7", "bII7", "bII7", "tritoneSub")]       // Db7 = tritone sub of V: the honest degree is already ♭II7
+    [InlineData("2-7", "Dm7", "ii7", "ii7", "diatonic")]           // diatonic ii: honest == analysis
+    public void Build_AnalysisTable(string dsl, string concrete, string roman, string analysis, string category)
+    {
+        ChordRef chord = Build(dsl).Sections[0].Rows[0].Cells[0].Chords.Single();
+        Assert.Equal(concrete, chord.Concrete);
+        Assert.Equal(roman, chord.Roman);
+        Assert.Equal(analysis, chord.Analysis);
+        Assert.Equal(category, chord.Category);
+    }
+
+    [Fact]
+    public void Build_DominantBlues_DoesNotOverLabelSecondaryDominants()
+    {
+        // The blues I7 IV7 V7 (all dominant) must read as the blues idiom, NOT V7/x: only the true V7 (G7) is
+        // diatonic in C; I7 / IV7 stay chromatic-with-honest-degree — the analyzer's must-not-over-label case,
+        // now visible on the sheet.
+        IReadOnlyList<ChordSheetCell> cells = Build("17 47 57").Sections[0].Rows[0].Cells;
+
+        ChordRef i = cells[0].Chords.Single();
+        Assert.Equal("I7", i.Analysis);
+        Assert.Equal("chromatic", i.Category);
+
+        ChordRef iv = cells[1].Chords.Single();
+        Assert.Equal("IV7", iv.Analysis);
+        Assert.Equal("chromatic", iv.Category);
+
+        ChordRef v = cells[2].Chords.Single();
+        Assert.Equal("V7", v.Analysis);
+        Assert.Equal("diatonic", v.Category);
+    }
+
+    [Fact]
+    public void Build_MinorKey_ReadsHarmonicMinorDominantAsDiatonic()
+    {
+        // In A minor, i (Am) and the harmonic-minor V7 (E7 — the raised-third dominant natural minor lacks) both
+        // read diatonic, proving the overlay is minor-symmetric through the builder (the section key carries
+        // IsMinor and the analyzer handles both modes). Degrees are authored in the parent-major (C) frame
+        // per first-class-minor-keys — so A-minor's i is degree 6- and its V7 is degree 37.
+        IReadOnlyList<ChordSheetCell> cells = BuildInKey("6- 37", AMinor).Sections[0].Rows[0].Cells;
+
+        ChordRef i = cells[0].Chords.Single();
+        Assert.Equal("Am", i.Concrete);
+        Assert.Equal("i", i.Roman);
+        Assert.Equal("i", i.Analysis);
+        Assert.Equal("diatonic", i.Category);
+
+        ChordRef v = cells[1].Chords.Single();
+        Assert.Equal("E7", v.Concrete);
+        Assert.Equal("V7", v.Roman);
+        Assert.Equal("V7", v.Analysis);
+        Assert.Equal("diatonic", v.Category);
     }
 
     [Fact]

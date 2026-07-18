@@ -205,10 +205,18 @@ public static class ChordSheetBuilder
             ? null
             : RealizedVoicingDiagram.Build(chord, comping.For(span), key);
 
+        // Consume the harmonic-analysis pass over the realized (chord, section-key) pair — the sheet's first
+        // consumer of it. The honest Roman is now sourced from the analyzer's Function (one function source,
+        // harmonic-overlay IN2), so the inline degree and the functional glyph agree by construction; glyph +
+        // colour formatting stays in the Rendering formatter (the analyzer is glyph-free).
+        ChordAnalysis analysis = HarmonicAnalyzer.Analyze(chord, key);
+
         return new ChordRef(
             Concrete: ChordSymbol.Format(chord, key),
             Degree: NashvilleToken(span.Degree),
-            Roman: RomanFunction(span.Degree),
+            Roman: HarmonicAnalysisFormatter.HonestDegree(analysis.Function),
+            Analysis: HarmonicAnalysisFormatter.Glyph(analysis, key),
+            Category: HarmonicAnalysisFormatter.CategoryKey(analysis.Category),
             DurationTicks: span.DurationTicks,
             Tones: tones,
             Diagram: diagram);
@@ -267,34 +275,9 @@ public static class ChordSheetBuilder
             _ => "",
         };
 
-    // The honest diatonic Roman-function label: an accidental prefix + the roman numeral (case carries
-    // major/minor) + a quality decoration. This only formats the degree's OWN quality — it does not infer
-    // secondary dominants or borrowing (req IN7); those labels come later from the harmonic-analysis pass.
-    private static string RomanFunction(RomanDegree degree)
-    {
-        string numeral = Numerals[degree.Degree];
-        bool lower = degree.Quality is Quality.Minor or Quality.Minor7 or Quality.Minor6
-            or Quality.Diminished or Quality.Diminished7 or Quality.HalfDiminished7;
-
-        string suffix = degree.Quality switch
-        {
-            Quality.Dominant7 => "7",
-            Quality.Minor7 => "7",
-            Quality.Major7 => "maj7",
-            Quality.HalfDiminished7 => "ø7",
-            Quality.Diminished => "°",
-            Quality.Diminished7 => "°7",
-            Quality.Augmented => "+",
-            Quality.Major6 => "6",
-            Quality.Minor6 => "6",
-            _ => "",
-        };
-
-        return AccidentalPrefix(degree.Accidental) + (lower ? numeral.ToLowerInvariant() : numeral) + suffix;
-    }
-
-    // Roman numerals indexed by scale degree (1..7); index 0 is unused.
-    private static readonly string[] Numerals = { "", "I", "II", "III", "IV", "V", "VI", "VII" };
+    // The honest diatonic Roman label is now produced by HarmonicAnalysisFormatter.HonestDegree over the
+    // analyzer's Function (harmonic-overlay IN2 — one function source); the inline RomanFunction/Numerals that
+    // used to live here have moved into that Rendering formatter.
 
     private static string AccidentalPrefix(Accidental accidental) => accidental switch
     {
