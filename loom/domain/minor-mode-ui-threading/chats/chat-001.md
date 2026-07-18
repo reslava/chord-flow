@@ -2,13 +2,13 @@
 type: chat
 id: ch_01KXSW9PVVJC2GFGGF5EYPJV8F
 title: minor-mode-ui-threading Chat 001
-status: active
+status: done
 created: 2026-07-18
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 28
+last_ai_block: 29
 ---
 # minor-mode-ui-threading Chat 001
 
@@ -300,3 +300,11 @@ Good catch — and you were right that content was wrong, though the root cause 
 **On your ScoreR observation:** the *wrong chords* were the Home bug above, not the shared-component gap. But your earlier point still stands as its own improvement — the Content page mounting the shared ScoreR + ChordSheetR with the same toggles as Practice. That's the separate thread + idea we parked; I can draft it whenever.
 
 Committing now.
+
+## AI:
+
+Spun it up: **`ui/content-shared-render-surfaces`** → *Content page mounts the shared render surfaces (ScoreR + ChordSheetR + toggle) like Practice* (idea `id_01KXT94RKDERB14BNMAE6C3FY0`).
+
+The idea grounds the divergence (Practice mounts ScoreR + ChordSheetR + the Score⇄Sheet toggle + page transport; Content mounts a bare ScoreR only), ties it to *why it matters* — the same content renders through two setups, which is partly how the minor-preview bug hid — and fences the real design questions for later: **which controls are shared vs page-specific** (the render *surfaces* are common, but Practice's HarmonyControlsR is exercise-level, not authoring), and **whether to extract a render-surface composite** or reuse the pieces. Non-goals keep it to consolidation, not merging the pages. Placed in `ui` (it's render-component/page work), noted the architecture ref as a load-before-design item.
+
+It's an independent thread — nothing here is blocked on it. Whenever you want to take it forward, `load ui/content-shared-render-surfaces` and we go idea → design.
