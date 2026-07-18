@@ -3,12 +3,14 @@
 # ChordFlow — User Guide
 
 Welcome! This guide is for guitarists who downloaded ChordFlow and want to start
-practicing. It covers installing the app, building and playing an exercise, adding
-your own material, and choosing a sound. No setup or account needed — ChordFlow runs
-entirely on your PC.
+practicing. It covers installing the app, building and playing an exercise, printing and
+playing along with **chord sheets**, exploring **chords & voicings**, adding your own
+material, and choosing a sound. No setup or account needed — ChordFlow runs entirely on
+your PC.
 
-> Looking for the developer/architecture docs instead? See the
-> [Architecture overview](../loom/refs/chordflow-architecture-reference.md).
+> Want to write your own progressions, songs, rhythms, or voicings? See the
+> **[DSL Guide](dsl-guide.md)**. Building ChordFlow itself? See the
+> **[Developer Notes](dev-notes.md)**.
 
 ---
 
@@ -20,8 +22,10 @@ exercise** — rendered as guitar tablature with **synchronized playback**: a cu
 moves along the staff and highlights the beat as it plays, so you can strum along in
 time.
 
-It's a *generator*, not a tab viewer and not a recording studio — there's no song
-library to browse and no multitrack mixing. You assemble the ingredients, and
+It's a *generator*, not a recording studio — there's no multitrack mixing and no
+microphone grading. But you're not starting from a blank page either: ChordFlow ships a
+**growing starter library** of progressions and **15 example songs** (jazz, blues, rock,
+flamenco, pop) you can play as-is or use as templates. You assemble the ingredients, and
 ChordFlow writes the exercise for you, in any key.
 
 ---
@@ -71,13 +75,74 @@ Then:
 5. Click **Mark practiced** to record that you ran through it.
 
 <figure>
-  <a href="../images/screenshots/01-practice.png"><img src="../images/screenshots/01-practice.png" width="480" alt="The Practice tab: the builder pickers, the transport with the playback cursor, the rendered score, and the saved-exercise list"></a>
+  <a href="../images/screenshots/01-practice-score.png"><img src="../images/screenshots/01-practice-score.png" width="480" alt="The Practice tab: the builder pickers, the transport with the playback cursor, the rendered score, and the saved-exercise list"></a>
   <figcaption><em>The Practice tab — build, generate, play, and save an exercise.</em></figcaption>
 </figure>
 
 ---
 
-## 4. Make your own content
+## 4. Chord Sheets — print and play along
+
+The **Chord Sheets** page turns any song or progression into a **one-page chart** — the
+kind you'd read from a music stand — that you can also **print, export, or play along with**.
+
+Pick a song or progression, then choose how it reads:
+
+- **Layout** — a flowing **leadsheet** (`| bars |`, four to a row) or a **bar-grid** (one
+  box per bar, grouped by section).
+- **Key** — any of the 12 keys, or the song's own.
+- **Chord names** — **letter names**, **Nashville numbers**, or **Roman numerals** (with an
+  optional second line showing another notation at the same time).
+- Optional per-bar **chord-tone strip** (the notes, or their interval degrees) and a
+  **fret diagram**, turning the chart into a what-to-play reference.
+
+Repeated bars collapse to a **`%` simile**, and a bar with more than one chord splits by
+beat. When you're happy with it, **export to SVG, PNG, or PDF** (always on a clean light
+page for printing).
+
+And you can **play along**: press **Play** and a marker follows the music in time — either a
+**visual metronome** (the current beat lights up across each bar) or a **per-chord** highlight,
+driven by the same playback engine as the Practice view.
+
+<figure>
+  <a href="../images/screenshots/02-practice-chord-sheet.png"><img src="../images/screenshots/02-practice-chord-sheet.png" width="480" alt="A chord sheet rendered as a one-page chart, with the play-along marker"></a>
+  <figcaption><em>A Chord Sheet — a printable one-page chart you can also play along with.</em></figcaption>
+</figure>
+
+<figure>
+  <a href="../images/chord-flow-demo.gif"><img src="../images/chord-flow-demo.gif" width="560" alt="The visual-metronome marker moving across the chart in time as the score animates"></a>
+  <figcaption><em>Press Play and the marker follows the music in time.</em></figcaption>
+</figure>
+
+Sample PDF exports: **[Blues Song Demo](../images/sheets/blues-song-demo.pdf)** ·
+**[Jazz Blues in F](../images/sheets/jazz-blues-in-f.pdf)** ·
+**[Ragtime Circle](../images/sheets/ragtime-circle.pdf)**.
+
+---
+
+## 5. Explore chords & voicings
+
+ChordFlow doesn't just *show* chord boxes — it **works the shapes out from theory**, and a few
+pages let you explore that:
+
+- **Voicings** — every derived grip at once, as a grid of fretboard chord-boxes, with a
+  **filter stack** (root, source, family, 3rd / 5th / 7th) to narrow it down.
+- **CAGED Chords** — pick a CAGED shape × quality × root and watch ChordFlow build the grip on
+  the neck, each note coloured by its role in the chord.
+- **Scales** and **CAGED Shapes** — light up an interval set across the whole neck, or see a
+  shape's octave-root skeleton, on a horizontal fretboard view.
+
+Every diagram uses **colour = interval**, so you learn the shape and the theory at the same
+time. Flip the fretboard between a **light** and **dark** theme to taste.
+
+<p>
+  <a href="../images/screenshots/08-voicings.png"><img src="../images/screenshots/08-voicings.png" width="480" alt="The Voicings grid — every derived grip at once, with a filter stack"></a>
+  <a href="../images/screenshots/09-voicings-engine.png"><img src="../images/screenshots/09-voicings-engine.png" width="480" alt="The Voicings Engine inspector — the derivation steps behind a grip"></a>
+</p>
+
+---
+
+## 6. Make your own content
 
 Switch to the **Content** tab to create and edit your own material — progressions,
 songs, rhythms, and voicings. You write them in short **text DSLs** that use **scale
@@ -97,23 +162,24 @@ and a 12-bar blues (all dominant 7th chords) is:
 ```
 
 That's the whole idea — degrees `1`–`7`, a space starts a new bar, and a suffix like
-`7` or `m` sets the chord quality. The full grammar (chord splits within a bar,
-qualities, durations, and the Song DSL for arranging progressions into a piece) is in
-the **[DSL guide](../loom/refs/chordflow-dsl-reference.md)**.
+`7` or `m` sets the chord quality. The full grammar for all four DSLs — chord splits,
+qualities, durations, arranging progressions into songs, rhythm patterns, and voicings —
+is in the **[DSL Guide](dsl-guide.md)**, with worked examples.
 
 <figure>
-  <a href="../images/screenshots/02-content-progressions.png"><img src="../images/screenshots/02-content-progressions.png" width="480" alt="Editing a progression in the Content tab"></a>
-  <figcaption><em>The Content tab — editing progressions, songs, and rhythms in the text DSLs.</em></figcaption>
+  <a href="../images/screenshots/03-content-progressions.png"><img src="../images/screenshots/03-content-progressions.png" width="480" alt="Editing a progression in the Content tab"></a>
+  <figcaption><em>The Content tab — editing progressions, songs, rhythms, and voicings in the text DSLs.</em></figcaption>
 </figure>
 
 <p>
-  <a href="../images/screenshots/03-content-songs.png"><img src="../images/screenshots/03-content-songs.png" width="480" alt="Editing a song arrangement in the Content tab"></a>
-  <a href="../images/screenshots/04-content-rhythms.png"><img src="../images/screenshots/04-content-rhythms.png" width="480" alt="Editing a rhythm pattern in the Content tab"></a>
+  <a href="../images/screenshots/04-content-songs.png"><img src="../images/screenshots/04-content-songs.png" width="480" alt="Editing a song arrangement in the Content tab"></a>
+  <a href="../images/screenshots/05-content-rhythms.png"><img src="../images/screenshots/05-content-rhythms.png" width="480" alt="Editing a rhythm pattern in the Content tab"></a>
+  <a href="../images/screenshots/06-content-voicings.png"><img src="../images/screenshots/06-content-voicings.png" width="480" alt="Authoring a voicing in the Content tab"></a>
 </p>
 
 ---
 
-## 5. Soundfonts
+## 7. Soundfonts
 
 Playback uses a **soundfont** — the file that holds the instrument sounds. ChordFlow
 ships with the **Sonivox** General-MIDI soundfont as the default, so it makes sound
@@ -133,7 +199,7 @@ GM, GeneralUser GS, and the MuseScore collection) — see
 
 ---
 
-## 6. Known limits
+## 8. Known limits
 
 - **Windows only**, for now.
 - **No "did I play it right?" detection.** ChordFlow doesn't listen through your

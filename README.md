@@ -7,138 +7,112 @@ guitarists practice **rhythm patterns over chord progressions**. The core is an
 exercise-generation engine (progressions × keys × rhythms × voicings), rendered as
 guitar tablature with **synchronized playback** via [alphaTab](https://www.alphatab.net/).
 
-> **Status:** v0.14.0 — a **content-driven** trainer over a music-theory-first kernel with a growing
-> guitar **shape engine**. Progressions, songs, rhythms, and voicings are authored in compact **text
-> DSLs**, shipped as importable **content packs**, and assembled through an on-screen **workbench**;
-> shapes render through a reusable **fretboard-diagram** layer over a provably **instrument-agnostic**
-> kernel. New this release: **printable chord sheets** — a **Chord Sheets** page renders any song or
-> progression as a one-page chart in two layouts (a flowing **leadsheet** or a **bar-grid**), in any key,
-> with chords shown as **letter names, Nashville numbers, or Roman numerals**, an optional per-bar
-> **chord-tone strip** + **fret diagram**, `%` similes for repeated bars, and **SVG / PNG / PDF** export.
-> Plus a new **`capo`** directive in the Song DSL. Windows-only for now (downloadable build below).
+> **What makes it different:** ChordFlow is a chord **reasoner**, not a chord viewer. It
+> *derives* fretboard voicings from music theory and can *explain* them, prints and plays
+> your songs as **chord sheets**, and lets you author everything — progressions, songs,
+> rhythms, voicings — in compact **text DSLs**.
 
-## Features (v0.14.0)
+> **New in v0.15.0** — a curated **song library**: 15 example songs across jazz, blues, rock,
+> flamenco, and pop, each built from the pack's progressions, plus a rebuilt documentation set
+> (a new **[DSL Guide](docs/dsl-guide.md)** for authoring your own content). Windows-only for
+> now — [download below](#download--install).
 
-- **Chord Sheets — print *and play along with* your songs** — a **Chord Sheets** page renders any song or
-  progression as a one-page chart in two idioms: a flowing **leadsheet** (`| bars |`, four to a row, boxed
-  section tags) or a **bar-grid** (one box per bar, in section blocks), in any key or the song's own.
-  Chords read as **letter names / Nashville numbers / Roman numerals** (with an optional second line showing
-  another at once); repeated bars collapse to a **`%` simile** and multi-chord bars split by beat. Optional
-  per-bar **chord-tone strip** (notes ⇄ interval degrees) and **fret diagram** turn a chart into a
-  what-to-play reference, and you can **export to SVG, PNG, or PDF** (always on a clean light page). And you
-  can **play along**: press Play and a marker follows the music in time — a **Visual metronome** (the current
-  beat lights up across each bar) or a **Per chord** highlight — driven by the same synchronized playback
-  engine as the tablature view
+<p align="center">
+  <a href="images/chord-flow-demo.gif"><img src="images/chord-flow-demo.gif" width="760" alt="ChordFlow playing a chord sheet — the visual-metronome marker follows the music in time as the score animates"></a>
+</p>
 
-- **Faceted Voicings grid — the whole engine on one screen** — a **Voicings** page renders every realized
-  voicing at once as a grid of fretboard chord-boxes, over a **faceted toggle-button filter stack** (Root,
-  Source, Family, 3rd, 5th, 7th). The engine's **visual oracle**: the entire derived voicing space, side by
-  side, with per-cell titles, copy-to-clipboard ids, and orientation toggles
+---
 
-- **Voicings Engine inspector — *how* each grip is derived** — the chord-derivation logic is an
-  introspectable **operator library** (CAGED / shell / doubled-shell operators behind a registry, each
-  emitting a step-by-step **derivation trace**), surfaced on a schema-driven **Voicings Engine** page that
-  shows the abstract voicing and its derivation steps beside the resulting grip — the engine as a glass box
+## Highlights
 
-- **Name the exact voicing in the DSL — steer the engine** — pin the voicing a chord should use with a
-  **movable literal grip** (with an optional `root:<string>[@<fret>]` anchor; rootless voicings are
-  first-class) or a **reference** (`u:` your edits, `a:` the engine's `automatic`, `<pkg>:` a pack), either
-  **inline** as a per-chord `{…}` annotation or as a reusable Song **`voice <selector> = …` default** (by
-  chord quality or degree). When several apply, the **most specific wins** (per-chord > degree > quality >
-  the engine's ranked fill), and a per-chord pin never leaks to identical chords elsewhere
+**🧠 A chord *reasoner*, not a chord viewer.** ChordFlow doesn't ship a frozen chord
+dictionary — it **derives** every grip from theory through an introspectable **operator
+library** (CAGED / shell / doubled-shell operators, each emitting a step-by-step derivation
+**trace**). A faceted **Voicings** grid shows the whole derived voicing space on one screen,
+and a **Voicings Engine** inspector shows *how* each grip is built. This is the core of the app.
 
-- **Whole-song `tempo` & `feel` directives** — a Song can carry a default **`tempo <bpm>`** and a
-  whole-song **`feel none|triplet8th|triplet16th`** (the peer of `key`) in its DSL header; both seed
-  play-time interpretation without being baked into content (the transport still overrides)
+**🖨️ Chord Sheets — print *and* play along.** Render any song or progression as a one-page
+chart — a flowing **leadsheet** or a **bar-grid**, in any key, with chords as **letter names,
+Nashville numbers, or Roman numerals**, an optional per-bar **chord-tone strip** + **fret
+diagram**, and `%` similes for repeats. Export to **SVG / PNG / PDF**, or press Play and follow
+a **live marker** in time (visual metronome or per-chord highlight). Sample PDF exports:
+[Blues Song Demo](images/sheets/blues-song-demo.pdf) ·
+[Jazz Blues in F](images/sheets/jazz-blues-in-f.pdf) ·
+[Ragtime Circle](images/sheets/ragtime-circle.pdf).
 
-- **The score owns key / tempo / feel** — the score component is now the single **live** owner of key,
-  tempo, and feel: each seeds from the content (a song's own defaults, else C / 80 / Straight) or a saved
-  exercise's persisted params, and key/feel changes re-render on the fly (the Key picker now lives on the
-  score, not the Practice builder)
+**✍️ Your music as text.** Progressions, songs, rhythms, and voicings are authored in short,
+**key-independent** DSLs and shipped as importable **content packs**. Write `1 4 5` once and it
+works in every key. See the **[DSL Guide](docs/dsl-guide.md)**.
 
-- **Light/dark fretboard theme** — the shared fretboard component owns its render surface and flips between
-  a light (white surface / dark contrast) and dark (grey surface / light contrast) theme, with larger
-  fret-number text and per-cell + grid-wide Dark/Light toggles
+<p>
+  <a href="images/screenshots/08-voicings.png"><img src="images/screenshots/08-voicings.png" width="440" alt="The Voicings grid — every derived grip at once, filtered"></a>
+  <a href="images/screenshots/02-practice-chord-sheet.png"><img src="images/screenshots/02-practice-chord-sheet.png" width="440" alt="A Chord Sheet — a one-page chart you can print and play along with"></a>
+</p>
 
-- **Engine-derived comping + multi-source content** — the CAGED derivation engine is now the app's
-  **automatic** voicing source (a `CompingResolver` ranks user > package > automatic with a Practice
-  fret-region control), and every content source — the default **package**, your **user** edits, and the
-  computed **automatic** source — is shown **side by side** with per-source badges and a source filter;
-  editing a package item forks a user copy
+---
 
-- **Voicing families & 6th chords** — comping can pick a compact **shell** or **doubled-shell** grip
-  instead of the full CAGED voicing (a **Family** selector on the CAGED Chords page), and **maj6 / m6**
-  join the derived five-shape CAGED qualities
+## Features
 
-- **Accurate-notation Rhythm DSL** — `.` extends a sounding note, `-` is silence, and `_` is a **tied**
-  note (across the barline too); ties are held so **rhythm wins over harmony**, rendering true **dotted
-  notes + ties**
+### Practice & playback
+Build an exercise from a **song or progression + rhythm + key + tempo + difficulty**, then play
+it as notation + TAB with a **synchronized beat cursor** and **two-track** (comping + lead)
+staves. Transport has **tempo**, **metronome**, **count-in**, separate rhythm/lead volumes, and
+**triplet feel (swing)** delegated to alphaTab's native `\tf` so the notation *reads* swung.
+**Now/Next chord fretboards** show the chord playing now and next as real voicings, and opt-in
+**auto-scroll** follows the cursor. A **tab / standard / both** staff-display switch and
+true **pickup (anacrusis)** bars round it out.
 
-- **Chromatic (#/b) progression degrees** — a degree can take a leading `#`/`b` (e.g. `#4dim7` → B°7 in F),
-  resolved to a **letter-pure** spelled chord symbol
+### Chord Sheets
+Print-and-play charts: **leadsheet** or **bar-grid** layout, any key, **letter / Nashville /
+Roman** chord names (with an optional second line), per-bar **chord-tone strip** + **fret
+diagram**, `%` similes for repeated bars, multi-chord-per-bar splitting, and **SVG / PNG / PDF**
+export on a clean light page — plus a play-along marker driven by the same playback engine as
+the tablature view.
 
-- **Staff-display mode** — a **tab / standard / both** switch on the score (a display-only choice over
-  unchanged content, persisted globally), in Practice + Content preview
+### The Voicings Engine
+Voicings are **derived**, not authored: an introspectable **operator library** with per-grip
+**derivation traces**, a faceted **Voicings grid** (filter by Root / Source / Family / 3rd /
+5th / 7th), a **CAGED Chords** page that derives a grip from a shape × quality × root, and
+**voicing families** (compact **shell** / **doubled-shell** grips). The engine is the app's
+**automatic** comping source, and every content source — package, your user edits, and the
+computed automatic source — is shown side by side with a source filter.
 
-- **Now/Next chord fretboards** — two fret-boxes above the Practice score show the chord playing
-  **now** and the one coming **next** as real voicings, synced to playback (the engine emits a chord
-  schedule alongside the tab, so the boards always match what's comped), with **OffScreen** score-follow
-  and a transport **Scroll** / **Now/Next** control
+### Author your own content
+Four **text DSLs** — a key-independent **[Progression & Song DSL](docs/dsl-guide.md)** (multiple
+chords per bar, rich qualities, chromatic `#`/`b` degrees, arrangement with repeats + modulation,
+whole-song `capo` / `tempo` / `feel`), a **Rhythm DSL** (multi-bar patterns, `:n` subdivisions,
+triplets, pickups, dotted notes + ties), and a **Voicing DSL** (movable CAGED shapes). Pin the
+exact grip a chord uses with a **movable literal voicing** or a **reference**, inline or as a
+reusable song default. Content ships as **open-core packs** (data-only, imported idempotently),
+including a **15-song starter library** and a **34-voicing CAGED pack**. A **Content editor** does
+CRUD for all four with a live score preview and an editable **alphaTex debug panel**.
 
-- **Content authored in text DSLs** — a key-independent
-  **[Progression & Song DSL](loom/refs/chordflow-dsl-reference.md)** (multiple chords per
-  bar, rich qualities, arrangement with repeats + modulation), a **Rhythm DSL** (multi-bar
-  patterns, `:n` subdivisions, triplets, pickups), and a **Voicing DSL** (canonical-C,
-  CAGED-ranked shapes)
-- **Content packs (open-core)** — data-only bundles imported idempotently; the built-in
-  starter content ships as the **default pack**, and your own packs shadow built-ins
-  non-destructively. Includes a **34-voicing CAGED default pack** across chord qualities
-- **Exercise workbench** — pick harmony (song or progression) + comping + an optional lead +
-  key / tempo / difficulty, then Generate
-- **Triplet feel (swing)** — a whole-song swing chosen in the **score transport** (`None` /
-  `Triplet8th` / `Triplet16th`), delegated to alphaTab's native `\tf` so the **notation reads swung**,
-  not just plays swung; also available in the Content preview
-- **Song arrangement transforms** — rewrite a section before it plays with `@take(n)` on a Song
-  play-line (e.g. `head @take(4)` to drill the first four bars)
-- 12-bar blues transposable to **all 12 keys**
-- Tablature rendering + audio playback with a **synchronized beat cursor**, **two-track**
-  (comping + lead) staves, true **pickup (anacrusis)** bars, chord-name / chord-diagram toggles,
-  bars-per-row layout, and opt-in **auto-scroll** that follows the cursor on the Practice score
-- **Fretboard diagrams** — chord & voicing shapes drawn by a reusable SVG fretboard component
-  where **color = interval** and **shape = layer** (the spatial twin of the notation view), with
-  a label toggle, auto legend, open/muted/barre rendering, and an auto-fit fret window
-- **Interval & CAGED shape viewers** — a **Scales** page (type an interval set → every degree lit
-  across the neck, your typed spelling preserved) and a **CAGED Shapes** page (pick a shape + root →
-  its octave-root skeleton with the octave zone shaded), both on a new **horizontal neck** view,
-  built on a fretboard **interval lattice**
-- **CAGED Chords page + derivation engine** — pick a CAGED shape × quality × root and ChordFlow
-  *derives* the chord grip (each fret by chord-tone function, the octave-zone band, the anchor
-  finger) and lights it on the neck — computed from interval substrates + one hand-reach table and
-  validated against all 36 authored voicings (36/36), so it renders combinations the pack never authored
-- **End-user guide** — a downloadable **[user guide](docs/user-guide.md)** (install, build & play,
-  your own content, soundfonts) linked here and bundled into the release zip
-- **User-selectable soundfont** (`.sf2` / `.sf3`) — auto-discovered from `wwwroot/soundfont`, a
-  global choice that switches live and persists
-- **Content editor** — CRUD for progressions/songs/rhythms/voicings (with fret-box diagrams + a live
-  score preview that takes a **comping-rhythm picker**), plus an editable **alphaTex debug panel** on
-  the shared score component that shows and re-renders the engine's emitted alphaTex
-- **Save** exercise definitions to SQLite, reload them from a **saved-exercise list**
-  (alphaTex is regenerated on load, never stored), and **mark practiced**
-- Play / stop / tempo transport
+### Guitar shape viewers
+**Fretboard diagrams** where **color = interval** and **shape = layer**, with auto legend,
+open/muted/barre rendering, and an auto-fit fret window. A **Scales** page lights every degree of
+a typed interval-set across the neck; a **CAGED Shapes** page shows a shape's octave-root
+skeleton — both on a horizontal neck view built on an **interval lattice**. Light/dark fretboard
+theme throughout.
+
+### Save & sound
+**Save** exercise definitions to SQLite and reload them from a saved-exercise list (alphaTex is
+regenerated on load, never stored), **mark practiced**, and choose a **user-selectable soundfont**
+(`.sf2` / `.sf3`, auto-discovered — see [Soundfonts](#soundfonts)).
+
+*Full release history in **[CHANGELOG.md](CHANGELOG.md)**.*
 
 ## Screenshots
 
 <p>
-  <a href="images/screenshots/01-practice.png"><img src="images/screenshots/01-practice.png" width="440" alt="Practice tab — build and play an exercise"></a>
-  <a href="images/screenshots/02-content-progressions.png"><img src="images/screenshots/02-content-progressions.png" width="440" alt="Content tab — edit a progression"></a>
-  <a href="images/screenshots/03-content-songs.png"><img src="images/screenshots/03-content-songs.png" width="440" alt="Content tab — arrange a song"></a>
-  <a href="images/screenshots/04-content-rhythms.png"><img src="images/screenshots/04-content-rhythms.png" width="440" alt="Content tab — edit a rhythm pattern"></a>
-  <a href="images/screenshots/05-scales.png"><img src="images/screenshots/05-scales.png" width="440" alt="Scales — interval-set fretboard viewer"></a>
-  <a href="images/screenshots/06-caged-chords.png"><img src="images/screenshots/06-caged-chords.png" width="440" alt="CAGED Chords — derived grips on the neck"></a>
-  <a href="images/screenshots/10-debug.png"><img src="images/screenshots/10-debug.png" width="440" alt="Debug — the alphaTex inspector"></a>
+  <a href="images/screenshots/01-practice-score.png"><img src="images/screenshots/01-practice-score.png" width="440" alt="Practice — build and play an exercise"></a>
+  <a href="images/screenshots/03-content-progressions.png"><img src="images/screenshots/03-content-progressions.png" width="440" alt="Content — edit a progression"></a>
+  <a href="images/screenshots/04-content-songs.png"><img src="images/screenshots/04-content-songs.png" width="440" alt="Content — arrange a song"></a>
+  <a href="images/screenshots/06-content-voicings.png"><img src="images/screenshots/06-content-voicings.png" width="440" alt="Content — author a voicing"></a>
+  <a href="images/screenshots/07-scales.png"><img src="images/screenshots/07-scales.png" width="440" alt="Scales — interval-set fretboard viewer"></a>
+  <a href="images/screenshots/09-voicings-engine.png"><img src="images/screenshots/09-voicings-engine.png" width="440" alt="Voicings Engine — how each grip is derived"></a>
 </p>
 
-*Click any screenshot for full size. The first is the everyday view; the rest are the content editor and the guitar shape viewers.*
+*Click any screenshot for full size.*
 
 ## Download & install
 
@@ -154,33 +128,26 @@ New to ChordFlow? The **[User Guide](docs/user-guide.md)** walks through your fi
 > publisher" prompt — choose **More info → Run anyway**. This is expected and clears as the
 > download gains reputation.
 
-## Tech stack
+## Documentation
 
-- **C# / .NET 10** engine — a pure `Music/` music-theory kernel + `Rendering/AlphaTexRenderer`
-  (the only alphaTex-aware code)
-- **WinForms + WebView2** desktop host — serves `wwwroot` over an in-process
-  `https://chordflow.local/` virtual host (no web server, no localhost port)
-- **alphaTab** (JS build) for notation + playback; bundled Bravura music font and
-  Sonivox GM soundfont
-- Architecture: **vertical slices over a shared `Music` theory kernel** (no MediatR)
+- **[User Guide](docs/user-guide.md)** — install, build & play an exercise, add your own content, choose a soundfont. **Start here** if you just downloaded ChordFlow.
+- **[DSL Guide](docs/dsl-guide.md)** — write your own progressions, songs, rhythms, and voicings, with worked examples.
+- **[Developer Notes](docs/dev-notes.md)** — build, test, and project layout for working on ChordFlow itself.
 
-## Requirements
+## How it's built
 
-- **Windows 10/11** with the **WebView2 Runtime** (preinstalled on Windows 11 and with
-  current Microsoft Edge)
-- **.NET 10 SDK** to build
+ChordFlow is **C# / .NET 10**: a pure, instrument-agnostic **`Music/` theory kernel** (harmony,
+a 48-PPQ rhythm grid, progressions, songs) with the guitar as one **adapter** over it, and a
+`Rendering/` seam whose only alphaTex-aware code is a single renderer. The desktop app is a thin
+**WinForms + WebView2** host that serves a local `wwwroot` over an in-process
+`https://chordflow.local/` virtual host — no web server, no cloud. The engine (`ChordFlow.Core`)
+carries **zero UI references** by construction, so it's a durable foundation an expandable music
+app can grow on — a web front-end or a new instrument is *additive*, not a rewrite.
 
-## Build & run
+See **[Developer Notes](docs/dev-notes.md)** for build/test/layout, and
+[`loom/refs/`](loom/refs/chordflow-architecture-reference.md) for the full architecture rationale.
 
-```sh
-dotnet build
-dotnet run --project src/ChordFlow.Desktop
-```
-
-> The GM soundfont (`wwwroot/soundfont/sonivox.sf2`, Apache-2.0) is **bundled** (committed
-> to the repo), so builds are offline/hermetic — there is no download step.
-
-### Soundfonts
+## Soundfonts
 
 Playback uses a **SoundFont (`.sf2` or `.sf3`)** — alphaTab loads SoundFont2 and its
 Ogg-compressed `.sf3` variant interchangeably. The default **Sonivox** GM font is bundled;
@@ -201,58 +168,7 @@ drop-in with no code change. A few free, redistributable GM soundfonts:
 | GeneralUser GS | permissive (free, custom) | <https://schristiancollins.com/generaluser.php> |
 
 More to download: the [MuseScore soundfont list](https://musescore.org/en/handbook/3/soundfonts-and-sfz-files#list).
-
 Some downloads are zipped — extract the `.sf2` / `.sf3` and place it in the folder above.
-
-## Tests
-
-```sh
-dotnet test
-```
-
-916 xUnit tests cover the `Music` kernel (incl. the `IntervalSpeller` interval-naming + parsing
-authority and `QualityFormulas`), the guitar **interval lattice**, **CAGED octave shapes**, the
-**CAGED chord-derivation engine** (now an introspectable **operator library** with derivation traces) +
-**voicing families** (shell / doubled-shell, against a golden oracle), the **CompingResolver** +
-multi-source content model + **per-chord DSL voicings**, the **chord-sheet builder** (Song → sheet
-projection) + `chordSheet` handler, the content DSLs/parsers (incl. the dotted/tie Rhythm DSL, chromatic
-progression degrees, and the Song `tempo`/`feel`/`capo` directives), packs, persistence,
-`AlphaTexRenderer`, and
-`NetArchTest` architecture-boundary tests asserting `ChordFlow.Music` stays instrument-agnostic and the
-`Music.*` sub-namespaces stay an acyclic DAG.
-
-## Project layout
-
-```
-src/ChordFlow.Core/        host-agnostic engine (net10.0, zero UI refs)
-  Music/           pure, instrument-agnostic music-theory kernel (no I/O, unit-tested) —
-                   Harmony/ Rhythm/ Melody/ Progressions/ Songs/ (flat-sibling DAG)
-  Exercises/       the composed practice unit (Exercise + Difficulty)
-  Instruments/     instrument adapters over the kernel — Guitar/ (GuitarInstrument facade,
-                   fretboard geometry + interval lattice + CAGED octave shapes, voicings/CAGED,
-                   fret-box / scale / CAGED-shape diagrams)
-  Rendering/       the presentation/export seam — AlphaTexRenderer (alphaTex) +
-                   ChordSheets/ (the instrument-agnostic chord-sheet model)
-  Features/        GenerateExercise, PracticeSession, ExerciseLibrary, Progress, Scales, Caged,
-                   Voicings (CompingResolver + EngineVoicingSource), ChordSheets (ChordSheetBuilder),
-                   ContentCrud, Packs
-  Bridge/          C#↔JS envelope DTOs + inbound message router (host-agnostic)
-  Persistence/     SQLite (EF Core) store + migrations
-src/ChordFlow.Desktop/     WinForms + WebView2 host (net10.0-windows)
-  Program.cs       host entry point + bridge wiring
-  WebHost/         WebView2 transport bridge
-  wwwroot/         index.html, app.js, alphaTab.min.js, font/, soundfont/
-tests/ChordFlow.Core.Tests/   xUnit, targets ChordFlow.Core
-```
-
-Saved exercises live in a local SQLite file at `%LOCALAPPDATA%\ChordFlow\chordflow.db`
-(no server, no network).
-
-## Documentation
-
-- **[User Guide](docs/user-guide.md)** — install, build & play an exercise, add your own content, and choose a soundfont. Start here if you just downloaded ChordFlow.
-- **[DSL guide](loom/refs/chordflow-dsl-reference.md)** — the **Progression DSL** (key-independent, Nashville-style chords: bars, splits, qualities, durations) and the **Song DSL** (arrange progressions into a piece: definitions, repeats, modulation).
-- **[Architecture overview](loom/refs/chordflow-architecture-reference.md)** — how the engine, renderer, bridge, and desktop host fit together.
 
 ## Developed with Loom
 
@@ -271,7 +187,7 @@ Every part of the project lives as a Loom document. Work is organized into **wea
   docs, *before a line of code is implemented*. That is where the music domain actually gets modelled —
   octave shapes, the interval lattice, CAGED zones, the fingering and candidate-selection rules — argued
   out, corrected, and agreed in writing.
-- **context + reference docs** — a global context file and three living reference docs (architecture,
+- **context + reference docs** — a global context file and living reference docs (architecture,
   domain model, DSL) are kept in lockstep with the code, so the model stays the authoritative map.
 - **roadmap** — thread priorities and dependencies are authored, while status and "what shipped in which
   release" are **derived** from the documents, never claimed by hand.
