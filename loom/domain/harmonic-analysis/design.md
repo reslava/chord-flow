@@ -9,7 +9,7 @@ version: 3
 idea_version: 1
 tags: []
 parent_id: id_01KXGQGTSHN6WAK5KZBE4G4CC9
-requires_load: []
+requires_load: [rf_01KTM41K36DYJ0CE44FE7TMCGH, rf_01KTSAPAT132QTEY5BEPRKS3MB]
 ---
 # Harmonic analysis — functional labels, secondary dominants, borrowed chords
 
