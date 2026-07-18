@@ -39,6 +39,11 @@ two items noted. Skipping a step ships a broken or inconsistent release.
       doc-accuracy review set alongside the README + the three refs.
       CI does **not** verify docs; this is human judgment.
 - [ ] **Build + test locally green:** `dotnet build -c Release && dotnet test -c Release`.
+- [ ] **No vulnerable dependencies:** `dotnet list package --vulnerable --include-transitive` —
+      resolve (bump or pin/override the offending package) or consciously accept any advisory
+      *before* tagging, so one never first surfaces mid-release. A transitive advisory is usually
+      cleared by a top-level `PackageReference` to the patched package (a direct ref wins over the
+      transitive one) — see `loom/chordflow/sqlite-security-bump/` for the pattern.
 - [ ] **Record the release in Loom:** `loom record-release X.Y.Z` — stamps `actual_release`
       onto this release's done plans so the roadmap owns "what shipped in vX.Y.Z" (idempotent;
       run after the build). The plan-file edits are included in the release commit below.

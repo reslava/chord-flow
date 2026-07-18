@@ -84,6 +84,11 @@ version was given.
    - Bump the `<Version>` in `src/ChordFlow.Desktop/ChordFlow.Desktop.csproj` to `X.Y.Z`.
    - `dotnet build -c Release && dotnet test -c Release` — red = stop and report; never ship
      a red build.
+   - `dotnet list package --vulnerable --include-transitive` — if any advisory shows, **STOP and
+     report it** (resolve by bumping or pinning/overriding the offending package before tagging);
+     don't let a known-vulnerable dependency ship or first surface mid-release. A transitive
+     advisory is cleared by a top-level `PackageReference` to the patched package (see
+     `loom/chordflow/sqlite-security-bump/` for the pattern).
    - `loom record-release X.Y.Z` — stamp this release's done plans with `actual_release` so
      the roadmap owns "what shipped in vX.Y.Z" (idempotent; no-op if nothing is unstamped).
      Run it **after** the build. Its plan-file edits are part of the release commit below.

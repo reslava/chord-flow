@@ -18,6 +18,12 @@
          build-only (PrivateAssets=all) — needed for `dotnet ef migrations`, never
          shipped at runtime. See Persistence/ChordFlowDbContext.cs. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.8" />
+    <!-- Security override (NU1903 / GHSA-2m69-gcr7-jv3q): EFCore.Sqlite 10.0.8 pulls the vulnerable
+         native SQLitePCLRaw.lib.e_sqlite3 2.1.11 transitively. Pin the bundle at the patched 2.1.12
+         (same 2.1.x line Microsoft.Data.Sqlite expects) so the direct reference wins over the
+         transitive one and the advisory clears. Revisit/remove when EFCore.Sqlite ships a patched
+         transitive. See loom/chordflow/sqlite-security-bump/. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
