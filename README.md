@@ -113,6 +113,7 @@ regenerated on load, never stored), **mark practiced**, and choose a **user-sele
   <a href="images/screenshots/01-practice-score.png"><img src="images/screenshots/01-practice-score.png" width="440" alt="Practice — build and play an exercise"></a>
   <a href="images/screenshots/03-content-progressions.png"><img src="images/screenshots/03-content-progressions.png" width="440" alt="Content — edit a progression"></a>
   <a href="images/screenshots/04-content-songs.png"><img src="images/screenshots/04-content-songs.png" width="440" alt="Content — arrange a song"></a>
+  <a href="images/screenshots/05-content-rhythms.png"><img src="images/screenshots/05-content-rhythms.png" width="440" alt="Content — edit a rhythm pattern"></a>
   <a href="images/screenshots/06-content-voicings.png"><img src="images/screenshots/06-content-voicings.png" width="440" alt="Content — author a voicing"></a>
   <a href="images/screenshots/07-scales.png"><img src="images/screenshots/07-scales.png" width="440" alt="Scales — interval-set fretboard viewer"></a>
   <a href="images/screenshots/09-voicings-engine.png"><img src="images/screenshots/09-voicings-engine.png" width="440" alt="Voicings Engine — how each grip is derived"></a>
