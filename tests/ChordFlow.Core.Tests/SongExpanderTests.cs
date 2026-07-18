@@ -71,6 +71,24 @@ public class SongExpanderTests
         Assert.Equal(new[] { 0, 7, 0 }, realized.Sections.Select(s => s.Key.Tonic.Value));
     }
 
+    // A song whose sections sit in different keys AND modes is already expressible via the `key` stream — a minor
+    // section (`key Am`), a major one (`key G`), a minor one (`key Bm`) — and each realizes in its own key + mode.
+    // This confirms the multi-key/multi-mode arrangement threads the mode through (minor-mode-ui-threading IN6).
+    [Fact]
+    public void Expand_MultiKeyMultiMode_RealizesEachSectionInItsOwnKeyAndMode()
+    {
+        RealizedSong realized = ParseAndExpand(string.Join("\n",
+            "a = 1 4 5", "b = 1 4 5", "c = 1 4 5",
+            "key Am", "a",
+            "key G", "b",
+            "key Bm", "c"));
+
+        Assert.Equal(3, realized.Sections.Count);
+        Assert.Equal((9, true), (realized.Sections[0].Key.Tonic.Value, realized.Sections[0].Key.IsMinor));   // A minor
+        Assert.Equal((7, false), (realized.Sections[1].Key.Tonic.Value, realized.Sections[1].Key.IsMinor));  // G major
+        Assert.Equal((11, true), (realized.Sections[2].Key.Tonic.Value, realized.Sections[2].Key.IsMinor));  // B minor
+    }
+
     [Fact]
     public void Expand_Repeat_ExpandsToNSections_WithLabelAndKey()
     {

@@ -103,7 +103,7 @@ public sealed class ExerciseLibraryHandler
     /// present they re-voice the <i>displayed</i> exercise (a transpose / a new <c>\tf</c>) without touching the
     /// stored definition — the saved exercise's own params still seed the controls on a plain load (C2).
     /// </summary>
-    public LoadedExercise? Load(int id, RenderOptions? options = null, int? keyOverride = null, TripletFeel? tripletFeel = null)
+    public LoadedExercise? Load(int id, RenderOptions? options = null, int? keyOverride = null, TripletFeel? tripletFeel = null, bool? keyIsMinor = null)
     {
         using var db = new ChordFlowDbContext(_dbOptions);
         ExerciseEntity? entity = db.Exercises.AsNoTracking().FirstOrDefault(e => e.Id == id);
@@ -115,7 +115,10 @@ public sealed class ExerciseLibraryHandler
         Exercise exercise = ToExercise(entity, db);
         if (keyOverride is int pc)
         {
-            exercise = exercise with { KeyOverride = new Key(new PitchClass(pc), IsMinor: false) };
+            // Re-keying keeps the mode: the request's explicit mode wins, else the saved exercise's own mode
+            // (minor-mode-ui-threading IN5) — no longer hard-wired to major.
+            bool isMinor = keyIsMinor ?? exercise.KeyOverride?.IsMinor ?? false;
+            exercise = exercise with { KeyOverride = new Key(new PitchClass(pc), IsMinor: isMinor) };
         }
         if (tripletFeel is TripletFeel feel)
         {

@@ -22,7 +22,7 @@ namespace ChordFlow.Features.GenerateExercise;
 /// cellSchedule — one reply, both view surfaces, nothing can drift.
 /// </summary>
 public sealed record LoadScoreEnvelope(
-    string Type, string Tex, int Tempo, int Key, string TripletFeel, IReadOnlyList<ChordChange> Schedule,
+    string Type, string Tex, int Tempo, int Key, bool KeyIsMinor, string TripletFeel, IReadOnlyList<ChordChange> Schedule,
     ChordSheet Sheet, IReadOnlyList<CellScheduleEntry> CellSchedule)
 {
     /// <summary>
@@ -39,11 +39,11 @@ public sealed record LoadScoreEnvelope(
         ExerciseProjections result = ExerciseRendering.RenderWithSheet(
             exercise, store, renderer, voicings, options, references);
         // The effective key the piece renders in: an explicit override, else the Song's own initial key. The
-        // Key control seeds from this so a loaded exercise shows the key it was saved in (C2).
-        int keyPc = (exercise.KeyOverride ?? exercise.Song.InitialKey).Tonic.Value;
+        // Key control seeds from this (tonic + mode) so a loaded exercise shows the key it was saved in (C2).
+        Key effectiveKey = exercise.KeyOverride ?? exercise.Song.InitialKey;
         return new(
-            "loadScore", result.Render.Tex, exercise.Tempo, keyPc, exercise.TripletFeel.ToString(),
-            result.Render.Schedule, result.Sheet, result.CellSchedule);
+            "loadScore", result.Render.Tex, exercise.Tempo, effectiveKey.Tonic.Value, effectiveKey.IsMinor,
+            exercise.TripletFeel.ToString(), result.Render.Schedule, result.Sheet, result.CellSchedule);
     }
 }
 

@@ -83,7 +83,8 @@ public sealed class ContentCrudHandler
         s.Source == ContentSource.Package ? PackName(s.PackId) : null,
         s.InitialKey,
         s.DefaultFeel,
-        s.DefaultTempo);
+        s.DefaultTempo,
+        s.InitialKeyIsMinor);
 
     private static string SourceLabel(ContentSource source) => source switch
     {
@@ -113,11 +114,11 @@ public sealed class ContentCrudHandler
     }
 
     /// <summary>Create/update a definition (UserDefined tier). Throws <see cref="FormatException"/> on invalid DSL.</summary>
-    public EntitySavedEnvelope Save(string entity, string? id, string name, string dsl)
+    public EntitySavedEnvelope Save(string entity, string? id, string name, string dsl, string? sourceId = null, string? tonality = null)
     {
         ContentEntity kind = ContentEntities.Parse(entity);
         using var db = new ChordFlowDbContext(_dbOptions);
-        string savedId = StoreFor(kind, db).Save(id, name, dsl);
+        string savedId = StoreFor(kind, db).Save(id, name, dsl, sourceId, ParseTonality(tonality));
         if (kind == ContentEntity.Voicing)
         {
             VoicingsChanged?.Invoke();
@@ -125,6 +126,16 @@ public sealed class ContentCrudHandler
 
         return new EntitySavedEnvelope(entity, savedId);
     }
+
+    // The editor's tonality control sends "major"/"minor"; absent ⇒ null ⇒ the store keeps the preserved source
+    // tonality (C3). Fail-loud on an unrecognized value so a typo isn't silently treated as major.
+    private static Tonality? ParseTonality(string? tonality) => tonality?.Trim().ToLowerInvariant() switch
+    {
+        null or "" => null,
+        "major" => Tonality.Major,
+        "minor" => Tonality.Minor,
+        var other => throw new FormatException($"Unknown tonality \"{other}\" (expected \"major\" or \"minor\")."),
+    };
 
     /// <summary>Delete (or revert) a definition's UserDefined row.</summary>
     public EntityDeletedEnvelope Delete(string entity, string id)
@@ -196,10 +207,14 @@ public sealed class ContentCrudHandler
 
     private static Exercise ProgressionPreview(string dsl, TripletFeel tripletFeel, RhythmPattern comping, Key liftKey, int tempo)
     {
-        // A previewed progression may carry a `tonality:` header (first-class-minor-keys); strip it and hand
-        // the resolved Home to the parser so a minor progression previews with the correct realized chords.
+        // The parse Home decides how the body's degrees are read (tonic-relative for a minor tune). The content
+        // editor STRIPS the `tonality:` header (EX3) and sends the mode via the tonality control — carried on
+        // liftKey's mode — so that is the authoritative Home; a raw `tonality:` header (a pasted definition, no
+        // key override) only fills in when liftKey has no minor opinion. Without this a minor progression's
+        // `1- 4- 5-` would parse as major-home and preview the wrong chords (Cm/Fm/Gm instead of Am/Dm/Em).
         (CatalogMetadata meta, string body) = CatalogHeader.Parse(dsl);
-        Progression progression = ProgressionParser.Parse("preview", "Preview", body, TimeSignature.FourFour, home: meta.Tonality);
+        Tonality home = liftKey.IsMinor ? Tonality.Minor : meta.Tonality;
+        Progression progression = ProgressionParser.Parse("preview", "Preview", body, TimeSignature.FourFour, home: home);
         return new Exercise(
             Song.OfProgression(progression, liftKey), comping, Lead: null, KeyOverride: null,
             tempo, Difficulty.Beginner, tripletFeel);

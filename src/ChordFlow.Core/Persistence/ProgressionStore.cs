@@ -26,10 +26,23 @@ public sealed class ProgressionStore : IProgressionStore, IContentStore
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<ContentSummary> List() =>
-        ContentSummaries.Build(_db.Progressions.AsNoTracking()
-            .Select(p => new { p.Id, p.Name, p.Origin, p.PackId }).ToList()
-            .Select(p => (p.Id, p.Name, p.Origin, p.PackId)));
+    /// <remarks>The summary carries <see cref="ContentSummary.InitialKeyIsMinor"/> from the winning tier's
+    /// <c>tonality:</c> header, so selecting a minor progression auto-picks minor mode (minor-mode-ui-threading IN4).</remarks>
+    public IReadOnlyList<ContentSummary> List()
+    {
+        List<ProgressionEntity> rows = _db.Progressions.AsNoTracking().ToList();
+        return ContentSummaries.Build(rows.Select(p => (p.Id, p.Name, p.Origin, p.PackId)))
+            .Select(summary => summary with { InitialKeyIsMinor = IsMinorTonality(rows, summary.Id) })
+            .ToList();
+    }
+
+    // The winning tier's tonality (IN4): resolve the top row for the id and read its `tonality:` header.
+    // False (major) when there is no header or the winner is unresolved.
+    private static bool IsMinorTonality(IReadOnlyList<ProgressionEntity> rows, string id)
+    {
+        ProgressionEntity? winner = OriginResolver.ResolveOne(rows.Where(r => r.Id == id).ToList(), id);
+        return winner is not null && CatalogHeader.Parse(winner.Dsl).Metadata.Tonality == Tonality.Minor;
+    }
 
     /// <inheritdoc/>
     public ContentDoc? Get(string id)
@@ -47,7 +60,7 @@ public sealed class ProgressionStore : IProgressionStore, IContentStore
     }
 
     /// <inheritdoc/>
-    public string Save(string? id, string name, string dsl)
+    public string Save(string? id, string name, string dsl, string? sourceId = null, Tonality? tonality = null)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(dsl);
@@ -61,13 +74,28 @@ public sealed class ProgressionStore : IProgressionStore, IContentStore
         string targetId = row?.Id ?? Guid.NewGuid().ToString();
         ProgressionParser.Parse(targetId, name, body, _ts); // throws FormatException on bad input — writes nothing
 
+        // Metadata isn't edited here (EX3) but must NOT be destroyed: carry the source header (incl. `tonality:`)
+        // through — the in-place row's own metadata, else the forked-from source's — so a minor progression keeps
+        // its tonality across fork/edit (else it silently misrealizes as major). No header ⇒ body stored verbatim.
+        CatalogMetadata meta = row is not null
+            ? CatalogHeader.Parse(row.Dsl).Metadata
+            : SourceMetadata(sourceId ?? id);
+        // The editor's tonality control is authoritative when it sends a value: override the preserved tonality
+        // (authoring a new minor progression, or a major↔minor flip). Absent ⇒ keep the preserved source (C3).
+        if (tonality is Tonality chosen)
+        {
+            meta = meta with { Tonality = chosen };
+        }
+
+        string storedDsl = CatalogHeader.Serialize(meta, body);
+
         if (row is null)
         {
             _db.Progressions.Add(new ProgressionEntity
             {
                 Id = targetId,
                 Name = name,
-                Dsl = body,
+                Dsl = storedDsl,
                 Origin = Origin.UserDefined,
                 CreatedUtc = DateTime.UtcNow,
             });
@@ -75,11 +103,25 @@ public sealed class ProgressionStore : IProgressionStore, IContentStore
         else
         {
             row.Name = name;
-            row.Dsl = body;
+            row.Dsl = storedDsl;
         }
 
         _db.SaveChanges();
         return targetId;
+    }
+
+    // The catalog metadata to preserve when the editor didn't (and can't, EX3) carry it: resolve the source
+    // definition (across origins) and read its header. Empty when there is no source, or it carries no header.
+    private CatalogMetadata SourceMetadata(string? sourceKey)
+    {
+        if (string.IsNullOrWhiteSpace(sourceKey))
+        {
+            return CatalogMetadata.Empty;
+        }
+
+        List<ProgressionEntity> rows = _db.Progressions.AsNoTracking().Where(p => p.Id == sourceKey).ToList();
+        ProgressionEntity? src = OriginResolver.ResolveOne(rows, sourceKey);
+        return src is null ? CatalogMetadata.Empty : CatalogHeader.Parse(src.Dsl).Metadata;
     }
 
     /// <inheritdoc/>

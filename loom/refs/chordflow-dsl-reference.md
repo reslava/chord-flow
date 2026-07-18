@@ -4,8 +4,8 @@ id: rf_01KTSAQ6990GY3J4CZ7HPVPW6K
 title: ChordFlow DSL
 status: active
 created: 2026-06-10
-updated: 2026-07-17
-version: 33
+updated: 2026-07-18
+version: 35
 tags: []
 parent_id: null
 requires_load: []
@@ -126,7 +126,7 @@ ChordFlow validates as it parses and tells you which token is wrong:
 ## Notes
 
 - Degrees are **key-independent** — `1 4 5` is C–F–G in C, or G–C–D in G. Choose the key in the app.
-- **Minor progressions declare `tonality: minor`** in the catalog header and are authored **tonic-relative**: the minor tonic is `1-`, and the natural minor scale reads with **bare** degrees — a natural-minor i–ii°–III–iv–v–VI–VII is `1- 2° 3 4- 5- 6 7`. The raised tones of harmonic/melodic minor are accidentals on the author frame: a dominant/major V is `5`/`57`, the vii°7 is `#7dim7` (spells G♯…), the melodic vi° is `#6ø` (spells F♯…). Behind the scenes a converter rotates these to a single **parent-major** storage frame, so the engine stays one frame for every key and the chromatic tones spell letter-pure — but as an author you just think in the minor scale. The **song** picks the actual minor key (`key Am`); the progression only declares its `tonality`.
+- **Minor progressions declare `tonality: minor`** in the catalog header and are authored **tonic-relative**: the minor tonic is `1-`, and the natural minor scale reads with **bare** degrees — a natural-minor i–ii°–III–iv–v–VI–VII is `1- 2° 3 4- 5- 6 7`. The raised tones of harmonic/melodic minor are accidentals on the author frame: a dominant/major V is `5`/`57`, the vii°7 is `#7dim7` (spells G♯…), the melodic vi° is `#6ø` (spells F♯…). Behind the scenes a converter rotates these to a single **parent-major** storage frame, so the engine stays one frame for every key and the chromatic tones spell letter-pure — but as an author you just think in the minor scale. The **song** picks the actual minor key (`key Am`); the progression only declares its `tonality`. In the app's **Content editor**, `tonality` is set with a **major/minor control** (you don't type the header line) — it seeds from the content's own mode, drives the live preview (`\ks Aminor`), and is written on save.
 - Whitespace is flexible: extra spaces between bars are fine.
 - Time signature affects how slots add up (4/4 → 4 beats per bar); the default exercises are 4/4.
 
@@ -498,9 +498,10 @@ Every definition needs a stable **Id** and a display **Name**. In a pack:
   song's `verse: 12bar_blues` points at a file you can find on disk.
 - **An optional leading `name:` line** is the display name. Omit it and the Id is
   title-cased into one (`12bar_blues` → "12bar Blues").
-- `genre:` / `subgenre:` / `tags:` / `description:` follow as usual (the catalog header;
-  `description:` is a free-text, human-readable blurb of what the content is / teaches); then the
-  entity's own grammar is the body. Rhythm files carry no catalog metadata.
+- `genre:` / `subgenre:` / `tags:` / `description:` / `tonality:` follow as usual (the catalog header;
+  `description:` is a free-text, human-readable blurb of what the content is / teaches; `tonality: minor`
+  marks a minor progression — see the Progression *Notes*); then the entity's own grammar is the body.
+  Rhythm files carry no catalog metadata.
 
 ```
 progressions/12bar_blues.dsl

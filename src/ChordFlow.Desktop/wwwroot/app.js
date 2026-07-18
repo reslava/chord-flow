@@ -284,6 +284,7 @@ const ChordFlow = (function () {
         // Seed the definition controls from the piece the host rendered: a loaded exercise shows its persisted
         // key/feel (override wins over content defaults, C3). Seeds only — no re-render.
         if (msg.key != null) hc.seedKey(msg.key);
+        if (msg.keyIsMinor != null) hc.seedKeyMode(msg.keyIsMinor); // a saved minor exercise reopens minor (IN5)
         if (msg.tripletFeel) hc.seedTripletFeel(msg.tripletFeel);
         if (nowNext) nowNext.setSchedule(msg.schedule);
         if (sheetView) {

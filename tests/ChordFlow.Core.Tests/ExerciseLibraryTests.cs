@@ -91,4 +91,35 @@ public class ExerciseLibraryTests
         Assert.Equal("g", s.KeyOverride);
         Assert.Equal("None", s.TripletFeel);
     }
+
+    // ---- Minor mode threads through the loadExercise reply + re-key (minor-mode-ui-threading IN5) ----
+
+    [Fact]
+    public void LoadScore_CarriesKeyIsMinor_ForASavedMinorExercise()
+    {
+        (ExerciseLibraryHandler handler, SqliteConnection conn) = NewHandler();
+        using SqliteConnection _ = conn;
+
+        int id = handler.Save(BbBlues(new Key(new PitchClass(9), IsMinor: true))); // A minor
+
+        LoadedExercise? loaded = handler.Load(id);
+        Assert.NotNull(loaded);
+        Assert.True(loaded!.Score.KeyIsMinor);  // the reply carries the mode → app.js seeds hc.seedKeyMode
+        Assert.Equal(9, loaded.Score.Key);
+    }
+
+    [Fact]
+    public void ReKey_PreservesTheModeFromTheRequest_NotHardWiredMajor()
+    {
+        (ExerciseLibraryHandler handler, SqliteConnection conn) = NewHandler();
+        using SqliteConnection _ = conn;
+
+        int id = handler.Save(BbBlues(new Key(new PitchClass(0), IsMinor: false))); // saved C major
+
+        // Re-key to E with the mode toggle set to minor → the reloaded exercise is E minor, not major.
+        LoadedExercise? loaded = handler.Load(id, keyOverride: 4, keyIsMinor: true);
+        Assert.NotNull(loaded);
+        Assert.True(loaded!.Score.KeyIsMinor);
+        Assert.Equal(4, loaded.Score.Key);
+    }
 }

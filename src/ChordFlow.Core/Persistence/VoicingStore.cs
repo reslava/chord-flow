@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 
 using ChordFlow.Instruments.Guitar;
+using ChordFlow.Music.Progressions;
 
 namespace ChordFlow.Persistence;
 
@@ -37,11 +38,13 @@ public sealed class VoicingStore : IContentStore
     }
 
     /// <inheritdoc/>
-    public string Save(string? id, string name, string dsl)
+    public string Save(string? id, string name, string dsl, string? sourceId = null, Tonality? tonality = null)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(dsl);
 
+        // A voicing has no tonality — the explicit tonality is inert (only ProgressionStore acts on it, C4).
+        _ = tonality;
         // Validate AND canonicalize: any authoring anchor folds to the stored canonical-C form (IN9).
         VoicingShape shape = VoicingDslParser.Parse(StripHeader(dsl)); // throws FormatException on bad input
         string canonicalDsl = VoicingDslWriter.ToDsl(shape);
@@ -51,13 +54,20 @@ public sealed class VoicingStore : IContentStore
         Entities.VoicingEntity? row = string.IsNullOrWhiteSpace(id) ? null : _db.Voicings.Find(id, Origin.UserDefined);
         string targetId = row?.Id ?? Guid.NewGuid().ToString();
 
+        // Metadata isn't edited here (EX3) but must NOT be destroyed: carry the source header (genre/tags/…)
+        // through — the in-place row's own, else the forked-from source's. No header ⇒ body stored verbatim.
+        CatalogMetadata meta = row is not null
+            ? CatalogHeader.Parse(row.Dsl).Metadata
+            : SourceMetadata(sourceId ?? id);
+        string storedDsl = CatalogHeader.Serialize(meta, canonicalDsl);
+
         if (row is null)
         {
             _db.Voicings.Add(new Entities.VoicingEntity
             {
                 Id = targetId,
                 Name = name,
-                Dsl = canonicalDsl,
+                Dsl = storedDsl,
                 Origin = Origin.UserDefined,
                 CreatedUtc = DateTime.UtcNow,
             });
@@ -65,11 +75,25 @@ public sealed class VoicingStore : IContentStore
         else
         {
             row.Name = name;
-            row.Dsl = canonicalDsl;
+            row.Dsl = storedDsl;
         }
 
         _db.SaveChanges();
         return targetId;
+    }
+
+    // The catalog metadata to preserve when the editor didn't (and can't, EX3) carry it: resolve the source
+    // definition (across origins) and read its header. Empty when there is no source, or it carries no header.
+    private CatalogMetadata SourceMetadata(string? sourceKey)
+    {
+        if (string.IsNullOrWhiteSpace(sourceKey))
+        {
+            return CatalogMetadata.Empty;
+        }
+
+        List<Entities.VoicingEntity> rows = _db.Voicings.AsNoTracking().Where(v => v.Id == sourceKey).ToList();
+        Entities.VoicingEntity? src = OriginResolver.ResolveOne(rows, sourceKey);
+        return src is null ? CatalogMetadata.Empty : CatalogHeader.Parse(src.Dsl).Metadata;
     }
 
     /// <inheritdoc/>

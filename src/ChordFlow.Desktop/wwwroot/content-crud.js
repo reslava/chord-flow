@@ -19,7 +19,7 @@ window.ChordFlowContent = (function () {
   // The per-entity config — the table that makes one component serve all four.
   const ENTITIES = [
     {
-      key: "progression", label: "Progressions", previewKind: "score", comping: true,
+      key: "progression", label: "Progressions", previewKind: "score", comping: true, tonality: true,
       placeholder: "17 47 17 57",
       help: "Nashville numbers. Space = next bar, _ = next chord in the bar (e.g. 1_4 5).",
     },
@@ -46,6 +46,8 @@ window.ChordFlowContent = (function () {
   let current = ENTITIES[0];   // selected entity config
   let editingId = null;        // user-row id to update on Save (null = create a new/forked definition)
   let selectedId = null;       // clicked list item (for highlight)
+  let forkSourceId = null;     // id of the item the editor is showing → the server preserves its catalog header
+                               // (genre/tags/tonality) on Save even when we fork to a new user copy (EX3)
   let items = [];              // last-rendered list items
   let activeSources = null;    // Set of active filter keys (null = uninitialized → all on); transient
   let knownKeys = new Set();   // filter keys seen this session, so a toggled-off key isn't re-enabled on refresh
@@ -56,11 +58,12 @@ window.ChordFlowContent = (function () {
   // ScoreR — either now (if it exists) or right after its lazy creation. requestPreview also reads these as the
   // pre-ScoreR fallback so the FIRST preview already renders in the seeded key/tempo/feel (not the C/80/straight
   // default), which is what fixed the "preview always Straight" bug.
-  let pendingSeeds = { key: 0, tempo: 80, feel: "None" };
+  let pendingSeeds = { key: 0, tempo: 80, feel: "None", keyIsMinor: false };
 
   // DOM refs (set in buildDom)
   let root, tabsEl, listEl, filterEl, nameEl, dslEl, helpEl, errorEl;
   let saveBtn, deleteBtn, duplicateBtn, newBtn, previewWrap, scoreEl, diagramEl, compingBar, compingEl;
+  let tonalityRow, tonalityEl;
 
   const setStatus = (text) => {
     const el = document.getElementById("status");
@@ -91,6 +94,13 @@ window.ChordFlowContent = (function () {
         <div class="cc-editor">
           <div class="cc-row">
             <input type="text" id="ccName" placeholder="Name" />
+          </div>
+          <div class="cc-tonality" id="ccTonalityRow" hidden>
+            <label for="ccTonality">Tonality</label>
+            <select id="ccTonality">
+              <option value="major">Major</option>
+              <option value="minor">Minor</option>
+            </select>
           </div>
           <textarea id="ccDsl" class="dsl-input" spellcheck="false"></textarea>
           <div class="cc-help" id="ccHelp"></div>
@@ -128,6 +138,8 @@ window.ChordFlowContent = (function () {
     diagramEl = document.getElementById("ccPreviewDiagram");
     compingBar = document.getElementById("ccCompingBar");
     compingEl = document.getElementById("ccComping");
+    tonalityRow = document.getElementById("ccTonalityRow");
+    tonalityEl = document.getElementById("ccTonality");
 
     // Entity tabs
     for (const e of ENTITIES) {
@@ -144,6 +156,7 @@ window.ChordFlowContent = (function () {
     duplicateBtn.addEventListener("click", onDuplicate);
     newBtn.addEventListener("click", () => newItem());
     compingEl.addEventListener("change", requestPreview); // re-preview with the chosen comping
+    tonalityEl.addEventListener("change", requestPreview); // a major↔minor flip re-realizes the preview live
   }
 
   function selectEntity(key) {
@@ -154,6 +167,8 @@ window.ChordFlowContent = (function () {
     activeSources = null; // transient filter resets per entity (content-source-model D5)
     // The comping picker is a progression/song-only content knob; fetch the rhythm catalog to fill it.
     compingBar.hidden = !current.comping;
+    // The tonality control is a progression-only content property (a song's mode is its key/mod stream, EX4).
+    tonalityRow.hidden = !current.tonality;
     if (current.comping) Bridge.send({ type: "entityList", entity: "rhythm" });
     newItem();
     requestList();
@@ -167,7 +182,9 @@ window.ChordFlowContent = (function () {
   function newItem() {
     editingId = null;
     selectedId = null;
+    forkSourceId = null;   // authored from scratch — no source header to inherit
     nameEl.value = "";
+    if (tonalityEl) tonalityEl.value = "major"; // a new definition defaults to major
     dslEl.value = "";
     clearError();
     clearPreview();
@@ -189,6 +206,8 @@ window.ChordFlowContent = (function () {
       type: "entitySave",
       entity: current.key,
       entityId: editingId, // null = create (or fork a package item into a new user copy)
+      sourceId: forkSourceId, // the shown item, so its catalog header (tonality/…) survives a fork (EX3)
+      tonality: current.tonality ? tonalityEl.value : undefined, // the editor's explicit mode (progressions only)
       name,
       dsl: dslEl.value,
     });
@@ -230,7 +249,9 @@ window.ChordFlowContent = (function () {
     const tempo = scoreView ? scoreView.getTempo() : pendingSeeds.tempo;
     // Comping is a progression/song-only content knob; omitted elsewhere ⇒ host applies the beat_1_3 default.
     const compingPatternId = current.comping ? (compingEl.value || DEFAULT_COMPING) : undefined;
-    Bridge.send({ type: "entityPreview", entity: current.key, dsl: dslEl.value, renderOptions, tripletFeel, keyPitchClass, tempo, compingPatternId });
+    // Tonality is a progression-only content property; the control drives the live preview (\ks major vs minor).
+    const keyIsMinor = current.tonality ? tonalityEl.value === "minor" : undefined;
+    Bridge.send({ type: "entityPreview", entity: current.key, dsl: dslEl.value, renderOptions, tripletFeel, keyPitchClass, keyIsMinor, tempo, compingPatternId });
   }
 
   // Fill the comping <select> from the rhythm catalog. Keep the current pick if it survived a catalog refresh,
@@ -272,6 +293,7 @@ window.ChordFlowContent = (function () {
         break;
       case "entityLoaded": {
         selectedId = msg.id;
+        forkSourceId = msg.id; // the loaded item is the header source, whether we edit it or fork from it
         nameEl.value = msg.name || "";
         dslEl.value = msg.dsl || "";
         clearError();
@@ -288,7 +310,10 @@ window.ChordFlowContent = (function () {
           key: it && it.initialKey != null ? it.initialKey : 0,
           tempo: it && it.defaultTempo != null ? it.defaultTempo : 80,
           feel: it && it.defaultFeel != null ? it.defaultFeel : "None",
+          keyIsMinor: !!(it && it.initialKeyIsMinor),
         };
+        // Seed the tonality control from the content's own mode (a manual flip afterward still wins).
+        if (tonalityEl) tonalityEl.value = pendingSeeds.keyIsMinor ? "minor" : "major";
         applySeeds();
         requestPreview();
         break;
@@ -304,6 +329,7 @@ window.ChordFlowContent = (function () {
       case "entitySaved":
         editingId = msg.id;
         selectedId = msg.id;
+        forkSourceId = msg.id; // the saved user row is now the header source for further in-place edits
         setEditorMode("user");
         setStatus("saved ✓");
         requestList();

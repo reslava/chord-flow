@@ -90,7 +90,7 @@ public sealed class WebMessageRouter
     /// The key/feel overrides are absent on a plain library click (⇒ the stored params seed ScoreR, C2) and present
     /// only on a live Key/Feel change ScoreR replays through onNeedsRerender (scorer-render-params IN4).
     /// </summary>
-    public event Action<int, int?, TripletFeel?, RenderOptions>? LoadExerciseRequested;
+    public event Action<int, int?, bool?, TripletFeel?, RenderOptions>? LoadExerciseRequested;
 
     /// <summary>Record a practice event for the active exercise.</summary>
     public event Action? MarkPracticedRequested;
@@ -108,8 +108,10 @@ public sealed class WebMessageRouter
     /// </summary>
     public event Action<string, string, RenderOptions, TripletFeel, string?, int?, bool, int?>? EntityPreviewRequested;
 
-    /// <summary>Create/update a content definition — <c>(entity, id?, name, dsl)</c> (null id = create).</summary>
-    public event Action<string, string?, string, string>? EntitySaveRequested;
+    /// <summary>Create/update a content definition — <c>(entity, id?, name, dsl, sourceId?, tonality?)</c> (null id =
+    /// create; sourceId = the fork-from item so its catalog header is preserved — EX3; tonality = the editor's
+    /// explicit "major"/"minor" choice, which overrides the preserved tonality when present).</summary>
+    public event Action<string, string?, string, string, string?, string?>? EntitySaveRequested;
 
     /// <summary>Delete (or revert) a content definition — <c>(entity, id)</c>.</summary>
     public event Action<string, string>? EntityDeleteRequested;
@@ -214,7 +216,7 @@ public sealed class WebMessageRouter
                 if (envelope.Id is int id)
                 {
                     LoadExerciseRequested?.Invoke(
-                        id, envelope.KeyPitchClass, ParseNullableEnum<TripletFeel>(envelope.TripletFeel),
+                        id, envelope.KeyPitchClass, envelope.KeyIsMinor, ParseNullableEnum<TripletFeel>(envelope.TripletFeel),
                         ToRenderOptions(envelope.RenderOptions));
                 }
                 break;
@@ -245,8 +247,10 @@ public sealed class WebMessageRouter
             case "entitySave":
                 if (envelope.Entity is { } saveEntity && envelope.Name is { } saveName && envelope.Dsl is { } saveDsl)
                 {
-                    // EntityId is optional: null/absent means "create" (the store mints a GUID).
-                    EntitySaveRequested?.Invoke(saveEntity, envelope.EntityId, saveName, saveDsl);
+                    // EntityId is optional: null/absent means "create" (the store mints a GUID). SourceId (the
+                    // fork-from item) is optional too — the store preserves its catalog header (tonality/…).
+                    // Tonality (the editor's explicit choice) overrides the preserved tonality when present.
+                    EntitySaveRequested?.Invoke(saveEntity, envelope.EntityId, saveName, saveDsl, envelope.SourceId, envelope.Tonality);
                 }
                 break;
             case "entityDelete":
@@ -358,8 +362,10 @@ public sealed class WebMessageRouter
         string? HarmonyEntity, string? HarmonyId, string? CompingPatternId, string? LeadPatternId,
         int? KeyPitchClass, bool? KeyIsMinor, int? Tempo, string? Difficulty, string? TripletFeel, int? Bpm,
         // Content-CRUD fields: Entity discriminator, the string content id (distinct from the int Id used by
-        // loadExercise), and the editor's Name/Dsl payload.
-        string? Entity, string? EntityId, string? Name, string? Dsl,
+        // loadExercise), the editor's Name/Dsl payload, SourceId — the fork-from item whose catalog header
+        // (genre/tags/description/tonality) a save preserves onto the new user copy (EX3) — and Tonality, the
+        // editor tonality control's explicit "major"/"minor" choice (overrides the preserved tonality).
+        string? Entity, string? EntityId, string? Name, string? Dsl, string? SourceId, string? Tonality,
         // setSoundFont: the chosen soundfont id (file name). A string, distinct from the int Id / string EntityId.
         string? SoundFontId,
         // setStaffProfile: the chosen staff-display profile ("tab"/"standard"/"both"). getStaffProfile carries none.

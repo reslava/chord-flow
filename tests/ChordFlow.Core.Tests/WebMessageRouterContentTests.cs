@@ -128,27 +128,31 @@ public class WebMessageRouterContentTests
     public void EntitySave_WithId_DispatchesAllFields()
     {
         var router = new WebMessageRouter();
-        (string Entity, string? Id, string Name, string Dsl)? got = null;
-        router.EntitySaveRequested += (e, id, name, dsl) => got = (e, id, name, dsl);
+        (string Entity, string? Id, string Name, string Dsl, string? SourceId, string? Tonality)? got = null;
+        router.EntitySaveRequested += (e, id, name, dsl, sourceId, tonality) => got = (e, id, name, dsl, sourceId, tonality);
 
-        router.Dispatch("""{"type":"entitySave","entity":"song","entityId":"s1","name":"Demo","dsl":"intro = 1 4\nintro"}""");
+        router.Dispatch("""{"type":"entitySave","entity":"progression","entityId":"s1","name":"Demo","dsl":"1- 4- 5-","sourceId":"src1","tonality":"minor"}""");
 
-        Assert.Equal("song", got!.Value.Entity);
+        Assert.Equal("progression", got!.Value.Entity);
         Assert.Equal("s1", got.Value.Id);
         Assert.Equal("Demo", got.Value.Name);
+        Assert.Equal("src1", got.Value.SourceId);   // the fork-from source, for header preservation
+        Assert.Equal("minor", got.Value.Tonality);   // the editor tonality control's explicit choice
     }
 
     [Fact]
     public void EntitySave_WithoutId_DispatchesNullId_ForCreate()
     {
         var router = new WebMessageRouter();
-        (string Entity, string? Id, string Name, string Dsl)? got = null;
-        router.EntitySaveRequested += (e, id, name, dsl) => got = (e, id, name, dsl);
+        (string Entity, string? Id, string Name, string Dsl, string? SourceId, string? Tonality)? got = null;
+        router.EntitySaveRequested += (e, id, name, dsl, sourceId, tonality) => got = (e, id, name, dsl, sourceId, tonality);
 
         router.Dispatch("""{"type":"entitySave","entity":"progression","name":"New","dsl":"1 4 5 1"}""");
 
         Assert.NotNull(got);
         Assert.Null(got!.Value.Id); // absent id = create
+        Assert.Null(got.Value.SourceId); // absent source = a brand-new definition
+        Assert.Null(got.Value.Tonality); // absent tonality = keep preserved/default (major)
         Assert.Equal("New", got.Value.Name);
     }
 
@@ -257,7 +261,7 @@ public class WebMessageRouterContentTests
     {
         var router = new WebMessageRouter();
         RenderOptions? got = null;
-        router.LoadExerciseRequested += (_, _, _, opts) => got = opts;
+        router.LoadExerciseRequested += (_, _, _, _, opts) => got = opts;
 
         router.Dispatch("""{"type":"loadExercise","id":7,"renderOptions":{"showChordDiagramsOnTop":true}}""");
 
@@ -271,27 +275,31 @@ public class WebMessageRouterContentTests
         // A library click sends no key/feel → the overrides are null so the stored exercise's own params win (C2).
         var router = new WebMessageRouter();
         int? gotKey = -1;
+        bool? gotMinor = true;
         TripletFeel? gotFeel = TripletFeel.Triplet8th;
-        router.LoadExerciseRequested += (_, key, feel, _) => { gotKey = key; gotFeel = feel; };
+        router.LoadExerciseRequested += (_, key, minor, feel, _) => { gotKey = key; gotMinor = minor; gotFeel = feel; };
 
         router.Dispatch("""{"type":"loadExercise","id":7}""");
 
         Assert.Null(gotKey);
+        Assert.Null(gotMinor);
         Assert.Null(gotFeel);
     }
 
     [Fact]
     public void LoadExercise_WithReplayedKeyAndFeel_ParsesOverrides()
     {
-        // A live Key/Feel change ScoreR replays carries keyPitchClass + tripletFeel → transient overrides (IN4).
+        // A live Key/Feel change ScoreR replays carries keyPitchClass + keyIsMinor + tripletFeel → transient overrides (IN4/IN5).
         var router = new WebMessageRouter();
         int? gotKey = null;
+        bool? gotMinor = null;
         TripletFeel? gotFeel = null;
-        router.LoadExerciseRequested += (_, key, feel, _) => { gotKey = key; gotFeel = feel; };
+        router.LoadExerciseRequested += (_, key, minor, feel, _) => { gotKey = key; gotMinor = minor; gotFeel = feel; };
 
-        router.Dispatch("""{"type":"loadExercise","id":7,"keyPitchClass":5,"tripletFeel":"Triplet8th"}""");
+        router.Dispatch("""{"type":"loadExercise","id":7,"keyPitchClass":5,"keyIsMinor":true,"tripletFeel":"Triplet8th"}""");
 
         Assert.Equal(5, gotKey);
+        Assert.True(gotMinor); // the re-key mode threads through so re-keying keeps minor (IN5)
         Assert.Equal(TripletFeel.Triplet8th, gotFeel);
     }
 

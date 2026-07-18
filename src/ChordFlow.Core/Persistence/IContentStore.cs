@@ -1,3 +1,5 @@
+using ChordFlow.Music.Progressions;
+
 namespace ChordFlow.Persistence;
 
 /// <summary>
@@ -29,8 +31,17 @@ public interface IContentStore
     /// or an id that belongs to a package — a <b>new</b> user row with a fresh GUID is created (fork-on-edit,
     /// never a same-id shadow). Validates by parsing <paramref name="dsl"/> first — a malformed definition
     /// throws <see cref="System.FormatException"/> and writes nothing.
+    /// <para><paramref name="sourceId"/> is the id the editor was showing when the save fired (the fork-from
+    /// source). Catalog metadata is <b>not edited</b> here (EX3) but must not be <b>destroyed</b>: an in-place
+    /// edit keeps the row's own header and a fork inherits the source row's header (genre/subgenre/tags/
+    /// description/<c>tonality:</c>), so a minor progression keeps its <c>tonality:</c> across fork/edit instead
+    /// of silently realizing as major. Null ⇒ no source ⇒ a brand-new definition with no header.</para>
+    /// <para><paramref name="tonality"/> is the <b>explicit</b> author choice from the editor's tonality control:
+    /// when non-null it overrides the preserved/source tonality (authoring a new minor progression, or writing a
+    /// major↔minor flip); null ⇒ leave the preserved source tonality untouched. Only <see cref="ProgressionStore"/>
+    /// acts on it in v1 (a song's mode is its <c>key</c>/<c>mod</c> stream); the other stores accept it inertly.</para>
     /// </summary>
-    string Save(string? id, string name, string dsl);
+    string Save(string? id, string name, string dsl, string? sourceId = null, Tonality? tonality = null);
 
     /// <summary>Remove the UserDefined row for <paramref name="id"/>; <see cref="DeleteOutcome.Deleted"/> if it existed, else <see cref="DeleteOutcome.NotFound"/>.</summary>
     DeleteOutcome Delete(string id);
@@ -63,7 +74,7 @@ public enum ContentSource
 /// seed (scorer-render-params IN1); null when the song declares no tempo or for the other entities.</summary>
 public sealed record ContentSummary(
     string Id, string Name, ContentSource Source, string? PackId, int? InitialKey = null, string? DefaultFeel = null,
-    int? DefaultTempo = null);
+    int? DefaultTempo = null, bool? InitialKeyIsMinor = null); // tonality mode: true=minor, false=major, null=n/a (rhythm/voicing)
 
 /// <summary>The editable payload of one definition: id, display name, and the header-stripped DSL body.</summary>
 public sealed record ContentDoc(string Id, string Name, string Dsl);

@@ -248,6 +248,24 @@ public class ContentCrudHandlerTests
     }
 
     [Fact]
+    public void Preview_MinorProgression_HeaderStripped_StillRendersMinor() // minor-mode-ui-threading: the control's mode drives Home
+    {
+        var (handler, conn) = NewHandler(withDefaultPack: true);
+        using (conn)
+        {
+            // The content editor strips the catalog header (EX3) and sends the body + keyIsMinor from the tonality
+            // control. That header-stripped preview must realize IDENTICALLY to the same progression WITH its
+            // `tonality:` header — both are A-minor i-iv-v (Am/Dm/Em). Before the fix the stripped body parsed as
+            // major-home and previewed the wrong chords (Cm/Fm/Gm).
+            string stripped = handler.Preview("progression", "1- 4- 5-", keyPitchClass: 9, keyIsMinor: true).Tex!;
+            string headered = handler.Preview("progression", "tonality: minor\n1- 4- 5-", keyPitchClass: 9, keyIsMinor: true).Tex!;
+
+            Assert.Equal(headered, stripped);
+            Assert.Contains("\\ks aminor", stripped);
+        }
+    }
+
+    [Fact]
     public void Preview_Tempo_DrivesTheEnvelopeTempo() // the seeded tempo rides back so playback matches the control
     {
         var (handler, conn) = NewHandler(withDefaultPack: true);

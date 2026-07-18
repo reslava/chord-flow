@@ -233,6 +233,11 @@
     .cc-preview-toolbar[hidden] { display: none; }
     .cc-preview-toolbar select { font: inherit; padding: .2rem .4rem; border: 1px solid #4a4a4f;
       border-radius: 4px; background: #3a3a3d; color: #e6e6e6; }
+    /* Tonality control — a content property (progressions), shown up top by the editor (minor-mode-ui-threading). */
+    .cc-tonality { display: flex; align-items: center; gap: .5rem; font-size: .8rem; color: #9aa0a6; }
+    .cc-tonality[hidden] { display: none; }
+    .cc-tonality select { font: inherit; padding: .2rem .4rem; border: 1px solid #4a4a4f;
+      border-radius: 4px; background: #3a3a3d; color: #e6e6e6; }
     .cc-preview { margin-top: .3rem; border: 1px solid #333; border-radius: 6px; background: #fff; min-height: 4rem; overflow: auto; }
     .cc-preview.empty { background: #252526; color: #6b7075; font-style: italic; padding: 1rem; }
 

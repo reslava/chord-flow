@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 36
+last_ai_block: 38
 ---
 # first-class-minor-keys Chat 001
 
@@ -748,3 +748,38 @@ commit
 3. `loadExercise` re-key mode.
 
 The whole thread (design → req → plan, 9 steps) is done; idea/design are marked done and req is locked. Committing 8b now.
+
+## Rafa:
+
+in lines 745-748 you mentioned:
+**Deferred follow-ups (none block the above):**
+1. Content-list payload carrying `initialKeyIsMinor` / a progression's `tonality`, so a harmony switch *auto*-picks minor mode (the JS seed already reads it).
+2. Content-editor preview (`content-crud.js`) minor mode.
+3. `loadExercise` re-key mode.
+
+write thread + idea to implement these defered follow-ups
+
+also I noticed that in content > progression a minor key is selected the alphaTex generated is:
+\ks A
+instead of
+\ks Aminor
+
+## AI:
+
+Done — new thread + idea created: **`domain/minor-mode-ui-threading`** → *Minor key mode — thread through content preview, list seeding & loadExercise* (`id_01KXSW3V26WPTK3D59E5TJC94D`). It captures all three deferred follow-ups as the explicit **8b remainder** of this thread, and I traced each one to its exact gap first so the idea is grounded:
+
+**Your `\ks A` bug is follow-up #2, and I confirmed the cause.** The whole kernel→bridge→router→`ContentCrudHandler.Preview(bool keyIsMinor = false)` chain already carries the flag (we built it in step 8a). The break is purely in the JS: the Content page previews through **ScoreR**, whose key control is **pitch-class only** — and `content-crud.js` `requestPreview()` sends `entityPreview` with `keyPitchClass` but no `keyIsMinor`. So `Preview` defaults `false` → `\ks A`. Nothing in C# to fix for the emit itself; the caller just never sends the mode.
+
+**That exposes the one real design decision** (surfaced in the idea, not pre-decided): ScoreR has no mode toggle, so how does the content preview learn its mode?
+1. **ScoreR grows a key-mode toggle** (twin of its key select) — live, user-switchable, symmetric with the Practice page. More UI + a new ScoreR seam.
+2. **Derive mode from the content's own tonality** (the progression's `Home` / song key flows through the seeds) — smaller, mode is a property of the content, no live knob.
+
+My lean is (2) for the *fix*, with (1) as a possible later nicety — but it's a design-doc call, and it also sets how much of follow-up #1's payload work we lean on. We'll settle it in `design.md`.
+
+**The other two, briefly:** #1 — the harmony controls JS *already* reads `item.initialKeyIsMinor`; the gap is the C# content-list payload not emitting it yet. #3 — `loadExercise` seeds the key pitch class but not the mode (no `seedKeyMode` on that path), so a saved minor exercise reopens major.
+
+**Two notes:**
+- I placed the thread in **`domain`** as a sibling of this one (keeps the minor-mode lineage together, `depends_on` set to first-class-minor-keys). The work itself is almost all UI/bridge plumbing, so if you'd rather it live in **`ui`**, say the word — `loom_move_thread` makes that a one-liner.
+- The `\ks A` bug is a genuinely small fix (send `keyIsMinor` from `content-crud.js`). If you want it hotfixed on its own before the full thread goes through design→req→plan, I can `code quick` just that. Otherwise it rides along as step #2 of the new thread.
+
+Want me to open `design.md` next (framed around the (1) vs (2) preview-mode decision), or settle that here first?

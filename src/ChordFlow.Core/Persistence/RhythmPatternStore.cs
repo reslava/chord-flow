@@ -1,3 +1,4 @@
+using ChordFlow.Music.Progressions;
 using ChordFlow.Music.Rhythm;
 using Microsoft.EntityFrameworkCore;
 
@@ -38,11 +39,13 @@ public sealed class RhythmPatternStore : IContentStore
     }
 
     /// <inheritdoc/>
-    public string Save(string? id, string name, string dsl)
+    public string Save(string? id, string name, string dsl, string? sourceId = null, Tonality? tonality = null)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(dsl);
 
+        // sourceId + tonality are unused: rhythm patterns carry no catalog metadata (no header, no mode).
+        _ = (sourceId, tonality);
         var ts = TimeSignature.FourFour; // 4/4 only today (EX-meter); a future `ts:` line is additive
 
         // User-only, fork-on-edit (content-source-model): update an existing user row in place; a blank id or

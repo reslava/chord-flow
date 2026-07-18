@@ -220,11 +220,11 @@ internal static class Program
                 // Reload a saved exercise: regenerated score + becomes the active definition. A live Key/Feel
                 // change ScoreR replays carries a transient keyOverride/tripletFeel that re-voices the displayed
                 // piece without touching the stored definition (scorer-render-params IN4/C2).
-                router.LoadExerciseRequested += (id, keyOverride, tripletFeel, renderOptions) =>
+                router.LoadExerciseRequested += (id, keyOverride, keyIsMinor, tripletFeel, renderOptions) =>
                 {
                     try
                     {
-                        LoadedExercise? loaded = library.Load(id, renderOptions, keyOverride, tripletFeel);
+                        LoadedExercise? loaded = library.Load(id, renderOptions, keyOverride, tripletFeel, keyIsMinor);
                         if (loaded is not null)
                         {
                             currentExercise = loaded.Exercise;
@@ -286,11 +286,11 @@ internal static class Program
                     try { bridge.Send(contentCrud.Preview(entity, dsl, renderOptions, tripletFeel, compingPatternId, keyPitchClass, keyIsMinor, tempo)); }
                     catch (FormatException ex) { bridge.Send(new EntityParseErrorEnvelope(entity, ex.Message)); }
                 };
-                router.EntitySaveRequested += (entity, id, name, dsl) =>
+                router.EntitySaveRequested += (entity, id, name, dsl, sourceId, tonality) =>
                 {
                     try
                     {
-                        bridge.Send(contentCrud.Save(entity, id, name, dsl));
+                        bridge.Send(contentCrud.Save(entity, id, name, dsl, sourceId, tonality));
                         bridge.Send(contentCrud.List(entity)); // refresh the list (and badges)
                     }
                     catch (FormatException ex) { bridge.Send(new EntityParseErrorEnvelope(entity, ex.Message)); }

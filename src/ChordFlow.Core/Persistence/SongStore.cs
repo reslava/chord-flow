@@ -1,3 +1,4 @@
+using ChordFlow.Music.Progressions;
 using ChordFlow.Music.Rhythm;
 using ChordFlow.Music.Songs;
 using ChordFlow.Persistence.Entities;
@@ -38,8 +39,8 @@ public sealed class SongStore : IContentStore
         return ContentSummaries.Build(rows.Select(s => (s.Id, s.Name, s.Origin, s.PackId)))
             .Select(summary =>
             {
-                (int? key, string? feel, int? tempo) = SeedsOf(rows, summary.Id);
-                return summary with { InitialKey = key, DefaultFeel = feel, DefaultTempo = tempo };
+                (int? key, string? feel, int? tempo, bool? isMinor) = SeedsOf(rows, summary.Id);
+                return summary with { InitialKey = key, DefaultFeel = feel, DefaultTempo = tempo, InitialKeyIsMinor = isMinor };
             })
             .ToList();
     }
@@ -49,23 +50,23 @@ public sealed class SongStore : IContentStore
     // Song.DefaultTempo BPM (or null when the song declares no tempo) — all values ExerciseRendering / the
     // transport fall back to, never a second stored copy (C5). A malformed or unresolved song yields all-null so
     // it still lists, just without seeds.
-    private (int? Key, string? Feel, int? Tempo) SeedsOf(IReadOnlyList<SongEntity> rows, string id)
+    private (int? Key, string? Feel, int? Tempo, bool? IsMinor) SeedsOf(IReadOnlyList<SongEntity> rows, string id)
     {
         SongEntity? winner = OriginResolver.ResolveOne(rows.Where(r => r.Id == id).ToList(), id);
         if (winner is null)
         {
-            return (null, null, null);
+            return (null, null, null, null);
         }
 
         try
         {
             (_, string body) = CatalogHeader.Parse(winner.Dsl);
             Song song = SongParser.Parse(winner.Id, winner.Name, body, _ts);
-            return (song.InitialKey.Tonic.Value, song.DefaultFeel?.ToString(), song.DefaultTempo);
+            return (song.InitialKey.Tonic.Value, song.DefaultFeel?.ToString(), song.DefaultTempo, song.InitialKey.IsMinor);
         }
         catch (FormatException)
         {
-            return (null, null, null);
+            return (null, null, null, null);
         }
     }
 
@@ -85,11 +86,13 @@ public sealed class SongStore : IContentStore
     }
 
     /// <inheritdoc/>
-    public string Save(string? id, string name, string dsl)
+    public string Save(string? id, string name, string dsl, string? sourceId = null, Tonality? tonality = null)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(dsl);
 
+        // A song's mode is its `key`/`mod` stream, not a `tonality:` header (EX4) — the explicit tonality is inert.
+        _ = tonality;
         (_, string body) = CatalogHeader.Parse(dsl);
 
         // User-only, fork-on-edit (content-source-model): update an existing user row in place; a blank id or
@@ -98,13 +101,20 @@ public sealed class SongStore : IContentStore
         string targetId = row?.Id ?? Guid.NewGuid().ToString();
         Validate(targetId, name, body);
 
+        // Metadata isn't edited here (EX3) but must NOT be destroyed: carry the source header (genre/tags/…)
+        // through — the in-place row's own, else the forked-from source's. No header ⇒ body stored verbatim.
+        CatalogMetadata meta = row is not null
+            ? CatalogHeader.Parse(row.Dsl).Metadata
+            : SourceMetadata(sourceId ?? id);
+        string storedDsl = CatalogHeader.Serialize(meta, body);
+
         if (row is null)
         {
             _db.Songs.Add(new SongEntity
             {
                 Id = targetId,
                 Name = name,
-                Dsl = body,
+                Dsl = storedDsl,
                 Origin = Origin.UserDefined,
                 CreatedUtc = DateTime.UtcNow,
             });
@@ -112,11 +122,25 @@ public sealed class SongStore : IContentStore
         else
         {
             row.Name = name;
-            row.Dsl = body;
+            row.Dsl = storedDsl;
         }
 
         _db.SaveChanges();
         return targetId;
+    }
+
+    // The catalog metadata to preserve when the editor didn't (and can't, EX3) carry it: resolve the source
+    // definition (across origins) and read its header. Empty when there is no source, or it carries no header.
+    private CatalogMetadata SourceMetadata(string? sourceKey)
+    {
+        if (string.IsNullOrWhiteSpace(sourceKey))
+        {
+            return CatalogMetadata.Empty;
+        }
+
+        List<SongEntity> rows = _db.Songs.AsNoTracking().Where(s => s.Id == sourceKey).ToList();
+        SongEntity? src = OriginResolver.ResolveOne(rows, sourceKey);
+        return src is null ? CatalogMetadata.Empty : CatalogHeader.Parse(src.Dsl).Metadata;
     }
 
     /// <inheritdoc/>

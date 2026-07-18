@@ -1,4 +1,5 @@
 using ChordFlow.Music.Harmony;
+using ChordFlow.Music.Progressions;
 using ChordFlow.Instruments.Guitar;
 using ChordFlow.Persistence;
 using ChordFlow.Persistence.Entities;
@@ -177,6 +178,94 @@ public class ContentCrudStoreTests
         Assert.Equal("17 47 17 57", doc!.Dsl); // header peeled off; only the body is editable (EX3)
     }
 
+    [Fact]
+    public void Save_ForkingAMinorProgression_PreservesTonality_SoItStillRealizesMinor()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        db.Progressions.Add(new ProgressionEntity
+        {
+            Id = "nat_min",
+            Name = "Natural Minor i-iv-v",
+            Dsl = "tonality: minor\n1- 4- 5-",
+            Origin = Origin.Pack,
+            PackId = "default",
+            CreatedUtc = DateTime.UtcNow,
+        });
+        db.SaveChanges();
+        var store = new ProgressionStore(db);
+
+        // The UI fork: editingId is null (a new user copy), sourceId names the shown package item.
+        string id = store.Save(id: null, name: "My Minor", dsl: "1- 4- 5-", sourceId: "nat_min");
+
+        // The fork is a fresh user row that KEEPS the source's tonality (not silently stripped to major).
+        Assert.NotEqual("nat_min", id);
+        ProgressionEntity copy = db.Progressions.AsNoTracking().Single(p => p.Id == id && p.Origin == Origin.UserDefined);
+        Assert.Contains("tonality: minor", copy.Dsl);
+        Assert.Equal(Tonality.Minor, store.Find(id)!.Home); // still realizes minor, not major
+    }
+
+    [Fact]
+    public void Save_EditingAUserRowWithTonality_KeepsItOnUpdate()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        db.Progressions.Add(new ProgressionEntity
+        {
+            Id = "u1", Name = "Mine", Dsl = "tonality: minor\n1- 4- 5-",
+            Origin = Origin.UserDefined, CreatedUtc = DateTime.UtcNow,
+        });
+        db.SaveChanges();
+        var store = new ProgressionStore(db);
+
+        string again = store.Save(id: "u1", name: "Mine v2", dsl: "1- 4- 6-", sourceId: "u1");
+
+        Assert.Equal("u1", again);
+        Assert.Equal(Tonality.Minor, store.Find("u1")!.Home); // tonality survived the in-place edit
+    }
+
+    [Fact]
+    public void Save_WithExplicitMinorTonality_AuthorsANewMinorProgression()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        var store = new ProgressionStore(db);
+
+        // The editor's tonality control sends "minor" on a brand-new progression (no source).
+        string id = store.Save(id: null, name: "My Minor", dsl: "1- 4- 5-", sourceId: null, tonality: Tonality.Minor);
+
+        Assert.Contains("tonality: minor", db.Progressions.AsNoTracking().Single(p => p.Id == id).Dsl);
+        Assert.Equal(Tonality.Minor, store.Find(id)!.Home);
+    }
+
+    [Fact]
+    public void Save_WithExplicitMajorTonality_WritesNoHeader_ForByteIdenticalMajor()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        var store = new ProgressionStore(db);
+
+        string id = store.Save(id: null, name: "My Major", dsl: "1 4 5 1", sourceId: null, tonality: Tonality.Major);
+
+        Assert.Equal("1 4 5 1", db.Progressions.AsNoTracking().Single(p => p.Id == id).Dsl); // no header emitted (C1)
+        Assert.Equal(Tonality.Major, store.Find(id)!.Home);
+    }
+
+    [Fact]
+    public void Save_ExplicitTonality_OverridesTheSourceOnFork()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        db.Progressions.Add(new ProgressionEntity { Id = "src", Name = "Src", Dsl = "tonality: minor\n1- 4- 5-", Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow });
+        db.SaveChanges();
+        var store = new ProgressionStore(db);
+
+        // A minor source, but the editor flips the control to major on save → the fork is major (explicit wins).
+        string id = store.Save(id: null, name: "Flipped", dsl: "1 4 5", sourceId: "src", tonality: Tonality.Major);
+
+        Assert.Equal(Tonality.Major, store.Find(id)!.Home);
+    }
+
     // ---- Rhythm --------------------------------------------------------------------------------
 
     [Fact]
@@ -312,5 +401,37 @@ public class ContentCrudStoreTests
         store.Save(id: null, name: "Tune", dsl: "1 4 5 1");
 
         Assert.Null(Assert.Single(store.List()).InitialKey);
+    }
+
+    // ---- List surfaces InitialKeyIsMinor so the harmony controls auto-pick minor (minor-mode-ui-threading IN4) ----
+
+    [Fact]
+    public void ProgressionList_SurfacesInitialKeyIsMinor_FromTheTonalityHeader()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        db.Progressions.Add(new ProgressionEntity { Id = "min", Name = "Min", Dsl = "tonality: minor\n1- 4- 5-", Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow });
+        db.Progressions.Add(new ProgressionEntity { Id = "maj", Name = "Maj", Dsl = "1 4 5 1", Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow });
+        db.SaveChanges();
+
+        var byId = new ProgressionStore(db).List().ToDictionary(s => s.Id);
+
+        Assert.True(byId["min"].InitialKeyIsMinor);   // `tonality: minor` header → the control seeds minor
+        Assert.False(byId["maj"].InitialKeyIsMinor);  // no header → major
+    }
+
+    [Fact]
+    public void SongList_SurfacesInitialKeyIsMinor_FromTheSongsOwnKeyMode()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        db.Songs.Add(new SongEntity { Id = "am", Name = "In Am", Dsl = "head = 1 4 5 1\nkey Am\nhead", Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow });
+        db.Songs.Add(new SongEntity { Id = "cmaj", Name = "In C", Dsl = "head = 1 4 5 1\nkey C\nhead", Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow });
+        db.SaveChanges();
+
+        var byId = new SongStore(db).List().ToDictionary(s => s.Id);
+
+        Assert.True(byId["am"].InitialKeyIsMinor);     // `key Am` → minor mode carried to the list
+        Assert.False(byId["cmaj"].InitialKeyIsMinor);  // `key C` → major
     }
 }
