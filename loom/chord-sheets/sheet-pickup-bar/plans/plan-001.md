@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KXPGHDR86C74B1XK3VNQN7HS
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.15.0
 steps:
   - id: model-builder-lead-in-cell-as
     order: 1

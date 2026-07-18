@@ -12,10 +12,11 @@ guitar tablature with **synchronized playback** via [alphaTab](https://www.alpha
 > your songs as **chord sheets**, and lets you author everything — progressions, songs,
 > rhythms, voicings — in compact **text DSLs**.
 
-> **New in v0.15.0** — a curated **song library**: 15 example songs across jazz, blues, rock,
-> flamenco, and pop, each built from the pack's progressions, plus a rebuilt documentation set
-> (a new **[DSL Guide](docs/dsl-guide.md)** for authoring your own content). Windows-only for
-> now — [download below](#download--install).
+> **New in v0.15.0** — **first-class minor keys** (author, spell, and play in any minor key),
+> **chord sheets you can play along with** (a time-following marker, Now/Next chord boards, and a
+> functional **harmonic-analysis** overlay), a unified **Score ⇄ Sheet** Practice page, and a curated
+> **15-song library** with a new **[DSL Guide](docs/dsl-guide.md)**. Windows-only for now —
+> [download below](#download--install).
 
 <p align="center">
   <a href="images/chord-flow-demo.gif"><img src="images/chord-flow-demo.gif" width="760" alt="ChordFlow playing a chord sheet — the visual-metronome marker follows the music in time as the score animates"></a>
@@ -54,20 +55,24 @@ works in every key. See the **[DSL Guide](docs/dsl-guide.md)**.
 ## Features
 
 ### Practice & playback
-Build an exercise from a **song or progression + rhythm + key + tempo + difficulty**, then play
-it as notation + TAB with a **synchronized beat cursor** and **two-track** (comping + lead)
-staves. Transport has **tempo**, **metronome**, **count-in**, separate rhythm/lead volumes, and
-**triplet feel (swing)** delegated to alphaTab's native `\tf` so the notation *reads* swung.
-**Now/Next chord fretboards** show the chord playing now and next as real voicings, and opt-in
-**auto-scroll** follows the cursor. A **tab / standard / both** staff-display switch and
-true **pickup (anacrusis)** bars round it out.
+Build an exercise from a **song or progression + rhythm + key (major or minor) + tempo +
+difficulty**, then play it as notation + TAB with a **synchronized beat cursor** and **two-track**
+(comping + lead) staves. Flip between the notation and a **chord sheet** of the *same* exercise with a
+**Score ⇄ Sheet** toggle — even mid-playback. Transport has **tempo**, **metronome**, **count-in**,
+separate rhythm/lead volumes, and **triplet feel (swing)** delegated to alphaTab's native `\tf` so the
+notation *reads* swung. **Now/Next chord fretboards** show the chord playing now and next as real
+voicings, and opt-in **auto-scroll** follows the cursor. A **tab / standard / both** staff-display
+switch and true **pickup (anacrusis)** bars round it out.
 
 ### Chord Sheets
 Print-and-play charts: **leadsheet** or **bar-grid** layout, any key, **letter / Nashville /
 Roman** chord names (with an optional second line), per-bar **chord-tone strip** + **fret
-diagram**, `%` similes for repeated bars, multi-chord-per-bar splitting, and **SVG / PNG / PDF**
-export on a clean light page — plus a play-along marker driven by the same playback engine as
-the tablature view.
+diagram**, `%` similes for repeated bars, multi-chord-per-bar splitting, **pickup (anacrusis)**
+lead-in cells, and **SVG / PNG / PDF** export on a clean light page. **Play along**: a marker
+follows the music in time — a **Visual metronome** (the current beat lights across each bar) or a
+**Per-chord** highlight — with **Now/Next** boards showing the current and coming chord as fretboard
+voicings. A **harmonic-analysis** overlay can label each chord by its **function** (secondary
+dominants, borrowed chords, tritone subs), colour-coded, so a chart *explains* the harmony.
 
 ### The Voicings Engine
 Voicings are **derived**, not authored: an introspectable **operator library** with per-grip
@@ -79,8 +84,9 @@ computed automatic source — is shown side by side with a source filter.
 
 ### Author your own content
 Four **text DSLs** — a key-independent **[Progression & Song DSL](docs/dsl-guide.md)** (multiple
-chords per bar, rich qualities, chromatic `#`/`b` degrees, arrangement with repeats + modulation,
-whole-song `capo` / `tempo` / `feel`), a **Rhythm DSL** (multi-bar patterns, `:n` subdivisions,
+chords per bar, rich qualities, chromatic `#`/`b` degrees, **major or minor** keys (`tonality: minor`),
+arrangement with repeats + modulation, whole-song `capo` / `tempo` / `feel`), a **Rhythm DSL**
+(multi-bar patterns, `:n` subdivisions,
 triplets, pickups, dotted notes + ties), and a **Voicing DSL** (movable CAGED shapes). Pin the
 exact grip a chord uses with a **movable literal voicing** or a **reference**, inline or as a
 reusable song default. Content ships as **open-core packs** (data-only, imported idempotently),

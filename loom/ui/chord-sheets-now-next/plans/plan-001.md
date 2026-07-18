@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KXMS3Z1MTACNXG5R4NXKA5TR
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.15.0
 steps:
   - id: surface-the-already-produced-chord-schedule
     order: 1

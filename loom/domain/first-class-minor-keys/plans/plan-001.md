@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KXQW333KYNQCH1P71VB9E35P
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.15.0
 steps:
   - id: transposer-realizes-minor-keys-via-major
     order: 1

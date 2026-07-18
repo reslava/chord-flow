@@ -2,7 +2,7 @@
 type: plan
 id: pl_01KXV8843X046HYG6F8TJGFZPX
 title: Reframe README & restructure user docs (+ song content) — v0.15.0
-status: implementing
+status: done
 created: 2026-07-18
 updated: 2026-07-18
 version: 1
@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KXV812D05P3W0WH994791QZ7
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.15.0
 steps:
   - id: author-the-6-showcase-tude-songs
     order: 1
@@ -57,7 +58,7 @@ steps:
     satisfies: [IN8]
   - id: changelog-release-v0-15-0
     order: 7
-    status: pending
+    status: done
     description: Add a v0.15.0 CHANGELOG entry (new songs + doc restructure) and ship via the do-release flow.
     files_touched: [CHANGELOG.md]
     blocked_by: []
@@ -81,7 +82,7 @@ Reframe the public docs into a four-surface model — README as shop window, `do
 | ✅ | 4 | Rewrite the README as a shop window (one-line what-it-is, a Highlights section, ~5 grouped feature blocks replacing the flat list, a short 'new this release' line, slim dev section), move project-layout/tests/build into new docs/dev-notes.md, and repoint the README DSL link loom/refs → docs/dsl-guide.md. | README.md, docs/dev-notes.md | — | IN3, IN4, IN5, IN7, C3 |
 | ✅ | 5 | Add Chord Sheets (print + play-along) and the Voicings grid to the user guide and repoint its DSL link loom/refs → docs/dsl-guide.md. | docs/user-guide.md | — | IN6, IN7, C2 |
 | ✅ | 6 | Place Rafa-supplied refreshed screenshots (images/screenshots/NN-name.png, incl. Chord Sheets + Voicings-grid) and exported Chord-Sheet PDFs under images/sheets/, and link them from the README highlights and the guides. | README.md, docs/user-guide.md, docs/dsl-guide.md, images/sheets/ | — | IN8 |
-| 🔳 | 7 | Add a v0.15.0 CHANGELOG entry (new songs + doc restructure) and ship via the do-release flow. | CHANGELOG.md | — | IN9 |
+| ✅ | 7 | Add a v0.15.0 CHANGELOG entry (new songs + doc restructure) and ship via the do-release flow. | CHANGELOG.md | — | IN9 |
 ---
 
 ### Legend

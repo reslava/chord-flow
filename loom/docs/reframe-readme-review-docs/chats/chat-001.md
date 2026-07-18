@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-last_ai_block: 12
+last_ai_block: 14
 ---
 # reframe-readme-review-docs Chat 001
 
@@ -315,3 +315,19 @@ The content **rhythms** preview looked blank because the shared `ChordFlowRender
 - *(next)* the docs + 12 songs + assets for this thread.
 
 **Left — step 7, on your go:** `do-release` v0.15.0 (CHANGELOG, version bump, build/test, tag, push, monitor). I'm holding it until (a) you've re-shot `05-content-rhythms.png` on the fixed build, and (b) you say go — since it's the outward-facing publish. Just say **release** when ready.
+
+## Rafa:
+
+The solution worked; a screenshot was taken and the file was overwritten.
+release
+
+## AI:
+
+**v0.15.0 is shipping.** Reframe plan-001 is fully done (step 7 ✅, auto-closed and stamped).
+
+- **Changelog** — authored the `[0.15.0]` section covering the *whole* unreleased backlog, not just this thread: 25 done plans — first-class minor keys, chord-sheet play-along + the metronome-true visual marker, Now/Next on sheets, the harmonic-analysis overlay, pickup bars, the unified Score⇄Sheet page, metronome/count-in + several regression fixes — plus this thread's 15-song library, the DSL/dev guides, and the rhythms-preview fix.
+- **Docs** brought current with the full scope: README callout + Practice/Chord-Sheets/Authoring blocks, user-guide (minor keys + analysis/Now-Next), dev-notes test count → 1058.
+- **Gates green** — `build -c Release` + `test -c Release` = **1058/1058**; `record-release 0.15.0` stamped every done plan.
+- **Heads-up:** a dependency advisory surfaced during the build — `NU1903`, `SQLitePCLRaw.lib.e_sqlite3 2.1.11` (high severity). Non-blocking for this release; worth a follow-up patch to bump it.
+
+Tagging `v0.15.0` and pushing now; I'll watch the release workflow (`guard → build-test → release`) and report when the GitHub release + `ChordFlow-v0.15.0-win-x64.zip` are published.

@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KXT9SEKXG87T69JPW7AQ018T
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.15.0
 steps:
   - id: sheet-projection-on-the-preview-envelope
     order: 1

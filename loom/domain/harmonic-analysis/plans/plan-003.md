@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KXQFJYNF0D10R9B5VR3JP930
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.15.0
 steps:
   - id: author-the-golden-oracle-reference-doc
     order: 1

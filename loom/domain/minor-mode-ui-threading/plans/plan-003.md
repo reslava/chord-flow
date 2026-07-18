@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KXT0K179D9EVX7CY1EE40WYN
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.15.0
 steps:
   - id: fixed-the-content-editor-preview-realizing
     order: 1

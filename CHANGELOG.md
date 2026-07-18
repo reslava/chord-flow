@@ -6,6 +6,61 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-07-19
+
+This release makes **minor keys first-class** and turns **chord sheets into a play-along instrument**. You
+can now author and play music in any minor key end to end; a chord sheet follows the music in time with a
+visual metronome and Now/Next chord boards, and can *explain* the harmony with functional-analysis labels.
+Practice and Chord Sheets merged into **one page** with a Score ⇄ Sheet toggle, and the starter library grew
+to **15 songs** with a new authoring guide.
+
+### Added
+- **First-class minor keys, end to end.** Author a progression or song in a minor key and everything follows
+  — a `tonality: minor` progression realizes with the right chords, spells raised tones letter-pure (G♯, not
+  A♭), shows a proper minor key signature, and plays. A **major/minor toggle** sits beside the Key control on
+  both Practice and the Content editor, and the starter pack ships **8 minor progressions** (minor ii–V–i,
+  Andalusian cadence, natural- and harmonic-minor i–iv–v, minor turnaround, Aeolian loop, Picardy cadence,
+  minor 12-bar blues).
+- **Play along with a chord sheet.** Press Play on the Chord Sheets view and a marker follows the music in
+  time — driven by the same playback engine as the tablature — as either a **Visual metronome** (the current
+  beat lights up across each bar) or a **Per-chord** highlight. Metronome and count-in work here too.
+- **Now/Next chord boards on Chord Sheets.** See the chord playing **now** and the one coming **next** as real
+  fretboard voicings, synced to playback.
+- **Harmonic-analysis overlay.** A chord sheet can label each chord by its **function** — secondary dominants
+  (`V7/ii`), borrowed chords, tritone subs, passing diminished — with a 3-state **Diatonic / Analysis / Both**
+  selector and colour-coding by category, so a chart teaches the harmony, not just the chord names.
+- **Pickup (anacrusis) bars on chord sheets.** A song with a pickup renders it as a narrow, labelled lead-in
+  cell, and the play-along marker steps through it correctly.
+- **A real song library — 15 songs.** Twelve new example songs across jazz, blues, rock, flamenco, and pop
+  (turnaround and minor-cadence studies, an Aeolian vamp, an Andalusian descent, a minor blues, plus
+  "in-the-style-of" tunes), each built from the pack's progressions — so the app is full of things to play out
+  of the box.
+- **New authoring guide.** A user-facing **[DSL Guide](docs/dsl-guide.md)** teaches writing progressions,
+  rhythms, voicings, and songs with worked examples, and a **[Developer Notes](docs/dev-notes.md)** doc
+  collects the build/test/layout detail.
+- **Curated major-frame progression pack + `description:` field.** More starter progressions (secondary-dominant
+  chains, borrowed-chord cadences, modal mixtures) with human-readable descriptions and concept/difficulty tags.
+
+### Changed
+- **Practice and Chord Sheets are one page.** Instead of two separate pages, a single Practice page carries a
+  **Score ⇄ Sheet** toggle — flip between the notation and the chord chart of the *same* exercise, even
+  mid-playback, with the marker and cursor staying in sync. The Content editor previews on the same shared
+  surface, so the two pages can't drift.
+- **A metronome-true visual marker.** The Visual-metronome marker now advances by real elapsed time — steady
+  through held notes and rests, and correct across a pickup bar — instead of jumping per chord.
+- **Reframed documentation.** The README is now a highlights-led shop window with grouped features; the User
+  Guide gained Chord Sheets and Voicings sections; all authoring links point to the new DSL Guide.
+- **Playback stops when you leave.** Switching pages, or the window losing focus / closing, now stops any
+  sounding playback.
+
+### Fixed
+- **Metronome & count-in were silent** (a regression from an earlier refactor) — restored.
+- **The Content rhythms preview showed a blank score** after switching from a Sheet view — fixed.
+- **Editing or forking a minor progression dropped its minor tonality** (it previewed and realized as major) —
+  fixed; the mode is now preserved and honored in the preview.
+- **The Chord Sheets "Below cell" tone strip / fret diagram stopped appearing** — fixed.
+- **The Chord Sheets "Show tab" staff was unreadable on the dark theme** — fixed.
+
 ## [0.14.0] — 2026-07-14
 
 This release turns ChordFlow's songs and progressions into **printable chord sheets** — the classic
@@ -569,6 +624,7 @@ as tablature, and plays it back with a synchronized beat cursor.
   the next phase).
 - No audio-input accuracy detection (out of scope for v1).
 
+[0.15.0]: https://github.com/reslava/chord-flow/releases/tag/v0.15.0
 [0.14.0]: https://github.com/reslava/chord-flow/releases/tag/v0.14.0
 [0.13.0]: https://github.com/reslava/chord-flow/releases/tag/v0.13.0
 [0.12.0]: https://github.com/reslava/chord-flow/releases/tag/v0.12.0

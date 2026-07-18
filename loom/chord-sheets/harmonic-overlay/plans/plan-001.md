@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KXV0JDNCMH8MJV7Y10A7V8R1
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.15.0
 steps:
   - id: core-rendering-formatter
     order: 1

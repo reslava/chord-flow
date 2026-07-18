@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KXKV7EN0F0QCC3196R17Z3AC
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.15.0
 steps:
   - id: engine-event-bus
     order: 1

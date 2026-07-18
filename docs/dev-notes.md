@@ -45,7 +45,7 @@ dotnet run --project src/ChordFlow.Desktop
 dotnet test
 ```
 
-The xUnit suite covers the `Music` kernel (incl. the `IntervalSpeller` interval-naming +
+The xUnit suite (1058 tests) covers the `Music` kernel (incl. the `IntervalSpeller` interval-naming +
 parsing authority and `QualityFormulas`), the guitar **interval lattice**, **CAGED octave
 shapes**, the **CAGED chord-derivation engine** (an introspectable **operator library** with
 derivation traces) + **voicing families** (shell / doubled-shell, against a golden oracle),

@@ -4,7 +4,7 @@ id: pl_01KXV8843X046HYG6F8TJGFZPX-done
 title: Done — Reframe README & restructure user docs (+ song content) — v0.15.0
 status: done
 created: 2026-07-18
-version: 6
+version: 7
 tags: []
 parent_id: pl_01KXV8843X046HYG6F8TJGFZPX
 requires_load: []
@@ -104,3 +104,11 @@ Wired Rafa's supplied assets into the docs (IN8).
 - `05-content-rhythms.png` is Rafa's *old* (pre-fix) shot; it's referenced in the user guide by its stable name and Rafa will **overwrite it in place** with a fresh capture once the rhythms-page bug is fixed.
 
 Verified every image and markdown-PDF reference in README + docs resolves to a real file.
+
+## Step 7 — Add a v0.15.0 CHANGELOG entry (new songs + doc restructure) and ship via the do-release flow.
+
+Authored the **v0.15.0** CHANGELOG entry (Highlights → Added / Changed / Fixed) covering the full unreleased backlog — the 24 Unreleased done plans (first-class minor keys end-to-end; chord-sheet play-along with the metronome-true visual marker; Now/Next boards on sheets; the harmonic-analysis overlay; pickup/anacrusis lead-in cells; the unified Score⇄Sheet Practice page; metronome/count-in + several regression fixes) **plus** this thread's 15-song library, the new DSL/dev guides, and the rhythms-preview fix — synthesized in-session from `loom report release-notes`.
+
+Brought the docs current with the full release scope (per Rafa: "update anything in documentation you catch"): README's "New in v0.15.0" callout + the Practice / Chord Sheets / Authoring feature blocks (minor keys, play-along marker, analysis overlay, Now/Next, Score⇄Sheet toggle); user-guide (major/minor Key note + the Chord-Sheets analysis/Now-Next line); dev-notes test count → 1058. Added the `[0.15.0]` link reference.
+
+Coverage-net clean: every commit since v0.14.0 maps to an Unreleased done plan; no stale-leak (all done docs dated after the v0.14.0 tag). Shipping via the do-release flow (csproj → 0.15.0, `build -c Release` + `test -c Release`, `record-release`, annotated tag `v0.15.0`, push + workflow watch).

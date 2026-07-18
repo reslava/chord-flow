@@ -57,7 +57,7 @@ top is the **builder** — choose your ingredients left to right:
 | **Harmony** | The chord material — a song or a progression (e.g. *Blues Song Demo*). |
 | **Comping** | The rhythm/strum pattern the chords are played with (e.g. *Beats 1 & 3*). |
 | **Lead** | An optional lead line over the chords — leave it on *(none)* for rhythm-only practice. |
-| **Key** | Transpose the whole exercise to any of the 12 keys. |
+| **Key** | Transpose the whole exercise to any of the 12 keys, **major or minor**. |
 | **Difficulty** | How involved the chord voicings are. |
 | **Feel** | Straight, swing, and other rhythmic feels. |
 
@@ -102,7 +102,10 @@ page for printing).
 
 And you can **play along**: press **Play** and a marker follows the music in time — either a
 **visual metronome** (the current beat lights up across each bar) or a **per-chord** highlight,
-driven by the same playback engine as the Practice view.
+driven by the same playback engine as the Practice view. Optional **Now/Next** boards show the current
+and coming chord as fretboard voicings, and a **harmonic-analysis** view can label each chord by its
+function (secondary dominants, borrowed chords, and so on) — turn it on with the **Diatonic / Analysis /
+Both** control.
 
 <figure>
   <a href="../images/screenshots/02-practice-chord-sheet.png"><img src="../images/screenshots/02-practice-chord-sheet.png" width="480" alt="A chord sheet rendered as a one-page chart, with the play-along marker"></a>

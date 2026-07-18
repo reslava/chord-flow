@@ -12,6 +12,7 @@ tags: []
 parent_id: de_01KXJJJYD9XBRYED1F8HYTG74H
 requires_load: []
 target_version: 0.1.0
+actual_release: 0.15.0
 steps:
   - id: fixed-the-chord-sheets-below-cell
     order: 1
