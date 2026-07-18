@@ -105,6 +105,10 @@ window.ChordFlowRenderSurface = (function () {
     // The Score ⇄ Sheet toggle leads the transport strip; PlayerControlsR (bound to the one engine) follows.
     // Score-only mode has no toggle — the single score surface is always visible.
     const toggle = sheetEnabled ? buildToggle(transportEl, scoreEl, sheetEl) : null;
+    // Score-only mode (e.g. a rhythm preview) has no toggle to establish surface visibility. If a prior
+    // sheet-mode composite left the page-owned scoreEl collapsed (the Sheet view was showing when the entity
+    // switched to a score-only kind), un-collapse it here — otherwise the score renders into a max-height:0 box.
+    if (!toggle) scoreEl.classList.remove("view-collapsed");
     const showSurface = toggle ? toggle.show : function () {};
     const pc = window.ChordFlowPlayerControls.create(transportEl, engine, opts.playerOpts || {});
 
