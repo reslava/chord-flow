@@ -9,8 +9,10 @@
 // `package` by name. Package/automatic items are read-only; "Duplicate to user" forks an editable copy.
 // The source filter is transient (resets when the view re-inits / the entity tab changes).
 //
-// The only per-entity divergence is the PREVIEW STRATEGY — the shared ChordFlowScore render component for
-// progression/song/rhythm, the shared ChordFlowFretboard SVG fret-box for voicing. Lazily initialized.
+// The only per-entity divergence is the PREVIEW STRATEGY — the shared ChordFlowRenderSurface composite (ScoreR +
+// ChordSheetR behind the Score⇄Sheet toggle + page transport) for progression/song, the same composite in
+// score-only mode for rhythm (no sheet), and the shared ChordFlowFretboard SVG fret-box for voicing. Lazily
+// initialized; the composite is the SAME one Practice mounts, so the two pages' render surface cannot drift.
 "use strict";
 
 window.ChordFlowContent = (function () {
@@ -19,16 +21,17 @@ window.ChordFlowContent = (function () {
   // The per-entity config — the table that makes one component serve all four.
   const ENTITIES = [
     {
-      key: "progression", label: "Progressions", previewKind: "score", comping: true, tonality: true,
+      key: "progression", label: "Progressions", previewKind: "score", sheet: true, comping: true, tonality: true,
       placeholder: "17 47 17 57",
       help: "Nashville numbers. Space = next bar, _ = next chord in the bar (e.g. 1_4 5).",
     },
     {
-      key: "song", label: "Songs", previewKind: "score", comping: true,
+      key: "song", label: "Songs", previewKind: "score", sheet: true, comping: true,
       placeholder: "intro = 17 47 17 17\nintro",
       help: "Define parts (NAME = inline | NAME: stored-id), then list them in order.",
     },
     {
+      // Rhythm previews score-only — a bare rhythm on a single I chord has no meaningful chord sheet (C2).
       key: "rhythm", label: "Rhythms", previewKind: "score",
       placeholder: "X...X...X...X...",
       help: "X = attack, . = sustain the sounding note, - = rest, _ = tie. A note lasts its dots; X..... = dotted quarter. Leading :n sets the subdivision.",
@@ -51,7 +54,10 @@ window.ChordFlowContent = (function () {
   let items = [];              // last-rendered list items
   let activeSources = null;    // Set of active filter keys (null = uninitialized → all on); transient
   let knownKeys = new Set();   // filter keys seen this session, so a toggled-off key isn't re-enabled on refresh
-  let scoreView = null;        // lazy ChordFlowScore handle (full player + toggles) for the score strategy
+  let surfaceView = null;      // lazy ChordFlowRenderSurface handle (composite: ScoreR + ChordSheetR + Score⇄Sheet
+                               // toggle + page transport) for the score strategy
+  let surfaceHasSheet = false; // whether the live composite was built with a Sheet surface (progression/song); a
+                               // switch to/from rhythm (score-only) recreates it (ensureSurface)
   let diagramView = null;      // lazy ChordFlowFretboard handle for the voicing fret-box strategy
   let debounceTimer = null;
   // The selected item's render-param seeds (scorer-render-params IN7): captured on entityLoaded and applied to
@@ -62,7 +68,7 @@ window.ChordFlowContent = (function () {
 
   // DOM refs (set in buildDom)
   let root, tabsEl, listEl, filterEl, nameEl, dslEl, helpEl, errorEl;
-  let saveBtn, deleteBtn, duplicateBtn, newBtn, previewWrap, scoreEl, diagramEl, compingBar, compingEl;
+  let saveBtn, deleteBtn, duplicateBtn, newBtn, previewWrap, scoreSurfaceEl, transportEl, scoreEl, sheetEl, diagramEl, compingBar, compingEl;
   let tonalityRow, tonalityEl;
 
   const setStatus = (text) => {
@@ -116,8 +122,12 @@ window.ChordFlowContent = (function () {
             <select id="ccComping"></select>
           </div>
           <div class="cc-preview empty" id="ccPreview">
-            <div id="ccPreviewScore"></div>
-            <div id="ccPreviewDiagram"></div>
+            <div id="ccScoreSurface" hidden>
+              <div id="ccPreviewTransport" class="cf-controls"></div>
+              <div id="ccPreviewScore"></div>
+              <div id="ccPreviewSheet" class="view-collapsed"></div>
+            </div>
+            <div id="ccPreviewDiagram" hidden></div>
           </div>
         </div>
       </div>`;
@@ -134,7 +144,10 @@ window.ChordFlowContent = (function () {
     duplicateBtn = document.getElementById("ccDuplicate");
     newBtn = document.getElementById("ccNew");
     previewWrap = document.getElementById("ccPreview");
+    scoreSurfaceEl = document.getElementById("ccScoreSurface");
+    transportEl = document.getElementById("ccPreviewTransport");
     scoreEl = document.getElementById("ccPreviewScore");
+    sheetEl = document.getElementById("ccPreviewSheet");
     diagramEl = document.getElementById("ccPreviewDiagram");
     compingBar = document.getElementById("ccCompingBar");
     compingEl = document.getElementById("ccComping");
@@ -241,12 +254,13 @@ window.ChordFlowContent = (function () {
       return;
     }
     // Carry the preview component's current toggles + render params so the re-rendered score reflects them. Before
-    // the score component exists we fall back to the selected item's seeds (pendingSeeds) so even the FIRST preview
+    // the render surface exists we fall back to the selected item's seeds (pendingSeeds) so even the FIRST preview
     // renders in the right key/tempo/feel (scorer-render-params IN7); renderOptions still omits ⇒ host defaults.
-    const renderOptions = scoreView ? scoreView.getRenderOptions() : undefined;
-    const tripletFeel = scoreView ? scoreView.getTripletFeel() : pendingSeeds.feel;
-    const keyPitchClass = scoreView ? scoreView.getKey() : pendingSeeds.key;
-    const tempo = scoreView ? scoreView.getTempo() : pendingSeeds.tempo;
+    const params = surfaceView ? surfaceView.getRenderParams() : null;
+    const renderOptions = params ? params.renderOptions : undefined;
+    const tripletFeel = params ? params.tripletFeel : pendingSeeds.feel;
+    const keyPitchClass = params ? params.key : pendingSeeds.key;
+    const tempo = params ? params.tempo : pendingSeeds.tempo;
     // Comping is a progression/song-only content knob; omitted elsewhere ⇒ host applies the beat_1_3 default.
     const compingPatternId = current.comping ? (compingEl.value || DEFAULT_COMPING) : undefined;
     // Tonality is a progression-only content property; the control drives the live preview (\ks major vs minor).
@@ -457,7 +471,7 @@ window.ChordFlowContent = (function () {
   function renderPreview(msg) {
     previewWrap.classList.remove("empty");
     if (msg.kind === "diagram") {
-      scoreEl.hidden = true;
+      scoreSurfaceEl.hidden = true;   // hide the whole score surface (transport + score + sheet)
       diagramEl.hidden = false;
       if (window.ChordFlowFretboard && msg.diagram) {
         // Voicings default to a vertical chord-box with an auto-fit window — hide the fret-window control, but
@@ -471,45 +485,64 @@ window.ChordFlowContent = (function () {
       }
       return;
     }
-    // score
+    // score (progression/song = with Sheet behind the toggle; rhythm = score-only)
     diagramEl.hidden = true;
-    scoreEl.hidden = false;
-    renderScore(msg.tex, msg.tempo);
+    scoreSurfaceEl.hidden = false;
+    renderScore(msg);
   }
 
-  // Push the captured item seeds onto ScoreR (no-op until it exists — renderScore re-applies on lazy creation).
-  // Seeds only, never a re-render: the score the host already sent is in the seeded key/tempo/feel.
+  // Push the captured item seeds onto the composite's ScoreR (no-op until it exists — ensureSurface re-applies on
+  // lazy creation). Seeds only, never a re-render: the score the host already sent is in the seeded key/tempo/feel.
   function applySeeds() {
-    if (!scoreView) return;
-    scoreView.seedKey(pendingSeeds.key);
-    scoreView.seedTempo(pendingSeeds.tempo);
-    scoreView.seedTripletFeel(pendingSeeds.feel);
+    if (!surfaceView) return;
+    surfaceView.seedKey(pendingSeeds.key);
+    surfaceView.seedTempo(pendingSeeds.tempo);
+    surfaceView.seedTripletFeel(pendingSeeds.feel);
   }
 
-  // Reuse the shared render component (full player + toggles) so progression/song/rhythm previews get the
-  // same transport + metronome/count-in/chord-name/diagram options as Practice, off one alphaTab
-  // integration. A content-toggle change re-requests the preview with the new renderOptions.
-  function renderScore(tex, tempo) {
-    if (!tex || !window.ChordFlowScore) return;
-    if (!scoreView) {
-      scoreView = window.ChordFlowScore.create(scoreEl, {
-        player: true,
-        controls: "full",
-        debugPanel: true,   // the alphaTex scratchpad is available on every score-rendering page
-        tripletFeel: true,  // preview progression/song/rhythm with a chosen swing (carried on entityPreview)
-        key: true,          // Key/Tempo/Feel are seeded per content + live like Practice (scorer-render-params IN7)
+  // Create the shared render-surface composite lazily, or recreate it when the needed Sheet mode changes
+  // (progression/song = with Sheet + toggle; rhythm = score-only). Content keeps Key/Feel pickers ON ScoreR
+  // (there's no HarmonyControlsR here, C3); the page transport rides inside the composite.
+  function ensureSurface() {
+    const needSheet = !!current.sheet;
+    if (surfaceView && surfaceHasSheet !== needSheet) {
+      surfaceView.dispose();       // self-cleans its toggle + transport + surfaces
+      surfaceView = null;
+    }
+    if (!surfaceView) {
+      surfaceView = window.ChordFlowRenderSurface.create({
+        transportEl, scoreEl, sheetEl,
+        sheet: needSheet,
+        scoreOpts: {
+          player: true,
+          controls: "full",
+          debugPanel: true,   // the alphaTex scratchpad is available on every score-rendering page
+          tripletFeel: true,  // preview progression/song/rhythm with a chosen swing (carried on entityPreview)
+          key: true,          // Key/Tempo/Feel are seeded per content + live like Practice (scorer-render-params IN7)
+        },
         onNeedsRerender: () => requestPreview(),
       });
-      applySeeds();   // the component was just created — reflect the selected item's seeds on its controls
+      surfaceHasSheet = needSheet;
+      applySeeds();   // the surface was just created — reflect the selected item's seeds on its controls
     }
-    // Pass the host's rendered tempo so baseTempo matches the alphaTex \tempo (playback stays in sync); the tempo
-    // control was already seeded, but a fresh load re-bases it (twin of the Practice loadScore path).
-    scoreView.load(tex, { tempo });
+  }
+
+  // Feed both projections of the entityPreview reply to the composite (IN2/IN4): ScoreR loads the tex, the Sheet
+  // surface (progression/song) renders the sheet model + its marker schedule. The host's rendered tempo re-bases
+  // the engine so playback matches the alphaTex \tempo (twin of the Practice loadScore path).
+  function renderScore(msg) {
+    if (!msg.tex || !window.ChordFlowRenderSurface) return;
+    ensureSurface();
+    surfaceView.load({
+      tex: msg.tex, tempo: msg.tempo,
+      sheet: msg.sheet, cellSchedule: msg.cellSchedule,
+      name: nameEl.value.trim() || current.label, // the Sheet export filename base
+    });
   }
 
   function clearPreview() {
     previewWrap.classList.add("empty");
-    scoreEl.hidden = true;
+    scoreSurfaceEl.hidden = true;
     diagramEl.hidden = true;
     diagramEl.textContent = "";
   }

@@ -173,7 +173,9 @@ public sealed class ContentCrudHandler
             using var db = new ChordFlowDbContext(_dbOptions);
             return kind switch
             {
-                ContentEntity.Progression => ScorePreview(entity, ProgressionPreview(dsl, tripletFeel, ResolveComping(compingPatternId, db), overrideKey ?? PreviewKey, previewTempo), db, opts),
+                // Progression/song carry the chord-sheet projection too (IN4/IN5) so Content can mount the
+                // shared Score⇄Sheet composite; rhythm stays score-only (a bare rhythm has no meaningful sheet).
+                ContentEntity.Progression => ScoreWithSheetPreview(entity, ProgressionPreview(dsl, tripletFeel, ResolveComping(compingPatternId, db), overrideKey ?? PreviewKey, previewTempo), db, opts),
                 ContentEntity.Rhythm => ScorePreview(entity, RhythmPreview(dsl, tripletFeel, overrideKey ?? PreviewKey, previewTempo), db, opts),
                 ContentEntity.Song => SongPreview(entity, dsl, db, opts, tripletFeel, ResolveComping(compingPatternId, db), overrideKey, previewTempo),
                 ContentEntity.Voicing => VoicingPreview(entity, dsl),
@@ -192,13 +194,26 @@ public sealed class ContentCrudHandler
     }
 
     // Expansion (the one I/O seam) runs through ExerciseRendering against the live db's progression store,
-    // so a progression/rhythm preview goes down the exact same path a saved exercise renders through.
+    // so a preview goes down the exact same path a saved exercise renders through. The tex-only arm (rhythm):
+    // a bare rhythm on a single I chord has no meaningful chord sheet, so it carries no sheet projection.
     private EntityPreviewEnvelope ScorePreview(string entity, Exercise exercise, ChordFlowDbContext db, RenderOptions options) =>
         new(entity, "score",
             ExerciseRendering.RenderToTex(
                 exercise, new ProgressionStore(db), _renderer, StoredVoicingSource.From(new VoicingStore(db)), options,
                 VoicingReferenceSource.From(new VoicingStore(db))),
             exercise.Tempo);
+
+    // The progression/song arm: one realized-song pass yields the tex AND the chord-sheet projection (Sheet +
+    // CellSchedule), mirroring the unified loadScore reply — so the Content preview's score and sheet derive
+    // from the same pass and cannot drift (content-shared-render-surfaces IN4/IN5).
+    private EntityPreviewEnvelope ScoreWithSheetPreview(string entity, Exercise exercise, ChordFlowDbContext db, RenderOptions options)
+    {
+        ExerciseProjections proj = ExerciseRendering.RenderWithSheet(
+            exercise, new ProgressionStore(db), _renderer, StoredVoicingSource.From(new VoicingStore(db)), options,
+            VoicingReferenceSource.From(new VoicingStore(db)));
+        return new EntityPreviewEnvelope(
+            entity, "score", proj.Render.Tex, exercise.Tempo, Sheet: proj.Sheet, CellSchedule: proj.CellSchedule);
+    }
 
     // Resolve the chosen comping id → RhythmPattern via the shared seam (also used by generate/load); a blank id
     // falls back to the app default beat_1_3, an unknown non-blank id fails loud (→ entityParseError, IN6).
@@ -231,16 +246,14 @@ public sealed class ContentCrudHandler
     }
 
     // startKey null ⇒ the Song renders in its OWN authored InitialKey (the preview's no-key default); a supplied
-    // key transposes it live (scorer-render-params IN4). tempo drives the rendered \tempo so playback matches the seed.
+    // key transposes it live (scorer-render-params IN4). tempo drives the rendered \tempo so playback matches the
+    // seed. Built as an Exercise and routed through the shared sheet-carrying pass (IN4/IN5): KeyOverride carries
+    // startKey, so RenderCore's baseKey (KeyOverride ?? Song.InitialKey) preserves the "own key when absent" rule.
     private EntityPreviewEnvelope SongPreview(string entity, string dsl, ChordFlowDbContext db, RenderOptions options, TripletFeel tripletFeel, RhythmPattern comping, Key? startKey, int tempo)
     {
         Song song = SongParser.Parse("preview", "Preview", dsl, TimeSignature.FourFour);
-        RealizedSong realized = SongExpander.Expand(song, new ProgressionStore(db), startKey);
-        CompingPlan plan = CompingResolver.Resolve(
-            realized, options.VoicingOrDefault, StoredVoicingSource.From(new VoicingStore(db)),
-            VoicingReferenceSource.From(new VoicingStore(db)));
-        string tex = _renderer.Render(realized, comping, tempo, Difficulty.Beginner, plan, tripletFeel, options: options).Tex;
-        return new EntityPreviewEnvelope(entity, "score", tex, tempo);
+        var exercise = new Exercise(song, comping, Lead: null, KeyOverride: startKey, tempo, Difficulty.Beginner, tripletFeel);
+        return ScoreWithSheetPreview(entity, exercise, db, options);
     }
 
     private static EntityPreviewEnvelope VoicingPreview(string entity, string dsl)

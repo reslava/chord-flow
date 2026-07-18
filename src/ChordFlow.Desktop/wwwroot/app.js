@@ -1,19 +1,21 @@
-// ChordFlow Practice view — ONE page, two view surfaces (harmony-controls-r).
+// ChordFlow Practice view — ONE page, the shared render-surface composite + the page-specific controls.
 //
-// The shell of the single Practice page: it mounts the shared components ONCE and swaps only the view surface —
+// The shell of the single Practice page: it mounts the shared components ONCE and wraps the composite —
 //   • HarmonyControlsR (harmony-controls-component.js) — the definition strip (harmony/key/feel/comping+vol/
 //     lead+vol/difficulty/voicing window/Generate/Save/Mark practiced), fed the entity* catalog.
-//   • a page-level transport strip: the Score ⇄ Sheet segmented toggle + PlayerControlsR bound to ScoreR's
-//     engine (ScoreR is created with transport:false — the transport must survive the view toggle).
-//   • ChordFlowNowNext — the now/next chord fretboards, view-independent.
-//   • the Score view: ScoreR (staff/notation toggles + debug panel + alphaTab), volumes/key/feel off — those
-//     live in HarmonyControlsR now.
-//   • the Sheet view: ChordFlowSheetView (chord-sheets.js) — sheet display strip + ChordSheetR + exports.
+//   • ChordFlowRenderSurface (render-surface-component.js) — the shared composite: ScoreR (staff/notation
+//     toggles + debug panel + the ONE engine) + ChordSheetR behind the Score ⇄ Sheet toggle + a page-level
+//     PlayerControlsR bound to that engine (survives the toggle) + the beat/position marker fan-out. Practice
+//     mounts it into #transport-strip / #score-pane / #sheet-pane and keeps volumes/key/feel OUT of ScoreR
+//     (they live in HarmonyControlsR beside it). The SAME composite backs the Content preview.
+//   • ChordFlowNowNext — the now/next chord fretboards, view-independent (Practice-only, EX4): fed the
+//     loadScore schedule + the composite's onBeat passthrough, never owned by the composite.
 //
-// ONE render-producing reply feeds both views (IN3): loadScore carries { tex, tempo, key, tripletFeel,
-// schedule, sheet, cellSchedule } — the score and the chord sheet are projections of the same Exercise pass.
-// The view toggle collapses (max-height:0) rather than display:none's the hidden surface, so alphaTab keeps
-// its layout width and the toggle works MID-PLAYBACK (IN7/C4): audio continues, both markers keep tracking.
+// ONE render-producing reply feeds both surfaces (IN3): loadScore carries { tex, tempo, key, tripletFeel,
+// schedule, sheet, cellSchedule } — the score and the chord sheet are projections of the same Exercise pass;
+// the shell hands it to surface.load(). The composite's toggle collapses (max-height:0) rather than
+// display:none's the hidden surface, so alphaTab keeps its layout width and the toggle works MID-PLAYBACK
+// (IN7/C4): audio continues, both markers keep tracking.
 //
 // Transport is the shared window.ChordFlowBridge (bridge.js). With no host (plain browser) the bridge is
 // unavailable, so the component renders a SAMPLE_TEX score directly and the DB-backed actions are no-ops.
@@ -54,10 +56,9 @@ const ChordFlow = (function () {
     "(8.5 7.4 8.3) r (8.5 7.4 8.3) r |",
   ].join("\n");
 
-  let view = null;             // ScoreR handle (owns alphaTab + the one page engine)
-  let pc = null;               // page-level PlayerControlsR, bound to ScoreR's engine (survives the view toggle)
-  let hc = null;               // HarmonyControlsR — the definition strip
-  let sheetView = null;        // ChordFlowSheetView — the Sheet view surface
+  let surface = null;          // ChordFlowRenderSurface — the shared composite (ScoreR + ChordSheetR + toggle +
+                               // page-level PlayerControlsR + the one engine + beat/position fan-out)
+  let hc = null;               // HarmonyControlsR — the definition strip (page-specific, wraps the composite)
   let nowNext = null;          // ChordFlowNowNext (the now/next chord fretboards, synced to playback)
   let lastScoreRequest = null; // last render-producing envelope (sans renderOptions), for replay
 
@@ -84,9 +85,9 @@ const ChordFlow = (function () {
     lastScoreRequest = envelope;
     if (Bridge.available) {
       const def = hc.getDefinition();
-      Bridge.send({ ...envelope, renderOptions: { ...view.getRenderOptions(), voicing: voicingOf(def) } });
-    } else if (view) {
-      view.load(SAMPLE_TEX);
+      Bridge.send({ ...envelope, renderOptions: { ...surface.getRenderParams().renderOptions, voicing: voicingOf(def) } });
+    } else if (surface) {
+      surface.load({ tex: SAMPLE_TEX });
     }
   }
 
@@ -101,7 +102,7 @@ const ChordFlow = (function () {
       keyPitchClass: def.keyPitchClass,
       keyIsMinor: def.keyIsMinor,
       tripletFeel: def.tripletFeel,
-      renderOptions: { ...(renderOptions || view.getRenderOptions()), voicing: voicingOf(def) },
+      renderOptions: { ...(renderOptions || surface.getRenderParams().renderOptions), voicing: voicingOf(def) },
     });
   }
 
@@ -116,7 +117,7 @@ const ChordFlow = (function () {
       leadPatternId: def.leadPatternId,
       keyPitchClass: def.keyPitchClass,
       keyIsMinor: def.keyIsMinor,
-      tempo: (pc && pc.getTempo()) || 80,
+      tempo: surface.getRenderParams().tempo || 80,
       difficulty: def.difficulty,
       tripletFeel: def.tripletFeel,
     });
@@ -127,8 +128,7 @@ const ChordFlow = (function () {
   // shell's job because PlayerControlsR owns it (C1).
   function onHarmonySwitch(item) {
     const tempo = item && item.defaultTempo != null ? item.defaultTempo : 80;
-    view.seedTempo(tempo);           // base tempo for the next load/generate
-    if (pc) pc.setTempoValue(tempo); // reflect it in the page transport input
+    surface.seedTempo(tempo); // base tempo for the next load/generate + reflect it in the page transport input
   }
 
   // --- catalog ---------------------------------------------------------------
@@ -147,31 +147,6 @@ const ChordFlow = (function () {
     catalog[entity] = items || [];
     if (hc) hc.setCatalog(entity, items || []);
     if (lastLibrary) renderLibrary(lastLibrary); // re-label with freshly resolved names
-  }
-
-  // --- Score ⇄ Sheet view toggle (IN2/IN7) ------------------------------------
-  // Swaps ONLY the view surface + its view-specific strip; engine, definition, schedules, Now/Next and the
-  // library are untouched — so toggling mid-playback just changes how you look at the same run (IN7). The
-  // hidden surface is COLLAPSED (max-height:0, width kept) so alphaTab never re-measures while hidden (C4).
-  function buildViewToggle(container) {
-    const wrap = document.createElement("span");
-    wrap.className = "view-toggle";
-    const buttons = {};
-    for (const [name, label] of [["score", "Score"], ["sheet", "Sheet"]]) {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.textContent = label;
-      b.addEventListener("click", () => showSurface(name));
-      buttons[name] = b;
-      wrap.appendChild(b);
-    }
-    function showSurface(name) {
-      $("score-pane").classList.toggle("view-collapsed", name !== "score");
-      $("sheet-pane").classList.toggle("view-collapsed", name !== "sheet");
-      for (const [n, b] of Object.entries(buttons)) b.classList.toggle("active", n === name);
-    }
-    container.appendChild(wrap);
-    showSurface("score");
   }
 
   // --- top-level view toggle (Practice ⇄ Content ⇄ diagnostics pages) ---------
@@ -277,21 +252,20 @@ const ChordFlow = (function () {
 
     switch (msg.type) {
       case "loadScore": {
-        // ONE reply, both projections (IN3): the score view loads the tex, the Sheet view renders the sheet
-        // model + takes its marker schedule, Now/Next takes the chord schedule — nothing can drift.
-        view.load(msg.tex, { tempo: msg.tempo });
-        if (pc) pc.setTempoValue(msg.tempo);
-        // Seed the definition controls from the piece the host rendered: a loaded exercise shows its persisted
-        // key/feel (override wins over content defaults, C3). Seeds only — no re-render.
+        // ONE reply, both projections (IN3): the composite loads the tex into ScoreR AND renders the sheet
+        // model + takes its marker schedule; Now/Next takes the chord schedule — nothing can drift.
+        const def = hc.getDefinition();
+        surface.load({
+          tex: msg.tex, tempo: msg.tempo, key: msg.key, tripletFeel: msg.tripletFeel,
+          sheet: msg.sheet, cellSchedule: msg.cellSchedule,
+          name: harmonyName(def.harmonyId), // the Sheet export filename base
+        });
+        // Seed the definition strip (HarmonyControlsR, outside the composite) from the piece the host rendered:
+        // a loaded exercise shows its persisted key/feel (override wins over content defaults, C3). Seeds only.
         if (msg.key != null) hc.seedKey(msg.key);
         if (msg.keyIsMinor != null) hc.seedKeyMode(msg.keyIsMinor); // a saved minor exercise reopens minor (IN5)
         if (msg.tripletFeel) hc.seedTripletFeel(msg.tripletFeel);
         if (nowNext) nowNext.setSchedule(msg.schedule);
-        if (sheetView) {
-          const def = hc.getDefinition();
-          sheetView.render(msg.sheet, harmonyName(def.harmonyId)); // name = the export filename base
-          sheetView.setSchedule(msg.cellSchedule);
-        }
         setStatus("score loaded");
         break;
       }
@@ -315,61 +289,50 @@ const ChordFlow = (function () {
   }
 
   function init() {
-    if (typeof alphaTab === "undefined" || !window.ChordFlowScore) {
+    if (typeof alphaTab === "undefined" || !window.ChordFlowRenderSurface) {
       setStatus("alphaTab/render component failed to load");
-      console.error("alphaTab global or ChordFlowScore not found — check wwwroot bundling.");
+      console.error("alphaTab global or ChordFlowRenderSurface not found — check wwwroot bundling.");
       return;
     }
 
-    // The Score view: ScoreR keeps the staff/notation toggles + debug panel + the ONE page engine, but its
-    // transport, volumes, key and feel are page concerns now (PlayerControlsR / HarmonyControlsR).
-    view = window.ChordFlowScore.create($("score-pane"), {
-      player: true,
-      controls: "full",
-      transport: false,   // the shell mounts PlayerControlsR at page level (it must survive the view toggle)
-      volumes: false,     // Rhythm/Lead sliders live in HarmonyControlsR, next to their voice (C2)
-      scroll: true,       // auto-follow the cursor: bound the staff + scroll it so the played bar stays under Now/Next
-      debugPanel: true,   // the alphaTex scratchpad lives on the score component
+    // The shared render surface (composite): ScoreR (staff/notation toggles + debug panel + the ONE engine) +
+    // ChordSheetR behind the Score ⇄ Sheet toggle + a page-level PlayerControlsR bound to that engine + the
+    // beat/position fan-out. Practice keeps transport/volumes/key/feel OUT of ScoreR — they live at page level
+    // (PlayerControlsR inside the composite / HarmonyControlsR beside it). Now/Next is Practice-only (EX4): fed
+    // from the composite's onBeat passthrough + engine, never owned by the composite.
+    surface = window.ChordFlowRenderSurface.create({
+      transportEl: $("transport-strip"), // toggle + PlayerControlsR mount — page-level, survives the view toggle
+      scoreEl: $("score-pane"),
+      sheetEl: $("sheet-pane"),
+      sheet: true,
+      scoreOpts: {
+        player: true,
+        controls: "full",
+        volumes: false,   // Rhythm/Lead sliders live in HarmonyControlsR, next to their voice (C2)
+        scroll: true,     // auto-follow the cursor so the played bar stays under Now/Next
+        debugPanel: true, // the alphaTex scratchpad lives on the score component
+      },
+      playerOpts: {
+        // The transport owns the Now/Next toggle but not the boards — flip the pane it doesn't see.
+        onToggleNowNext: (visible) => { const pane = $("now-next-pane"); if (pane) pane.hidden = !visible; },
+      },
       onBeat: (bar, beat) => {
-        // The engine reports 1-based (bar, beat). Fan the EVENT signal out to every event-shaped surface —
-        // BOTH views' markers track even while hidden, so a mid-playback Score ⇄ Sheet toggle is seamless
-        // (IN7). The sheet's Visual-metronome mode ignores this — it follows the "position" time clock below.
+        // The engine reports 1-based (bar, beat); the composite already fans this into the sheet's Per-chord
+        // marker. Here Practice feeds its OWN event-shaped surfaces — Now/Next + the bridge echo.
         if (nowNext) nowNext.onBeat(bar - 1, beat - 1); // chord schedule is 0-based (alphaTab raw)
-        if (sheetView) sheetView.onBeat(bar, beat);      // Sheet view steps down internally (Per-chord mode)
         if (Bridge.available) Bridge.send({ type: "beatChanged", bar, beat });
       },
       onFinished: () => {
         if (nowNext) nowNext.reset();          // back to the first chord on stop / end (schedule kept for replay)
-        if (sheetView) sheetView.clearMarker();
         if (Bridge.available) Bridge.send({ type: "playbackFinished" });
-      },
-      onToggleNowNext: (visible) => {
-        // The transport owns the toggle but not the boards — flip the pane it doesn't see.
-        const pane = $("now-next-pane");
-        if (pane) pane.hidden = !visible;
       },
       onNeedsRerender: (renderOptions) => replayScoreRequest(renderOptions),
     });
 
-    // The TIME-clock fan-out (metronome-true-marker): the engine's PlaybackClock emits "position" — one
-    // even step per quarter, silence or note — and the sheet's Visual-metronome marker follows it. Wired
-    // page-level via the engine handle (ScoreR needs no passthrough opt), like the volume sliders.
-    view.getEngine().on("position", (bar, quarterBeat) => {
-      if (sheetView) sheetView.onPosition(bar, quarterBeat);
-    });
-
-    // Page-level transport strip: the Score ⇄ Sheet toggle at its head, then PlayerControlsR bound to ScoreR's
-    // engine — ONE engine, one transport, alive across the view toggle (IN6/IN7).
-    const transportStrip = $("transport-strip");
-    buildViewToggle(transportStrip);
-    pc = window.ChordFlowPlayerControls.create(transportStrip, view.getEngine(), {
-      onToggleNowNext: (visible) => { const pane = $("now-next-pane"); if (pane) pane.hidden = !visible; },
-    });
-
     // The definition strip (HarmonyControlsR): owns harmony/key/feel/comping/lead/difficulty/voicing window +
-    // the actions; volume sliders bind to the same page engine.
+    // the actions; volume sliders bind to the composite's one engine.
     hc = window.ChordFlowHarmonyControls.create($("harmony-controls"), {
-      engine: view.getEngine(),
+      engine: surface.getEngine(),
       onGenerate: onGenerate,
       onSave: () => Bridge.send({ type: "save" }),
       onMarkPracticed: () => Bridge.send({ type: "markPracticed" }),
@@ -378,12 +341,7 @@ const ChordFlow = (function () {
       onHarmonySwitch: onHarmonySwitch,
     });
 
-    // The Sheet view surface (collapsed by default; the toggle reveals it).
-    if (window.ChordFlowSheetView) {
-      sheetView = window.ChordFlowSheetView.create($("sheet-pane"));
-    }
-
-    // The now/next chord fretboards live above the surfaces; fed the loadScore schedule and the beat fan-out.
+    // The now/next chord fretboards live above the surfaces; fed the loadScore schedule + the composite's beat fan-out.
     if (window.ChordFlowNowNext) {
       nowNext = window.ChordFlowNowNext.create($("now-next-pane"));
     }
@@ -407,16 +365,16 @@ const ChordFlow = (function () {
       lastScoreRequest = { ...BOOT_REQUEST };
       requestCatalog(); // populate HarmonyControlsR + the library name map
       // Carry the component's default render options on ready so the boot score reflects the checked toggles.
-      Bridge.send({ type: "ready", renderOptions: view.getRenderOptions() });
+      Bridge.send({ type: "ready", renderOptions: surface.getRenderParams().renderOptions });
       setStatus("waiting for score…");
     } else {
       // Standalone browser: no host to push a score — render the dev sample.
-      view.load(SAMPLE_TEX);
+      surface.load({ tex: SAMPLE_TEX });
       setStatus("score loaded (dev fallback)");
     }
   }
 
-  return { init, getView: () => view };
+  return { init, getSurface: () => surface };
 })();
 
 if (document.readyState === "loading") {

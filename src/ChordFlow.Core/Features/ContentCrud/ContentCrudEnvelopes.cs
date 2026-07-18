@@ -1,5 +1,6 @@
 
 using ChordFlow.Instruments.Guitar;
+using ChordFlow.Rendering.ChordSheets;
 
 namespace ChordFlow.Features.ContentCrud;
 
@@ -35,6 +36,13 @@ public sealed record EntityLoadedEnvelope(string Entity, string Id, string Name,
 /// <see cref="Tex"/> + <see cref="Tempo"/> for a small alphaTab render) or <c>diagram</c> (voicing — the
 /// <see cref="Diagram"/> <see cref="FretboardDiagram"/> marker model the JS fret-box draws). Strategy-shaped so
 /// the one editor switches on it.
+/// <para>
+/// For a progression/song score preview it additionally carries the chord-sheet projection of the SAME
+/// realized-song pass (content-shared-render-surfaces IN4/IN5): the <see cref="Sheet"/> model + its playback
+/// <see cref="CellSchedule"/>, mirroring the unified <c>loadScore</c> reply, so the Content preview can mount
+/// the shared render-surface composite (Score⇄Sheet) and its score + sheet cannot drift. Both are null for a
+/// rhythm preview (score-only — a bare rhythm has no meaningful sheet) and for a voicing (diagram kind).
+/// </para>
 /// </summary>
 public sealed record EntityPreviewEnvelope(
     string Entity,
@@ -42,6 +50,8 @@ public sealed record EntityPreviewEnvelope(
     string? Tex = null,
     int? Tempo = null,
     FretboardDiagram? Diagram = null,
+    ChordSheet? Sheet = null,
+    IReadOnlyList<CellScheduleEntry>? CellSchedule = null,
     string Type = "entityPreview");
 
 /// <summary>An invalid DSL: the parser's located message, shown inline (IN3). <c>{"type":"entityParseError","entity":"…","message":"…"}</c>.</summary>

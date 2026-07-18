@@ -161,6 +161,48 @@ public class ContentCrudHandlerTests
     }
 
     [Fact]
+    public void Preview_Progression_CarriesSheetProjection() // IN4/IN5: score + sheet from one pass, for the composite
+    {
+        var (handler, conn) = NewHandler(withDefaultPack: true);
+        using (conn)
+        {
+            EntityPreviewEnvelope preview = handler.Preview("progression", "17 47 17 57");
+            Assert.Equal("score", preview.Kind);
+            Assert.NotNull(preview.Sheet);          // the chord-sheet model rides the score preview
+            Assert.NotNull(preview.CellSchedule);
+            Assert.NotEmpty(preview.CellSchedule!); // and its playback marker schedule
+        }
+    }
+
+    [Fact]
+    public void Preview_Song_CarriesSheetProjection() // IN4/IN5: the song arm carries the sheet too
+    {
+        var (handler, conn) = NewHandler(withDefaultPack: true);
+        using (conn)
+        {
+            EntityPreviewEnvelope preview = handler.Preview("song", "verse = 17 47 17 57\nverse");
+            Assert.Equal("score", preview.Kind);
+            Assert.NotNull(preview.Sheet);
+            Assert.NotNull(preview.CellSchedule);
+            Assert.NotEmpty(preview.CellSchedule!);
+        }
+    }
+
+    [Fact]
+    public void Preview_Rhythm_IsScoreOnly_NoSheet() // C2: rhythm previews score-only — no meaningful chord sheet
+    {
+        var (handler, conn) = NewHandler(withDefaultPack: true);
+        using (conn)
+        {
+            EntityPreviewEnvelope preview = handler.Preview("rhythm", "X...X...X...X...");
+            Assert.Equal("score", preview.Kind);
+            Assert.False(string.IsNullOrWhiteSpace(preview.Tex));
+            Assert.Null(preview.Sheet);
+            Assert.Null(preview.CellSchedule);
+        }
+    }
+
+    [Fact]
     public void Preview_Voicing_ReturnsDiagramKind()
     {
         var (handler, conn) = NewHandler(withDefaultPack: false);

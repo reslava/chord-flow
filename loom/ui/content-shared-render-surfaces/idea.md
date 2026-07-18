@@ -2,12 +2,12 @@
 type: idea
 id: id_01KXT94RKDERB14BNMAE6C3FY0
 title: Content page mounts the shared render surfaces (ScoreR + ChordSheetR + toggle) like Practice
-status: draft
+status: done
 created: 2026-07-18
 version: 1
 tags: []
 parent_id: null
-requires_load: []
+requires_load: [rf_01KTSAPAT132QTEY5BEPRKS3MB]
 ---
 # Content page mounts the shared render surfaces (ScoreR + ChordSheetR + toggle) like Practice
 
