@@ -88,4 +88,47 @@ public class GenerateExerciseTests
             db, "progression", "does_not_exist", "beat_1_3", leadPatternId: null,
             keyPitchClass: 0, tempo: 80, Difficulty.Beginner, TripletFeel.None));
     }
+
+    [Fact]
+    public void Build_WithDrumGroove_AppendsDrumPartCarryingVolume() // drums-under-a-song IN8
+    {
+        (GenerateExerciseHandler handler, ChordFlowDbContext db, SqliteConnection conn) = NewHandler();
+        using SqliteConnection _ = conn;
+        using ChordFlowDbContext __ = db;
+
+        Exercise ex = handler.Build(
+            db, "progression", "12bar_blues", "beat_1_3", leadPatternId: null,
+            keyPitchClass: 0, tempo: 80, Difficulty.Beginner, TripletFeel.None,
+            drumGrooveId: "rock", drumVolume: 0.7);
+
+        Assert.NotNull(ex.Drums);
+        Assert.Equal("rock", ex.Drums!.Id);
+        Assert.Equal(0.7, ((DrumPart)ex.Parts.Single(p => p is DrumPart)).Volume);
+    }
+
+    [Fact]
+    public void Build_BlankDrumGroove_NoDrumPart()
+    {
+        (GenerateExerciseHandler handler, ChordFlowDbContext db, SqliteConnection conn) = NewHandler();
+        using SqliteConnection _ = conn;
+        using ChordFlowDbContext __ = db;
+
+        Exercise ex = handler.Build(
+            db, "progression", "12bar_blues", "beat_1_3", leadPatternId: null,
+            keyPitchClass: 0, tempo: 80, Difficulty.Beginner, TripletFeel.None, drumGrooveId: null);
+
+        Assert.Null(ex.Drums);
+    }
+
+    [Fact]
+    public void Build_MissingDrumGroove_FailsLoud()
+    {
+        (GenerateExerciseHandler handler, ChordFlowDbContext db, SqliteConnection conn) = NewHandler();
+        using SqliteConnection _ = conn;
+        using ChordFlowDbContext __ = db;
+
+        Assert.Throws<InvalidOperationException>(() => handler.Build(
+            db, "progression", "12bar_blues", "beat_1_3", leadPatternId: null,
+            keyPitchClass: 0, tempo: 80, Difficulty.Beginner, TripletFeel.None, drumGrooveId: "does_not_exist"));
+    }
 }

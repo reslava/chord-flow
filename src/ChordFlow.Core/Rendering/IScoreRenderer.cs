@@ -1,4 +1,5 @@
 using ChordFlow.Exercises;
+using ChordFlow.Instruments.Drums;
 using ChordFlow.Music.Rhythm;
 using ChordFlow.Music.Songs;
 
@@ -21,8 +22,10 @@ public interface IScoreRenderer
     /// </summary>
     /// <param name="compingPlan">The resolved comping grips (chord → voicing), built in the Features layer by
     /// the comping resolver — the renderer formats these, it does not select voicings (D4=(B)).</param>
-    /// <param name="lead">Optional lead-guitar pattern; <c>null</c> ⇒ single-track output (no lead staff).</param>
+    /// <param name="lead">Optional lead-guitar pattern; <c>null</c> ⇒ no lead staff.</param>
+    /// <param name="drums">Optional drum groove tiled cyclically beneath the harmony; <c>null</c> ⇒ no percussion staff
+    /// (<c>drums-under-a-song</c> IN2). A non-null lead OR drums forces the multi-track (<c>\track</c>) layout.</param>
     /// <param name="options">Render-time presentation options; <c>null</c> ⇒ <see cref="RenderOptions.Default"/> (today's render).</param>
     /// <returns>The alphaTex string plus the chord schedule (one entry per chord change), produced in one pass so they cannot drift.</returns>
-    RenderResult Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, CompingPlan compingPlan, TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, RenderOptions? options = null);
+    RenderResult Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, CompingPlan compingPlan, TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, DrumGroove? drums = null, RenderOptions? options = null);
 }

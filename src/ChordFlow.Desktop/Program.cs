@@ -194,7 +194,8 @@ internal static class Program
                     {
                         Exercise exercise = generate.Build(
                             req.HarmonyEntity, req.HarmonyId, req.CompingPatternId, req.LeadPatternId,
-                            req.KeyPitchClass, req.Tempo, req.Difficulty, req.TripletFeel, req.KeyIsMinor);
+                            req.KeyPitchClass, req.Tempo, req.Difficulty, req.TripletFeel, req.KeyIsMinor,
+                            req.DrumGrooveId, req.DrumVolume);
                         if (TrySendScore(exercise, renderOptions))
                         {
                             currentExercise = exercise;

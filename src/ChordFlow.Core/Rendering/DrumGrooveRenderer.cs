@@ -52,6 +52,31 @@ public sealed class DrumGrooveRenderer
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Render <paramref name="barCount"/> alphaTex bar strings for the groove tiled cyclically beneath a
+    /// progression (<c>drums-under-a-song</c> IN3): master bar i uses groove bar <c>i % m</c>, sharing the
+    /// stateful <c>:N</c> duration across every bar. Just the bar bodies — no header/track wrapper; the caller
+    /// (<see cref="AlphaTexRenderer"/>) composes them into a percussion <c>\track</c>. A single-bar groove
+    /// (m = 1) repeats on every bar. <paramref name="barCount"/> ≤ 0 yields an empty list.
+    /// </summary>
+    public IReadOnlyList<string> RenderTiledBars(DrumGroove groove, int barCount)
+    {
+        ArgumentNullException.ThrowIfNull(groove);
+        if (groove.Bars.Count == 0)
+        {
+            throw new ArgumentException("Cannot render a groove with no bars.", nameof(groove));
+        }
+
+        var state = new RenderState();
+        var barLines = new List<string>(Math.Max(0, barCount));
+        for (int i = 0; i < barCount; i++)
+        {
+            barLines.Add(RenderBar(groove.Bars[i % groove.Bars.Count], groove.TimeSignature, state));
+        }
+
+        return barLines;
+    }
+
     // One bar: merge lanes into an onset→voices timeline, quantize it, then format each slot. A note slot
     // emits its onset's articulation group (order-stable); a rest slot emits "r".
     private static string RenderBar(DrumBar bar, TimeSignature ts, RenderState state)

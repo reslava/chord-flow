@@ -1,3 +1,4 @@
+using ChordFlow.Instruments.Drums;
 using ChordFlow.Music.Progressions;
 using ChordFlow.Music.Harmony;
 using ChordFlow.Music.Rhythm;
@@ -75,4 +76,15 @@ public static class ExerciseRefs
     /// <summary>Resolve an optional rhythm-pattern reference (null/blank id → no lead track).</summary>
     public static RhythmPattern? ResolveOptionalPattern(string? patternId, ChordFlowDbContext db) =>
         string.IsNullOrWhiteSpace(patternId) ? null : ResolvePattern(patternId, db);
+
+    /// <summary>
+    /// Resolve an optional drum-groove reference (<c>drums-under-a-song</c> IN8): null/blank id → no drum part;
+    /// a non-blank id that resolves → the groove; a non-blank id that is missing → fail loud (a dangling
+    /// reference surfaces as a UI status, mirroring the harmony/pattern resolvers).
+    /// </summary>
+    public static DrumGroove? ResolveDrumGroove(string? drumGrooveId, ChordFlowDbContext db) =>
+        string.IsNullOrWhiteSpace(drumGrooveId)
+            ? null
+            : new DrumGrooveStore(db).Find(drumGrooveId)
+                ?? throw new InvalidOperationException($"Drum groove '{drumGrooveId}' not found.");
 }

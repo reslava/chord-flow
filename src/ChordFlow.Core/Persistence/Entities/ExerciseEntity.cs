@@ -25,6 +25,18 @@ public sealed class ExerciseEntity
     /// <summary>References the optional lead <c>RhythmPattern</c> row; <c>null</c> ⇒ no lead track.</summary>
     public string? LeadPatternId { get; set; }
 
+    /// <summary>References the optional <c>DrumGroove</c> row tiled beneath the harmony (<c>drums-under-a-song</c>
+    /// IN7); <c>null</c> ⇒ no drum part. The flat-column half of the <see cref="Exercises.DrumPart"/> mapping —
+    /// a dynamic-roster child table is deferred behind this non-breaking seam (C7).</summary>
+    public string? DrumGrooveId { get; set; }
+
+    /// <summary>The drum part's saved mix volume (1.0 = unattenuated); a playback default seeding the UI slider,
+    /// not baked into the alphaTex. Ignored when <see cref="DrumGrooveId"/> is null.</summary>
+    public double DrumVolume { get; set; } = 1.0;
+
+    /// <summary>Whether the drum part is saved muted. Ignored when <see cref="DrumGrooveId"/> is null.</summary>
+    public bool DrumMuted { get; set; }
+
     /// <summary>Practice-key override as a <c>\ks</c>-style tonic token (e.g. <c>bb</c>, <c>g</c>); <c>null</c>
     /// ⇒ the Song's initial key. For a lifted bare progression this carries the chosen practice key.</summary>
     public string? KeyOverride { get; set; }

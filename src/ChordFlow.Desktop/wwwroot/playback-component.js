@@ -175,7 +175,7 @@ window.ChordFlowPlayback = (function () {
     let scrollMode = "off";
     let metronomeOn = false;   // desired click-track state, re-asserted once the synth is ready (see below)
     let countInOn = false;     // desired count-in state, re-asserted once the synth is ready
-    const trackVolumes = { rhythm: 1, lead: 1 };   // Rhythm = track 0, Lead = track 1 (two-track exercises)
+    const trackVolumes = { rhythm: 1, lead: 1, drums: 1 };   // Rhythm = track 0, Lead = track 1, Drums = track 2
 
     const api = new alphaTab.AlphaTabApi(surface, buildSettings(player, opts.scroll, currentSoundFont, opts.display));
 
@@ -203,7 +203,12 @@ window.ChordFlowPlayback = (function () {
     // are re-asserted on scoreLoaded.
     function applyTrackVolume(which) {
       if (!player || !api.score || !api.score.tracks) return;
-      const track = api.score.tracks[which === "lead" ? 1 : 0];
+      const tracks = api.score.tracks;
+      // The drum track's index isn't fixed (comping+drums ⇒ index 1; comping+lead+drums ⇒ index 2), so find
+      // it by its percussion staff; rhythm/lead keep their fixed comping=0 / lead=1 positions.
+      const track = which === "drums"
+        ? tracks.find((t) => (t.staves || []).some((s) => s.isPercussion))
+        : tracks[which === "lead" ? 1 : 0];
       if (track && typeof api.changeTrackVolume === "function") {
         api.changeTrackVolume([track], trackVolumes[which]);
       }
@@ -248,6 +253,7 @@ window.ChordFlowPlayback = (function () {
       api.scoreLoaded.on(() => {
         applyTrackVolume("rhythm");
         applyTrackVolume("lead");
+        applyTrackVolume("drums");
         applyMetronomeCountIn();
         clock.reset();
       });

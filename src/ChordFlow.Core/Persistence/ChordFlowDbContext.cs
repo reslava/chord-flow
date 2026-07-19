@@ -53,6 +53,9 @@ public sealed class ChordFlowDbContext : DbContext
             // in the DB and stable if numeric values shift later.
             e.Property(x => x.Difficulty).HasConversion<string>();
             e.Property(x => x.TripletFeel).HasConversion<string>();
+            // The drum part's saved mix volume defaults to unattenuated so pre-drums rows migrate cleanly
+            // (they carry no DrumGrooveId, so the value is inert). drums-under-a-song IN7.
+            e.Property(x => x.DrumVolume).HasDefaultValue(1.0);
             e.HasMany(x => x.PracticeRecords)
                 .WithOne(r => r.Exercise!)
                 .HasForeignKey(r => r.ExerciseId)

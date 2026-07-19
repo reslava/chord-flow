@@ -63,7 +63,7 @@ const ChordFlow = (function () {
   let lastScoreRequest = null; // last render-producing envelope (sans renderOptions), for replay
 
   // Content catalog, populated from the entity* bridge — feeds HarmonyControlsR and the library's name map.
-  const catalog = { progression: [], song: [], rhythm: [] };
+  const catalog = { progression: [], song: [], rhythm: [], drums: [] };
 
   const $ = (id) => document.getElementById(id);
   const statusEl = () => $("status");
@@ -115,6 +115,8 @@ const ChordFlow = (function () {
       harmonyId: def.harmonyId,
       compingPatternId: def.compingPatternId,
       leadPatternId: def.leadPatternId,
+      drumGrooveId: def.drumGrooveId,
+      drumVolume: def.drumVolume,
       keyPitchClass: def.keyPitchClass,
       keyIsMinor: def.keyIsMinor,
       tempo: surface.getRenderParams().tempo || 80,
@@ -134,7 +136,7 @@ const ChordFlow = (function () {
   // --- catalog ---------------------------------------------------------------
   // Ask the host for the content lists that feed HarmonyControlsR (and the library's name map).
   function requestCatalog() {
-    for (const entity of ["progression", "song", "rhythm"]) {
+    for (const entity of ["progression", "song", "rhythm", "drums"]) {
       Bridge.send({ type: "entityList", entity });
     }
   }

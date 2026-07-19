@@ -1,6 +1,7 @@
 using ChordFlow.Music.Progressions;
 using ChordFlow.Music.Songs;
 using ChordFlow.Exercises;
+using ChordFlow.Instruments.Drums;
 using ChordFlow.Music.Harmony;
 using ChordFlow.Music.Rhythm;
 using ChordFlow.Features.ExerciseLibrary;
@@ -40,6 +41,18 @@ public class ExerciseLibraryTests
         new(Song.OfProgression(SeedData.TwelveBarBlues, key), SeedData.Beat1And3, lead,
             KeyOverride: key, Tempo: 80, Difficulty: Difficulty.Beginner, TripletFeel: TripletFeel.None);
 
+    // A groove reference whose id is the default-pack "rock" groove — Save persists only the id, and Load
+    // resolves the real groove from the store, so this stub just carries the id.
+    private static DrumGroove RockGrooveRef() => DrumGroove.SingleBar(
+        "rock", "Rock",
+        new[] { new DrumLane(DrumVoice.Kick, new[] { RhythmEvent.Hit(0, 48) }) },
+        TimeSignature.FourFour);
+
+    private static Exercise BbBluesWithDrums(Key key, double volume) =>
+        new(Song.OfProgression(SeedData.TwelveBarBlues, key),
+            new InstrumentPart[] { new CompingPart(SeedData.Beat1And3), new DrumPart(RockGrooveRef()) { Volume = volume } },
+            KeyOverride: key, Tempo: 80, Difficulty.Beginner, TripletFeel.None);
+
     [Fact]
     public void SaveThenLoad_RoundTripsKeyCompingFeelAndLead()
     {
@@ -73,6 +86,39 @@ public class ExerciseLibraryTests
         Assert.NotNull(loaded);
         Assert.Null(loaded!.Exercise.Lead);
         Assert.DoesNotContain("\\track", loaded.Score.Tex);
+    }
+
+    [Fact]
+    public void SaveThenLoad_RoundTripsDrumGrooveAndVolume() // drums-under-a-song IN7/IN8
+    {
+        (ExerciseLibraryHandler handler, SqliteConnection conn) = NewHandler();
+        using SqliteConnection _ = conn;
+
+        var bb = new Key(new PitchClass(10), false);
+        int id = handler.Save(BbBluesWithDrums(bb, volume: 0.6));
+
+        LoadedExercise? loaded = handler.Load(id);
+        Assert.NotNull(loaded);
+        Exercise ex = loaded!.Exercise;
+
+        Assert.NotNull(ex.Drums);
+        Assert.Equal("rock", ex.Drums!.Id);                       // groove resolved from the store on reload
+        Assert.Equal(0.6, ((DrumPart)ex.Parts.Single(p => p is DrumPart)).Volume); // saved mix restored
+        Assert.Contains("\\track \"Drums\"", loaded.Score.Tex);   // reloaded score has the percussion staff
+    }
+
+    [Fact]
+    public void SaveThenLoad_NoDrums_HasNoDrumPart()
+    {
+        (ExerciseLibraryHandler handler, SqliteConnection conn) = NewHandler();
+        using SqliteConnection _ = conn;
+
+        int id = handler.Save(BbBlues(new Key(new PitchClass(10), false)));
+
+        LoadedExercise? loaded = handler.Load(id);
+        Assert.NotNull(loaded);
+        Assert.Null(loaded!.Exercise.Drums);
+        Assert.DoesNotContain("\\instrument percussion", loaded.Score.Tex);
     }
 
     [Fact]

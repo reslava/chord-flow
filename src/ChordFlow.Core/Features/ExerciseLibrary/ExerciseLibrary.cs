@@ -1,6 +1,7 @@
 using ChordFlow.Music.Rhythm;
 using ChordFlow.Music.Songs;
 using ChordFlow.Exercises;
+using ChordFlow.Instruments.Drums;
 using ChordFlow.Music.Harmony;
 using System.Globalization;
 using ChordFlow.Features.GenerateExercise;
@@ -51,11 +52,17 @@ public sealed class ExerciseLibraryHandler
     public int Save(Exercise exercise)
     {
         using var db = new ChordFlowDbContext(_dbOptions);
+        // The drum part (drums-under-a-song IN7): its groove id + saved mix flatten onto the entity columns
+        // (the flat mapper; a dynamic-roster child table is deferred behind this non-breaking seam, C7).
+        DrumPart? drumPart = exercise.Parts.OfType<DrumPart>().SingleOrDefault();
         var entity = new ExerciseEntity
         {
             SongId = exercise.Song.Id,
             CompingPatternId = exercise.Comping.Id,
             LeadPatternId = exercise.Lead?.Id,
+            DrumGrooveId = drumPart?.Groove.Id,
+            DrumVolume = drumPart?.Volume ?? 1.0,
+            DrumMuted = drumPart?.Muted ?? false,
             KeyOverride = exercise.KeyOverride is { } k ? NoteSpeller.KeySignatureToken(k) : null,
             Tempo = exercise.Tempo,
             Difficulty = exercise.Difficulty,
@@ -144,8 +151,22 @@ public sealed class ExerciseLibraryHandler
         Song song = ExerciseRefs.ResolveHarmonyById(e.SongId, liftKey, db);
         RhythmPattern comping = ExerciseRefs.ResolvePattern(e.CompingPatternId, db);
         RhythmPattern? lead = ExerciseRefs.ResolveOptionalPattern(e.LeadPatternId, db);
+        DrumGroove? drums = ExerciseRefs.ResolveDrumGroove(e.DrumGrooveId, db);
 
-        return new Exercise(song, comping, lead, keyOverride, e.Tempo, e.Difficulty, e.TripletFeel);
+        // Rebuild the typed parts union from the flat columns (drums-under-a-song IN7/IN8): comping required,
+        // lead + drums additive; the drum part restores its saved mix (volume/mute).
+        var parts = new List<InstrumentPart> { new CompingPart(comping) };
+        if (lead is not null)
+        {
+            parts.Add(new LeadPart(lead));
+        }
+
+        if (drums is not null)
+        {
+            parts.Add(new DrumPart(drums) { Volume = e.DrumVolume, Muted = e.DrumMuted });
+        }
+
+        return new Exercise(song, parts, keyOverride, e.Tempo, e.Difficulty, e.TripletFeel);
     }
 
     private static readonly Key SeedDefaultKey = new(new PitchClass(0), IsMinor: false); // C major fallback

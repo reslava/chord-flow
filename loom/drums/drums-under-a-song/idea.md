@@ -2,12 +2,12 @@
 type: idea
 id: id_01KXWNH0AD17BA9B918QT6HDM6
 title: Drums under a song — the drum track (phase 2)
-status: draft
+status: done
 created: 2026-07-19
 version: 1
 tags: []
 parent_id: null
-requires_load: []
+requires_load: [rf_01KTSAPAT132QTEY5BEPRKS3MB]
 ---
 # Drums under a song — the drum track (phase 2)
 

@@ -1,5 +1,6 @@
 using ChordFlow.Exercises;
 using ChordFlow.Features.Voicings;
+using ChordFlow.Instruments.Drums;
 using ChordFlow.Music.Harmony;
 using ChordFlow.Music.Rhythm;
 using ChordFlow.Music.Songs;
@@ -74,11 +75,13 @@ public sealed class GenerateExerciseHandler
     /// </summary>
     public LoadScoreEnvelope Generate(
         string harmonyEntity, string harmonyId, string compingPatternId, string? leadPatternId,
-        int? keyPitchClass, int tempo, Difficulty difficulty, TripletFeel tripletFeel, bool keyIsMinor = false)
+        int? keyPitchClass, int tempo, Difficulty difficulty, TripletFeel tripletFeel, bool keyIsMinor = false,
+        string? drumGrooveId = null, double drumVolume = 1.0)
     {
         using var db = new ChordFlowDbContext(_dbOptions);
         Exercise exercise = Build(
-            db, harmonyEntity, harmonyId, compingPatternId, leadPatternId, keyPitchClass, tempo, difficulty, tripletFeel, keyIsMinor);
+            db, harmonyEntity, harmonyId, compingPatternId, leadPatternId, keyPitchClass, tempo, difficulty, tripletFeel, keyIsMinor,
+            drumGrooveId, drumVolume);
         return LoadScoreEnvelope.From(
             exercise, new ProgressionStore(db), _renderer, StoredVoicingSource.From(new VoicingStore(db)),
             references: VoicingReferenceSource.From(new VoicingStore(db)));
@@ -91,10 +94,13 @@ public sealed class GenerateExerciseHandler
     /// </summary>
     public Exercise Build(
         string harmonyEntity, string harmonyId, string compingPatternId, string? leadPatternId,
-        int? keyPitchClass, int tempo, Difficulty difficulty, TripletFeel tripletFeel, bool keyIsMinor = false)
+        int? keyPitchClass, int tempo, Difficulty difficulty, TripletFeel tripletFeel, bool keyIsMinor = false,
+        string? drumGrooveId = null, double drumVolume = 1.0)
     {
         using var db = new ChordFlowDbContext(_dbOptions);
-        return Build(db, harmonyEntity, harmonyId, compingPatternId, leadPatternId, keyPitchClass, tempo, difficulty, tripletFeel, keyIsMinor);
+        return Build(
+            db, harmonyEntity, harmonyId, compingPatternId, leadPatternId, keyPitchClass, tempo, difficulty, tripletFeel, keyIsMinor,
+            drumGrooveId, drumVolume);
     }
 
     /// <summary>
@@ -108,7 +114,8 @@ public sealed class GenerateExerciseHandler
     public Exercise Build(
         ChordFlowDbContext db,
         string harmonyEntity, string harmonyId, string compingPatternId, string? leadPatternId,
-        int? keyPitchClass, int tempo, Difficulty difficulty, TripletFeel tripletFeel, bool keyIsMinor = false)
+        int? keyPitchClass, int tempo, Difficulty difficulty, TripletFeel tripletFeel, bool keyIsMinor = false,
+        string? drumGrooveId = null, double drumVolume = 1.0)
     {
         Key? keyOverride = keyPitchClass is int pc ? new Key(new PitchClass(pc), keyIsMinor) : null;
         Key liftKey = keyOverride ?? DefaultLiftKey;
@@ -116,7 +123,22 @@ public sealed class GenerateExerciseHandler
         Song song = ExerciseRefs.ResolveHarmony(harmonyEntity, harmonyId, liftKey, db);
         RhythmPattern comping = ExerciseRefs.ResolvePattern(compingPatternId, db);
         RhythmPattern? lead = ExerciseRefs.ResolveOptionalPattern(leadPatternId, db);
+        DrumGroove? drums = ExerciseRefs.ResolveDrumGroove(drumGrooveId, db);
 
-        return new Exercise(song, comping, lead, keyOverride, tempo, difficulty, tripletFeel);
+        // The typed parts union (drums-under-a-song D1): comping is required, lead + drums are additive parts;
+        // the drum groove carries its saved mix volume (a playback default seeding the UI slider, not baked
+        // into the tex — track volume is applied via the engine's setTrackVolume, like comping/lead).
+        var parts = new List<InstrumentPart> { new CompingPart(comping) };
+        if (lead is not null)
+        {
+            parts.Add(new LeadPart(lead));
+        }
+
+        if (drums is not null)
+        {
+            parts.Add(new DrumPart(drums) { Volume = drumVolume });
+        }
+
+        return new Exercise(song, parts, keyOverride, tempo, difficulty, tripletFeel);
     }
 }

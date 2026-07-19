@@ -4,6 +4,7 @@ using ChordFlow.Music.Harmony;
 using ChordFlow.Music.Progressions;
 using ChordFlow.Music.Songs;
 using ChordFlow.Rendering;
+using ChordFlow.Instruments.Drums;
 using ChordFlow.Instruments.Guitar;
 using Xunit;
 
@@ -331,6 +332,66 @@ public class AlphaTexRendererTests
     }
 
     [Fact]
+    public void Render_WithDrums_EmitsPercussionTrack()
+    {
+        // Comping alone + a drum groove ⇒ multi-track: a Comping guitar staff + a Drums percussion staff.
+        string tex = Renderer.Render(OneBarI7(), SeedData.Beat1, 80, Difficulty.Beginner, drums: RockGroove()).Tex;
+
+        Assert.Contains("\\track \"Comping\" \"comp\"\n", tex);
+        Assert.Contains("\\track \"Drums\" \"dr\"\n", tex);
+        Assert.Contains("\\instrument percussion\n", tex);
+        Assert.Contains("\\articulation defaults\n", tex);
+        Assert.Equal(2, CountOccurrences(tex, "\\ts 4 4")); // comping + drums, one \ts each
+
+        // Percussion is keyless: the \ks stays on the comping track only, never on the drum staff.
+        string drumSection = tex[tex.IndexOf("\\track \"Drums\"", System.StringComparison.Ordinal)..];
+        Assert.DoesNotContain("\\ks", drumSection);
+        Assert.Contains("kickhit", drumSection);
+        Assert.Contains("hihatclosed", drumSection);
+    }
+
+    [Fact]
+    public void Render_Drums_TileCyclicallyAcrossTheSongBars()
+    {
+        // A 2-bar groove under a 12-bar blues tiles to 12 drum bars (bar i → groove bar i % 2, IN3), staying
+        // bar-aligned with the 12-bar comping staff.
+        var song = new RealizedSong(new[]
+        {
+            new RealizedSection(SeedData.TwelveBarBlues.Name, Bb, Transposer.RealizeBars(SeedData.TwelveBarBlues, Bb)),
+        });
+
+        string tex = Renderer.Render(song, SeedData.Beat1And3, 80, Difficulty.Beginner, drums: TwoBarGroove()).Tex;
+
+        string drumSection = tex[tex.IndexOf("\\track \"Drums\"", System.StringComparison.Ordinal)..];
+        Assert.Equal(12, drumSection.Count(c => c == '|')); // 12 tiled drum bars
+        Assert.Equal(24, tex.Count(c => c == '|'));          // 12 comping + 12 drums
+    }
+
+    [Fact]
+    public void Render_WithoutDrums_HasNoPercussionTrack()
+    {
+        // Guard: no drum part ⇒ no percussion staff at all (single-track stays byte-identical elsewhere).
+        string tex = Renderer.RenderProgression(Bb, I7Progression(), SeedData.Beat1, 80, Difficulty.Beginner);
+
+        Assert.DoesNotContain("\\instrument percussion", tex);
+        Assert.DoesNotContain("\\track \"Drums\"", tex);
+    }
+
+    [Fact]
+    public void Render_Drums_RideTheSameWholeSongTripletFeel()
+    {
+        // Swing is one song-level \tf per track (IN6): the drum staff's first bar carries it too, so a swung
+        // song swings comp AND drums together.
+        string tex = Renderer.Render(
+            OneBarI7(), SeedData.Beat1, 80, Difficulty.Beginner, tripletFeel: TripletFeel.Triplet8th,
+            drums: RockGroove()).Tex;
+
+        string drumSection = tex[tex.IndexOf("\\track \"Drums\"", System.StringComparison.Ordinal)..];
+        // The \tf sits at the very start of the drum track's first bar (after the header lines).
+        Assert.Contains("\\tf triplet8th ", drumSection);
+    }
+
+    [Fact]
     public void Render_Schedule_RecordsOneEntryPerChordChangeAcrossBars()
     {
         var realized = new RealizedSong(new[]
@@ -441,6 +502,27 @@ public class AlphaTexRendererTests
 
     private static RealizedSong OneBarI7() =>
         new(new[] { new RealizedSection("Test", Bb, Transposer.RealizeBars(I7Progression(), Bb)) });
+
+    // A one-bar rock groove: eight hi-hat eighths + kick on beats 1 & 3 (48 PPQ, 4/4). Used for the
+    // percussion-track shape + feel tests.
+    private static DrumGroove RockGroove() => DrumGroove.SingleBar(
+        "rock", "Rock",
+        new[]
+        {
+            new DrumLane(DrumVoice.HiHatClosed, Enumerable.Range(0, 8).Select(i => RhythmEvent.Hit(i * 24, 24)).ToArray()),
+            new DrumLane(DrumVoice.Kick, new[] { RhythmEvent.Hit(0, 48), RhythmEvent.Hit(96, 48) }),
+        },
+        TimeSignature.FourFour);
+
+    // A 2-bar groove (kick bar, then hi-hat bar) for the cyclic-tiling test.
+    private static DrumGroove TwoBarGroove() => new(
+        "g2", "G2",
+        new[]
+        {
+            new DrumBar(new[] { new DrumLane(DrumVoice.Kick, new[] { RhythmEvent.Hit(0, 48) }) }),
+            new DrumBar(new[] { new DrumLane(DrumVoice.HiHatClosed, new[] { RhythmEvent.Hit(0, 48) }) }),
+        },
+        TimeSignature.FourFour);
 
     // A single Bb I7 bar struck on every quarter — the fixture for the RenderOptions tests.
     private static string BbI7QuartersTex(RenderOptions? options = null) =>

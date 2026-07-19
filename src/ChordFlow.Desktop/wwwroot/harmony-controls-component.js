@@ -28,7 +28,9 @@
 //   hc.el;                             // the strip node (also appended to `container` when one is given)
 //   hc.setCatalog(entity, items);      // feed raw entityList payloads ("song" | "progression" | "rhythm")
 //   hc.getDefinition();                // { harmonyEntity, harmonyId, compingPatternId, leadPatternId,
-//                                      //   keyPitchClass, keyIsMinor, tripletFeel, difficulty, voicingMinFret, voicingMaxFret }
+//                                      //   drumGrooveId, drumVolume, keyPitchClass, keyIsMinor, tripletFeel,
+//                                      //   difficulty, voicingMinFret, voicingMaxFret }
+//   hc.setCatalog(entity, items);      // "song" | "progression" | "rhythm" | "drums"
 //   hc.seedKey(pc); hc.seedKeyMode(isMinor); hc.seedTripletFeel(v);   // load-path seeds (silent — no change events)
 //   hc.dispose();
 "use strict";
@@ -106,7 +108,7 @@ window.ChordFlowHarmonyControls = (function () {
     };
 
     // Content catalog, fed raw entityList payloads via setCatalog — the single population path (IN8).
-    const catalog = { song: [], progression: [], rhythm: [] };
+    const catalog = { song: [], progression: [], rhythm: [], drums: [] };
 
     const el = document.createElement("div");
     el.className = "cf-harmony-controls";
@@ -156,6 +158,18 @@ window.ChordFlowHarmonyControls = (function () {
     const leadSel = select("cf-lead");
     el.append(labelled("Lead", leadSel), volumeSlider("lead", "Lead vol"));
 
+    // --- Drums (optional groove under the harmony) + Drums vol (drums-under-a-song IN4) ---
+    const drumsSel = select("cf-drums");
+    // The drums volume slider double-duties: it binds live to the engine's drum track AND its value is the
+    // saved drumVolume in getDefinition (persisted with the exercise, unlike the runtime-only rhythm/lead vols).
+    const drumsVolInput = rangeInput();
+    drumsVolInput.addEventListener("input", guard("drumsVol", () => {
+      if (engine) engine.setTrackVolume("drums", parseFloat(drumsVolInput.value));
+    }));
+    const drumsVolWrap = labelled("Drums vol", drumsVolInput);
+    if (!engine) drumsVolWrap.hidden = true;
+    el.append(labelled("Drums", drumsSel), drumsVolWrap);
+
     // --- Difficulty ----------------------------------------------------------
     const difficultySel = select("cf-difficulty");
     fillOptions(difficultySel, DIFFICULTIES.map((d) => ({ value: d, label: d })), "Beginner");
@@ -191,11 +205,17 @@ window.ChordFlowHarmonyControls = (function () {
       return input;
     }
 
-    // Player-kind, bound straight to the page engine; inert (hidden) when no engine is supplied.
-    function volumeSlider(which, label) {
+    // A 0..1 volume range input.
+    function rangeInput() {
       const input = document.createElement("input");
       input.type = "range";
       input.min = "0"; input.max = "1"; input.step = "0.05"; input.value = "1";
+      return input;
+    }
+
+    // Player-kind, bound straight to the page engine; inert (hidden) when no engine is supplied.
+    function volumeSlider(which, label) {
+      const input = rangeInput();
       input.addEventListener("input", guard(which + "Vol", () => {
         if (engine) engine.setTrackVolume(which, parseFloat(input.value));
       }));
@@ -254,6 +274,11 @@ window.ChordFlowHarmonyControls = (function () {
       fillOptions(leadSel, [{ value: "", label: "(none)" }, ...rhythmOpts], "");
     }
 
+    function rebuildDrumsPicker() {
+      const drumOpts = catalog.drums.map((d) => ({ value: d.id, label: d.name || d.id }));
+      fillOptions(drumsSel, [{ value: "", label: "(none)" }, ...drumOpts], "");
+    }
+
     // --- the definition (the generate payload) ---------------------------------
     function getDefinition() {
       const [harmonyEntity, harmonyId] = (harmonySel.value || BOOT_HARMONY).split(/:(.*)/s);
@@ -266,6 +291,8 @@ window.ChordFlowHarmonyControls = (function () {
         harmonyId,
         compingPatternId: compingSel.value || BOOT_COMPING,
         leadPatternId: leadSel.value || null,
+        drumGrooveId: drumsSel.value || null,
+        drumVolume: parseFloat(drumsVolInput.value),
         keyPitchClass: parseInt(keySel.value, 10) || 0,
         keyIsMinor: keyModeSel.value === "minor",
         tripletFeel: feelSel.value || "None",
@@ -285,6 +312,7 @@ window.ChordFlowHarmonyControls = (function () {
         if (!(entity in catalog)) return;
         catalog[entity] = items || [];
         if (entity === "rhythm") rebuildRhythmPickers();
+        else if (entity === "drums") rebuildDrumsPicker();
         else rebuildHarmonyPicker();
       },
       // Load-path seeds (C3): reflect a loaded exercise's stored key/feel WITHOUT firing change events —

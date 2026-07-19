@@ -6,6 +6,7 @@ using ChordFlow.Music.Songs;
 using System.Globalization;
 using System.Text;
 
+using ChordFlow.Instruments.Drums;
 using ChordFlow.Instruments.Guitar;
 
 namespace ChordFlow.Rendering;
@@ -30,7 +31,11 @@ public sealed class AlphaTexRenderer : IScoreRenderer
     // CompingPlan; the renderer holds no voicing state, so authored-voicing changes take effect on the next
     // render without any hot-swap.
 
-    public RenderResult Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, CompingPlan compingPlan, TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, RenderOptions? options = null)
+    // The concrete percussion renderer, composed for the drum \track (drums-under-a-song C3 — no IInstrument
+    // seam yet; that extraction is chordflow/instrument-rendering). The renderer edge Rendering → Instruments (C1).
+    private readonly DrumGrooveRenderer _drumRenderer = new();
+
+    public RenderResult Render(RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty, CompingPlan compingPlan, TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, DrumGroove? drums = null, RenderOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentNullException.ThrowIfNull(rhythm);
@@ -60,7 +65,7 @@ public sealed class AlphaTexRenderer : IScoreRenderer
 
         var sb = new StringBuilder();
 
-        if (lead is null)
+        if (lead is null && drums is null)
         {
             // Single track — byte-identical to the pre-lead output (design §7.4): \ts/\ks sit in the header,
             // and there is no \track wrapper.
@@ -69,17 +74,30 @@ public sealed class AlphaTexRenderer : IScoreRenderer
             return new RenderResult(sb.ToString(), state.Schedule);
         }
 
-        // Two tracks (IN5): score metadata + the lone "." first, then a \track per staff carrying its own
-        // bar metadata (\ts/\ks). The lead pattern renders as dead notes (\x.3); both tracks span the same
-        // master bars so the staves stay aligned. Bars-per-row is a JS display setting (display.barsPerRow).
-        List<string> leadBars = BuildLeadBars(song, rhythm, lead, ts, compingPlan);
-        PrependTripletFeel(leadBars, tripletFeel);
-
+        // Multi-track: score metadata + the lone "." first, then a \track per staff carrying its own bar
+        // metadata. Triggered by a lead (IN5, dead notes) and/or a drum groove (drums-under-a-song IN2). Every
+        // track spans the same master bars so the staves stay aligned; the chord schedule (now/next feed) comes
+        // from the comping walk only — the extra staves add no chords. Bars-per-row is a JS display setting.
         AppendScoreMetadata(sb, title, subtitle, tempo, opts, state.ChordDefinitions);
         AppendTrackHeader(sb, "Comping", "comp", ts, keySig);
-        sb.Append(string.Join("\n", compingBars)).Append('\n');
-        AppendTrackHeader(sb, "Lead", "lead", ts, keySig);
-        sb.Append(string.Join("\n", leadBars));
+        sb.Append(string.Join("\n", compingBars));
+
+        if (lead is not null)
+        {
+            List<string> leadBars = BuildLeadBars(song, rhythm, lead, ts, compingPlan);
+            PrependTripletFeel(leadBars, tripletFeel);
+            sb.Append('\n');
+            AppendTrackHeader(sb, "Lead", "lead", ts, keySig);
+            sb.Append(string.Join("\n", leadBars));
+        }
+
+        if (drums is not null)
+        {
+            List<string> drumBars = BuildDrumBars(song, rhythm, drums, tripletFeel);
+            sb.Append('\n');
+            AppendPercussionTrackHeader(sb, "Drums", "dr", ts);
+            sb.Append(string.Join("\n", drumBars));
+        }
 
         return new RenderResult(sb.ToString(), state.Schedule);
     }
@@ -165,6 +183,64 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         return barLines;
     }
 
+    // The percussion track body (drums-under-a-song IN2/IN3): an optional leading anacrusis of rests mirroring
+    // a comping pickup (drums don't play during the pickup in v1, like the lead track), then the groove tiled
+    // cyclically across the song's section bars — master bar i uses groove bar i % m — via the concrete
+    // DrumGrooveRenderer. The whole-song \tf is prepended to the first bar so a swung song swings the drums too
+    // (IN6); an authored-swing groove (its own {tu 3}s) and \tf compose without double-swing (verified).
+    private List<string> BuildDrumBars(
+        RealizedSong song, RhythmPattern comping, DrumGroove drums, TripletFeel tripletFeel)
+    {
+        var barLines = new List<string>();
+
+        if (comping.Pickup is { } pickup && song.Sections.Count > 0 && song.Sections[0].Bars.Count > 0)
+        {
+            IReadOnlyList<RhythmSlot> pickupSlots = RhythmQuantizer.Quantize(pickup);
+            barLines.Add("\\ac " + DrumRestBar(pickupSlots));
+        }
+
+        int sectionBarCount = song.Sections.Sum(s => s.Bars.Count);
+        barLines.AddRange(_drumRenderer.RenderTiledBars(drums, sectionBarCount));
+
+        PrependTripletFeel(barLines, tripletFeel);
+        return barLines;
+    }
+
+    // A leading anacrusis of rests for the drum staff, matching the comping pickup's durations so the master
+    // bars align (v1: drums rest through the pickup). Duration-token state is local — a possibly-redundant :N on
+    // the first tiled bar is valid alphaTex.
+    private static string DrumRestBar(IReadOnlyList<RhythmSlot> slots)
+    {
+        var tokens = new List<string>(slots.Count);
+        string? currentDuration = null;
+        foreach (RhythmSlot slot in slots)
+        {
+            string durationToken = slot.NoteValue.ToString(CultureInfo.InvariantCulture);
+            string prefix = string.Empty;
+            if (durationToken != currentDuration)
+            {
+                prefix = ":" + durationToken + " ";
+                currentDuration = durationToken;
+            }
+
+            var effects = new List<string>(2);
+            if (slot.Dotted)
+            {
+                effects.Add("d");
+            }
+
+            if (slot.Tuplet is { } tuplet)
+            {
+                effects.Add("tu " + tuplet.Numerator.ToString(CultureInfo.InvariantCulture));
+            }
+
+            string effectGroup = effects.Count > 0 ? "{" + string.Join(" ", effects) + "}" : string.Empty;
+            tokens.Add(prefix + "r" + effectGroup);
+        }
+
+        return string.Join(" ", tokens) + " |";
+    }
+
     // Single-track header: score metadata with \ts/\ks folded in before the lone "." (no \track wrapper).
     // Byte-identical to the pre-lead output (design §7.4).
     private static void AppendHeader(
@@ -202,6 +278,18 @@ public sealed class AlphaTexRenderer : IScoreRenderer
         sb.Append("\\track \"").Append(name).Append("\" \"").Append(shortName).Append("\"\n");
         sb.Append("\\ts ").Append(ts.Numerator).Append(' ').Append(ts.Denominator).Append('\n');
         sb.Append("\\ks ").Append(keySig).Append('\n');
+    }
+
+    // A percussion \track line + its bar metadata: \instrument percussion + \articulation defaults + \ts, and
+    // NO \ks (percussion is keyless — drums-under-a-song C6). Mirrors the DrumGrooveRenderer standalone header
+    // minus the score block (\title/\tempo/. live in the shared score metadata for the multi-track score).
+    private static void AppendPercussionTrackHeader(
+        StringBuilder sb, string name, string shortName, TimeSignature ts)
+    {
+        sb.Append("\\track \"").Append(name).Append("\" \"").Append(shortName).Append("\"\n");
+        sb.Append("\\instrument percussion\n");
+        sb.Append("\\articulation defaults\n");
+        sb.Append("\\ts ").Append(ts.Numerator).Append(' ').Append(ts.Denominator).Append('\n');
     }
 
     // The chord-diagram directives, shared by the single-track header and the two-track score metadata.

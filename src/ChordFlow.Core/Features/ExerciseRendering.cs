@@ -91,7 +91,7 @@ public static class ExerciseRendering
             realized, (options ?? RenderOptions.Default).VoicingOrDefault, voicings, references);
         RenderResult render = renderer.Render(
             realized, exercise.Comping, exercise.Tempo, exercise.Difficulty, plan, exercise.TripletFeel,
-            lead: exercise.Lead, options: options);
+            lead: exercise.Lead, drums: exercise.Drums, options: options);
         return (render, realized, baseKey, plan);
     }
 }

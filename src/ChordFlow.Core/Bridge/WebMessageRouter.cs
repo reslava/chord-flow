@@ -13,7 +13,8 @@ namespace ChordFlow.Bridge;
 /// </summary>
 public sealed record GenerateRequest(
     string HarmonyEntity, string HarmonyId, string CompingPatternId, string? LeadPatternId,
-    int? KeyPitchClass, int Tempo, Difficulty Difficulty, TripletFeel TripletFeel, bool KeyIsMinor = false);
+    int? KeyPitchClass, int Tempo, Difficulty Difficulty, TripletFeel TripletFeel, bool KeyIsMinor = false,
+    string? DrumGrooveId = null, double DrumVolume = 1.0);
 
 /// <summary>
 /// The faceted filter state for one <c>voicingGrid</c> request (GuitarVoicingsR): the chosen <see cref="Root"/>
@@ -194,7 +195,9 @@ public sealed class WebMessageRouter
                         envelope.Tempo ?? 80,
                         ParseEnum(envelope.Difficulty, Difficulty.Beginner),
                         ParseEnum(envelope.TripletFeel, TripletFeel.None),
-                        envelope.KeyIsMinor ?? false),
+                        envelope.KeyIsMinor ?? false,
+                        envelope.DrumGrooveId,
+                        envelope.DrumVolume ?? 1.0),
                     ToRenderOptions(envelope.RenderOptions));
                 break;
             case "play":
@@ -370,6 +373,9 @@ public sealed class WebMessageRouter
         // param values (enum names). KeyPitchClass/Tempo are reused by setTempo's Bpm sibling below.
         string? HarmonyEntity, string? HarmonyId, string? CompingPatternId, string? LeadPatternId,
         int? KeyPitchClass, bool? KeyIsMinor, int? Tempo, string? Difficulty, string? TripletFeel, int? Bpm,
+        // generate: the optional drum-groove reference tiled beneath the harmony + its saved mix volume
+        // (drums-under-a-song IN4). Absent ⇒ no drum part.
+        string? DrumGrooveId, double? DrumVolume,
         // Content-CRUD fields: Entity discriminator, the string content id (distinct from the int Id used by
         // loadExercise), the editor's Name/Dsl payload, SourceId — the fork-from item whose catalog header
         // (genre/tags/description/tonality) a save preserves onto the new user copy (EX3) — and Tonality, the

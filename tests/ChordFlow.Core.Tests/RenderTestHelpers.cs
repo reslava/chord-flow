@@ -1,5 +1,6 @@
 using ChordFlow.Music.Songs;
 using ChordFlow.Exercises;
+using ChordFlow.Instruments.Drums;
 using ChordFlow.Instruments.Guitar;
 using ChordFlow.Music.Harmony;
 using ChordFlow.Music.Progressions;
@@ -20,8 +21,9 @@ internal static class RenderTestHelpers
     /// <summary>Render a realized song with a shell-strategy comping plan — the pre-(B) <c>Render</c> signature.</summary>
     public static RenderResult Render(
         this AlphaTexRenderer renderer, RealizedSong song, RhythmPattern rhythm, int tempo, Difficulty difficulty,
-        TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, RenderOptions? options = null) =>
-        renderer.Render(song, rhythm, tempo, difficulty, ShellPlan(song, difficulty), tripletFeel, lead, options);
+        TripletFeel tripletFeel = TripletFeel.None, RhythmPattern? lead = null, DrumGroove? drums = null,
+        RenderOptions? options = null) =>
+        renderer.Render(song, rhythm, tempo, difficulty, ShellPlan(song, difficulty), tripletFeel, lead, drums, options);
 
     public static string RenderProgression(
         this AlphaTexRenderer renderer, Key key, Progression progression, RhythmPattern rhythm, int tempo,

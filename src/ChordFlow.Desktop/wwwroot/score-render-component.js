@@ -53,6 +53,8 @@ window.ChordFlowScore = (function () {
     voicing: { kind: "automatic" }, // comping voicing source (engine-derived-as-app-source IN6); no UI picker yet → engine default (full neck, Closest)
     autoLayout: false,       // false = honor the score's defaultSystemsLayout (fixed bars/row); true = fit to width
     staffProfile: "tab",     // tab (default) | standard | both — display-only, persisted globally host-side
+    showDrums: true,         // show the percussion staff when a drum groove is present (drums-under-a-song IN5) —
+                             // display-only (renderTracks subset), audio always emitted; session-transient (not persisted)
   };
 
   // Staff-display profile → the two per-staff alphaTab model flags it sets. A display-only choice (which staves
@@ -204,7 +206,8 @@ window.ChordFlowScore = (function () {
       if (ui.staffProfile) ui.staffProfile.value = options.staffProfile;
       if (!api.score || !api.score.tracks) return;
       setStaffFlags(api.score);
-      if (api.score.tracks.length > 1) api.renderTracks(api.score.tracks);
+      // Re-render honoring the drum-staff toggle (renderVisibleTracks self-guards single-track scores).
+      if (api.score.tracks.length > 1) renderVisibleTracks(api.score);
       else api.render();
     }
 
@@ -218,6 +221,21 @@ window.ChordFlowScore = (function () {
     // flag (defaults to shown when chords are defined). Set it from the current option each time a score
     // loads, so the top list shows/hides independently of the over-staff boxes (driven from the alphaTex).
     // Runs alongside the engine's own scoreLoaded handler (which re-asserts per-track volumes).
+    // A percussion track (the drum staff) — identified by its staff, not a fixed index (a comping+drums
+    // exercise has drums at track 1, comping+lead+drums at track 2).
+    function isPercussionTrack(t) {
+      return !!(t && t.staves && t.staves.some((s) => s.isPercussion));
+    }
+
+    // Render the visible track subset: hide the percussion staff when the drum toggle is off. renderTracks is
+    // display-only — playback is generated from the full score, so hidden drums stay AUDIBLE (drums-under-a-song
+    // IN5). A single-track score keeps alphaTab's default render untouched.
+    function renderVisibleTracks(score) {
+      if (!score || !score.tracks || score.tracks.length <= 1) return;
+      const visible = options.showDrums ? score.tracks : score.tracks.filter((t) => !isPercussionTrack(t));
+      api.renderTracks(visible.length ? visible : score.tracks);
+    }
+
     api.scoreLoaded.on((score) => {
       if (score && score.stylesheet) {
         score.stylesheet.globalDisplayChordDiagramsOnTop = !!options.diagramsOnTop;
@@ -225,12 +243,10 @@ window.ChordFlowScore = (function () {
       // Re-assert the staff-display profile (the score model is rebuilt on every load, so the flags reset to
       // alphaTab's default both-staves otherwise) — set before the render below so it takes effect in one pass.
       setStaffFlags(score);
-      // alphaTab renders only the FIRST track by default, so a two-track exercise (comping + lead) would
-      // hide the lead staff. Render every track the score defines so both staves show. Only intervene when
-      // there's more than one track — a single-track score keeps the default render untouched.
-      if (score && score.tracks && score.tracks.length > 1) {
-        api.renderTracks(score.tracks);
-      }
+      // alphaTab renders only the FIRST track by default, so a multi-track exercise (comping + lead/drums)
+      // would hide the extra staves. Render the visible subset (all tracks, minus the percussion staff when
+      // the drum toggle is off). Only intervene when there's more than one track.
+      renderVisibleTracks(score);
     });
 
     const handle = {
@@ -267,6 +283,11 @@ window.ChordFlowScore = (function () {
       setOption(name, value) {
         options[name] = value;
         syncToggle(name, value);
+        // Drum-staff show/hide: display-only track-subset re-render, audio always emitted (IN5) — no C# request.
+        if (name === "showDrums") {
+          renderVisibleTracks(api.score);
+          return;
+        }
         if (DISPLAY_KIND.has(name)) {
           applyLayout();
           return;
@@ -472,6 +493,7 @@ window.ChordFlowScore = (function () {
         toggle("diagramsOverStaff", "Diagrams over staff", options, handle, ui),
         toggle("diagramsOnTop", "Diagrams on top", options, handle, ui),
         toggle("autoLayout", "Auto layout", options, handle, ui),
+        toggle("showDrums", "Drums staff", options, handle, ui),
       );
     }
 
