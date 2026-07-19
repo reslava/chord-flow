@@ -9,7 +9,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 100
+priority: 90
 depends_on: []
 ---
 # Scale & arpeggio tone functions
