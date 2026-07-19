@@ -4,11 +4,12 @@ id: th_01KXWNG7Q3AF3JMR8W77CBT8DP
 title: Drums under a song — drum groove as a track layered under a progression
 status: active
 created: 2026-07-19
+updated: 2026-07-19
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 200
+priority: 10
 depends_on: [th_01KXWGMM4VDFXGNMWXGW063CX0]
 ---
 # Drums under a song — drum groove as a track layered under a progression

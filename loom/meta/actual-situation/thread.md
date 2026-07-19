@@ -1,17 +1,17 @@
 ---
 type: thread
-id: th_01KVCTCN9STSHNPK02KKP1GASA
-title: Instrument-aware rendering fork + IInstrument seam
+id: th_01KXVRFWH04VPJ1X0GTMXKWH7T
+title: actual-situation
 status: active
-created: 2026-06-18
+created: 2026-07-18
 updated: 2026-07-19
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 90
-depends_on: [th_01KVCTCBFPMRJHQPDQBVEXDV8P]
+priority: 110
+depends_on: []
 ---
-# Instrument-aware rendering fork + IInstrument seam
+# actual-situation
 
 Thread manifest — authored roadmap metadata only (`priority` + `depends_on`). The thread's roadmap status and history are *derived* (`buildRoadmap`), never stored here.

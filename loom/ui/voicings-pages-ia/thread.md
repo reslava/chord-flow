@@ -4,12 +4,12 @@ id: th_01KWC2S94KF121QE8J2Z47VV0P
 title: Voicings pages — information architecture
 status: active
 created: 2026-06-30
-updated: 2026-07-17
+updated: 2026-07-19
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 50
+priority: 40
 depends_on: []
 ---
 # Voicings pages — information architecture
