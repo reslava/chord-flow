@@ -26,6 +26,8 @@ public sealed class ChordFlowDbContext : DbContext
 
     public DbSet<VoicingEntity> Voicings => Set<VoicingEntity>();
 
+    public DbSet<DrumGrooveEntity> DrumGrooves => Set<DrumGrooveEntity>();
+
     public DbSet<AppSettingEntity> AppSettings => Set<AppSettingEntity>();
 
     /// <summary>
@@ -95,6 +97,15 @@ public sealed class ChordFlowDbContext : DbContext
         modelBuilder.Entity<VoicingEntity>(e =>
         {
             // Field-for-field parity with ProgressionEntity: composite (Id, Origin) PK, Origin by name, JSON-array Tags default.
+            e.HasKey(x => new { x.Id, x.Origin });
+            e.Property(x => x.Origin).HasConversion<string>();
+            e.Property(x => x.Tags).HasDefaultValue("[]");
+        });
+
+        modelBuilder.Entity<DrumGrooveEntity>(e =>
+        {
+            // Catalog parity with ProgressionEntity (composite (Id, Origin) PK, Origin by name, JSON-array Tags
+            // default) PLUS the RhythmPattern meter columns — grooves are genre-tagged and carry a time signature.
             e.HasKey(x => new { x.Id, x.Origin });
             e.Property(x => x.Origin).HasConversion<string>();
             e.Property(x => x.Tags).HasDefaultValue("[]");

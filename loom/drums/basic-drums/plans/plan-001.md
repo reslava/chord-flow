@@ -2,7 +2,7 @@
 type: plan
 id: pl_01KXWNVK9355V921VP3P8HPX4E
 title: Basic Drums — standalone groove vertical slice
-status: implementing
+status: done
 created: 2026-07-19
 updated: 2026-07-19
 version: 1
@@ -57,21 +57,21 @@ steps:
     satisfies: [IN5, C6]
   - id: drumgroovestore-crud-5th-content-kind
     order: 7
-    status: pending
+    status: done
     description: "DrumGrooveEntity + migration + DrumGrooveStore : IContentStore (with genre/subgenre/tags catalog metadata), wired into the bridge entity* CRUD family and the shared editor. Stored form is the hit-grid DSL string only."
     files_touched: [src/ChordFlow.Core/Persistence/DrumGrooveEntity.cs, src/ChordFlow.Core/Persistence/DrumGrooveStore.cs, src/ChordFlow.Core/Persistence/ChordFlowDbContext.cs, src/ChordFlow.Core/Features/ContentCrud.cs, tests/ChordFlow.Core.Tests/Persistence/DrumGrooveStoreTests.cs]
     blocked_by: [hit-grid-dsl-parser]
     satisfies: [IN6, C5]
   - id: default-pack-starter-grooves
     order: 8
-    status: pending
+    status: done
     description: Ship rock / blues shuffle / jazz swing / funk grooves as drums/*.dsl in the on-disk default pack, imported through the normal PackReader/PackImporter path.
     files_touched: [Content/default-pack/drums/rock.dsl, Content/default-pack/drums/blues-shuffle.dsl, Content/default-pack/drums/jazz-swing.dsl, Content/default-pack/drums/funk.dsl, Content/default-pack/manifest.json, src/ChordFlow.Core/Features/Packs/PackReader.cs]
     blocked_by: [hit-grid-dsl-parser, drumgroovestore-crud-5th-content-kind]
     satisfies: [IN7]
   - id: architecture-ref-sync-end-to-end
     order: 9
-    status: pending
+    status: done
     description: Update the architecture ref (Instruments/Drums, DrumsR, the 5th content kind, the percussion render path) and run the full slice end-to-end (author → store → preview → play → animate).
     files_touched: [loom/refs/chordflow-architecture-reference.md]
     blocked_by: [content-drums-dogfood-page, drumgroovestore-crud-5th-content-kind, default-pack-starter-grooves]
@@ -95,9 +95,9 @@ Deliver drums as ChordFlow's first-class 2nd instrument via one concrete end-to-
 | ✅ | 4 | Confirm the committed sonivox.sf2 sounds alphaTab percussion articulations on GM channel 10, via the CDP harness (render a groove, hear it). | tests/ChordFlow.Core.Tests/Rendering/DrumGrooveRendererTests.cs | groove-alphatex-percussion-render | IN9 |
 | ✅ | 5 | Core DrumGrooveDiagram spatial producer (drums twin of FretboardDiagram) + a JS DrumsR dumb-drawer SVG component, animated off the shared playback beat/position bus. | src/ChordFlow.Core/Instruments/Drums/DrumGrooveDiagram.cs, src/ChordFlow.Desktop/wwwroot/drums-render-component.js, tests/ChordFlow.Core.Tests/Instruments/Drums/DrumGrooveDiagramTests.cs | drums-domain-in-instruments-drums | IN4, C1 |
 | ✅ | 6 | Wire a Drums surface into the Content page: author the hit-grid DSL, preview (score-only style), play, and see DrumsR animate in time. | src/ChordFlow.Desktop/wwwroot/content-crud.js, src/ChordFlow.Desktop/wwwroot/index.html | hit-grid-dsl-parser, groove-alphatex-percussion-render, drumgroovediagram-drumsr-component | IN5, C6 |
-| 🔳 | 7 | DrumGrooveEntity + migration + DrumGrooveStore : IContentStore (with genre/subgenre/tags catalog metadata), wired into the bridge entity* CRUD family and the shared editor. Stored form is the hit-grid DSL string only. | src/ChordFlow.Core/Persistence/DrumGrooveEntity.cs, src/ChordFlow.Core/Persistence/DrumGrooveStore.cs, src/ChordFlow.Core/Persistence/ChordFlowDbContext.cs, src/ChordFlow.Core/Features/ContentCrud.cs, tests/ChordFlow.Core.Tests/Persistence/DrumGrooveStoreTests.cs | hit-grid-dsl-parser | IN6, C5 |
-| 🔳 | 8 | Ship rock / blues shuffle / jazz swing / funk grooves as drums/*.dsl in the on-disk default pack, imported through the normal PackReader/PackImporter path. | Content/default-pack/drums/rock.dsl, Content/default-pack/drums/blues-shuffle.dsl, Content/default-pack/drums/jazz-swing.dsl, Content/default-pack/drums/funk.dsl, Content/default-pack/manifest.json, src/ChordFlow.Core/Features/Packs/PackReader.cs | hit-grid-dsl-parser, drumgroovestore-crud-5th-content-kind | IN7 |
-| 🔳 | 9 | Update the architecture ref (Instruments/Drums, DrumsR, the 5th content kind, the percussion render path) and run the full slice end-to-end (author → store → preview → play → animate). | loom/refs/chordflow-architecture-reference.md | content-drums-dogfood-page, drumgroovestore-crud-5th-content-kind, default-pack-starter-grooves | IN8 |
+| ✅ | 7 | DrumGrooveEntity + migration + DrumGrooveStore : IContentStore (with genre/subgenre/tags catalog metadata), wired into the bridge entity* CRUD family and the shared editor. Stored form is the hit-grid DSL string only. | src/ChordFlow.Core/Persistence/DrumGrooveEntity.cs, src/ChordFlow.Core/Persistence/DrumGrooveStore.cs, src/ChordFlow.Core/Persistence/ChordFlowDbContext.cs, src/ChordFlow.Core/Features/ContentCrud.cs, tests/ChordFlow.Core.Tests/Persistence/DrumGrooveStoreTests.cs | hit-grid-dsl-parser | IN6, C5 |
+| ✅ | 8 | Ship rock / blues shuffle / jazz swing / funk grooves as drums/*.dsl in the on-disk default pack, imported through the normal PackReader/PackImporter path. | Content/default-pack/drums/rock.dsl, Content/default-pack/drums/blues-shuffle.dsl, Content/default-pack/drums/jazz-swing.dsl, Content/default-pack/drums/funk.dsl, Content/default-pack/manifest.json, src/ChordFlow.Core/Features/Packs/PackReader.cs | hit-grid-dsl-parser, drumgroovestore-crud-5th-content-kind | IN7 |
+| ✅ | 9 | Update the architecture ref (Instruments/Drums, DrumsR, the 5th content kind, the percussion render path) and run the full slice end-to-end (author → store → preview → play → animate). | loom/refs/chordflow-architecture-reference.md | content-drums-dogfood-page, drumgroovestore-crud-5th-content-kind, default-pack-starter-grooves | IN8 |
 ---
 
 ### Legend

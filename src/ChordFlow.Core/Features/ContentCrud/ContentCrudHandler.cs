@@ -269,6 +269,7 @@ public sealed class ContentCrudHandler
         ContentEntity.Song => new SongStore(db),
         ContentEntity.Rhythm => new RhythmPatternStore(db),
         ContentEntity.Voicing => new VoicingStore(db),
+        ContentEntity.Drums => new DrumGrooveStore(db),
         _ => throw new FormatException($"Unknown content entity \"{kind}\"."),
     };
 }

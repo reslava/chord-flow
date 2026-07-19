@@ -11,6 +11,7 @@ public enum ContentEntity
     Song,
     Rhythm,
     Voicing,
+    Drums,
 }
 
 /// <summary>Parse the wire string (<c>progression|song|rhythm|voicing</c>) on an inbound envelope.</summary>
@@ -22,6 +23,7 @@ public static class ContentEntities
         "song" => ContentEntity.Song,
         "rhythm" => ContentEntity.Rhythm,
         "voicing" => ContentEntity.Voicing,
+        "drums" => ContentEntity.Drums,
         _ => throw new FormatException($"Unknown content entity \"{entity}\"."),
     };
 }

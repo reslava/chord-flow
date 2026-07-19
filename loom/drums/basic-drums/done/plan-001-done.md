@@ -4,7 +4,7 @@ id: pl_01KXWNVK9355V921VP3P8HPX4E-done
 title: Done — Basic Drums — standalone groove vertical slice
 status: done
 created: 2026-07-19
-version: 6
+version: 9
 tags: []
 parent_id: pl_01KXWNVK9355V921VP3P8HPX4E
 requires_load: []
@@ -95,3 +95,49 @@ The Drums dogfood page — author a groove, preview (percussion score + grid), p
 **Verified live via CDP** (rebuilt Desktop, relaunched, drove the page): switching to Drums fires the round-trip → `err:""`, **12 grid hits (HH/SD/BD)**, ScoreR rendered a **percussion staff (`isPercussion:true`, 12 notes)**; with `--play` the DrumsR marker animated (`x 84 → 124`, moved:true). Full Core suite **1122 passed, 0 failed**.
 
 **Deferred to step 9:** the architecture-ref narrative (DrumsR, the Drums page, the `drumPreview` verb, the percussion render path) — bundled there per the plan.
+
+## Step 7 — DrumGrooveEntity + migration + DrumGrooveStore : IContentStore (with genre/subgenre/tags catalog metadata), wired into the bridge entity* CRUD family and the shared editor. Stored form is the hit-grid DSL string only.
+
+Persistence + CRUD — the 5th content kind, surfaced as a saved-grooves library on the Drums page.
+
+**Surface decision (chat-001):** drums are authored on the standalone Drums page, NOT folded into the harmony-oriented Content editor (a groove has no comping/key/feel/tonality/sheet, so it doesn't fit that editor's chrome). "Shared editor" (req IN6) is satisfied by the shared **entity* CRUD family + the uniform `IContentStore`**, not the Content-page UI. Req IN6 amended (v2) to record this, re-locked.
+
+**C# (persistence core — path-independent)**
+- `Persistence/Entities/DrumGrooveEntity.cs` — `ICatalogEntity` (genre/subgenre/tags) + meter columns; hit-grid `Dsl` only.
+- `Persistence/DrumGrooveStore.cs` — `IContentStore`: List/Get/Save/Delete + `Find`. Mirrors `ProgressionStore` (catalog-header preserve on save, strip on Get) + `RhythmPatternStore` (meter). Fork-on-edit, fail-loud parse.
+- `ChordFlowDbContext` — `DrumGrooves` DbSet + composite (Id,Origin) PK config; EF migration `Persistence/Migrations/…_AddDrumGrooves` (applied on startup via `Migrate()`).
+- `ContentEntity.Drums` + `ContentEntities.Parse("drums")` + `ContentCrudHandler.StoreFor(Drums)` → `DrumGrooveStore`. **No new bridge wiring** — the existing generic `entity*` router events already route `drums` to the store.
+- `tests/…/DrumGroovePersistenceTests.cs` — 6 tests (round-trip, list source, header strip on Get, header preserved on in-place edit, delete, fail-loud). Full Core suite **1128 passed, 0 failed**.
+
+**JS (library on the Drums page)**
+- `drums.js` — a saved-grooves list via the `entity*` family (`entityList`/`entityGet`/`entitySave`/`entityDelete`, entity "drums"): Save/New/Delete + a clickable list (× to delete user rows, pack rows read-only → fork on save). `editingId` tracks the row; a fork returns a new user id.
+- `index.html` — Name field + Save/New/Delete + `#drumList` in the Drums view.
+
+**Verified live via CDP:** saved a uniquely-named groove → it listed → loaded back into the editor (name round-tripped) → deleted → list empty. Persists in the real SQLite DB (migration applied on startup).
+
+## Step 8 — Ship rock / blues shuffle / jazz swing / funk grooves as drums/*.dsl in the on-disk default pack, imported through the normal PackReader/PackImporter path.
+
+Default-pack starter grooves — ship rock / blues-shuffle / jazz-swing / funk through the normal pack path.
+
+**Files**
+- `src/ChordFlow.Core/Content/default-pack/drums/{rock,blues-shuffle,jazz-swing,funk}.dsl` — `name:` + `genre:` header + the hit-grid body. Copied to output by the existing `Content\**\*` csproj glob.
+- `Features/Packs/ContentKind.cs` — `ContentKind.Drums` + `Folder()` → `drums` + added to `All`, so `PackReader` (which walks `ContentKinds.All`) auto-reads the `drums/` folder — no reader change.
+- `Features/Packs/PackImporter.cs` — `case ContentKind.Drums` → `UpsertCatalog(_db.DrumGrooves, …, NewDrums)` (drums are a catalog entity; meter defaults 4/4 on the entity) + a `ReconcileOrphans(_db.DrumGrooves, …)` line so the pack stays authoritative.
+- `tests/…/DefaultPackDrumsTests.cs` — 6 tests: all 4 grooves import as `Package` source, each `Find` re-parses into a valid groove, and rock lands kick/snare/hi-hat on the right beats. Full Core suite **1134 passed, 0 failed**.
+
+**Verified live via CDP:** the Drums library lists all four with the "ChordFlow Starter" pack badge; loading Jazz Swing populates the editor + renders the grid (RD/PH/BD, 9 hits). Import is idempotent on startup (`DefaultPack.ImportInto`).
+
+**Note:** `name:` is peeled by `PackDefinitionFile`; `genre:`/`subgenre:` stay for denormalization and are stripped again by `CatalogHeader.Parse` on load — the grid rows (`HH :3 …`) are never mistaken for header lines (the key before `:` isn't a recognized header key).
+
+## Step 9 — Update the architecture ref (Instruments/Drums, DrumsR, the 5th content kind, the percussion render path) and run the full slice end-to-end (author → store → preview → play → animate).
+
+Architecture-ref sync + final end-to-end.
+
+**Ref (`chordflow-architecture-reference.md`, IN8):**
+- §2 project tree — added `Instruments/Drums/`, `DrumGrooveRenderer` in Rendering, the `Drums` Features slice, and `drums-render-component.js` + `drums.js` in wwwroot; nav now "Practice ⇄ Content ⇄ Drums ⇄ Scales".
+- §3 — new **"Drums — the first-class 2nd instrument"** subsection: the standalone slice across Instruments/Drums, the concrete `DrumGrooveRenderer`, the `drumPreview` Features slice, the 5th content kind (`DrumGrooveStore` + `entity*` + default-pack grooves), and the Drums page (editor + library + percussion ScoreR + animated DrumsR).
+- §5 bridge — added the `drumPreview` verb + the `entity:"drums"` 5th content kind.
+
+**Final e2e (CDP, fully-integrated page):** Drums page → loaded the **Funk** pack groove → **21 grid hits, `isPercussion: true`** percussion score → play → **marker animated** (`x 84 → 124`). Combined with the step-4 audible confirmation (Rafa) and the step-7 save/list/load/delete round-trip, the whole author → store → preview → play → animate slice works. Full Core suite **1134 passed, 0 failed**.
+
+The basic-drums MVP is complete: drums are ChordFlow's first-class 2nd instrument — a standalone groove authored in a hit-grid DSL, rendered to a percussion track + an animated grid, persisted as the 5th content kind with starter grooves. Deferred work is tracked (drums-under-a-song, instrument-rendering, drums-accent-ghost).

@@ -12,6 +12,7 @@ public enum ContentKind
     Song,
     Rhythm,
     Voicing,
+    Drums,
 }
 
 /// <summary>Folder-name mapping for <see cref="ContentKind"/> — the single place kinds and bundle subfolders line up.</summary>
@@ -24,6 +25,7 @@ public static class ContentKinds
         ContentKind.Song => "songs",
         ContentKind.Rhythm => "rhythms",
         ContentKind.Voicing => "voicings",
+        ContentKind.Drums => "drums",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown content kind."),
     };
 
@@ -37,6 +39,7 @@ public static class ContentKinds
         ContentKind.Progression,
         ContentKind.Rhythm,
         ContentKind.Voicing,
+        ContentKind.Drums,
         ContentKind.Song,
     };
 }

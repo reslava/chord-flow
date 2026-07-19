@@ -5,7 +5,7 @@ title: Basic Drums — standalone groove as a first-class instrument — Require
 status: locked
 created: 2026-07-19
 updated: 2026-07-19
-version: 1
+version: 2
 design_version: 1
 tags: []
 parent_id: de_01KXWNJTVWB1TKXS0T5CZHRNRQ
@@ -21,8 +21,8 @@ Requirements for **basic drums** — a standalone drum groove as ChordFlow's fir
 - `IN2` A **Drums hit-grid DSL** + `DrumGrooveParser`: rows = voices; `x` = hit, `.` = no hit; `:n` subdivision (per-row + per-run); `|` bar separators; `:3`/`:6` triplet beats; the short-token voice vocabulary (`BD`/`SD`/`HH`/`OH`/`PH`/`RD`/`RB`/`CC`/`HT`/`MT`/`FT`) with full-name aliases. Fail-loud parse errors naming the bad token.
 - `IN3` **Render a `DrumGroove` → alphaTex** as a percussion track: `\instrument percussion` + `\articulation defaults` + `\ts`/`\tempo`, hits as articulation-name notes, **simultaneous hits grouped in `( )`**, rests where nothing sounds.
 - `IN4` A Core **`DrumGrooveDiagram`** spatial producer + a JS **DrumsR** dumb-drawer SVG component (sibling to FretR), **animated off the shared playback beat/position bus**.
-- `IN5` A **Content › Drums** dogfood surface: author a groove, preview it, play it, and see DrumsR animate in time.
-- `IN6` A **`DrumGrooveStore : IContentStore`** (5th content kind, mirroring `RhythmPatternStore` but **with** catalog metadata: genre/subgenre/tags) wired into the bridge `entity*` CRUD family + the shared Content editor.
+- `IN5` A **Drums** dogfood surface (a standalone page): author a groove, preview it, play it, and see DrumsR animate in time.
+- `IN6` A **`DrumGrooveStore : IContentStore`** (5th content kind, mirroring `RhythmPatternStore` but **with** catalog metadata: genre/subgenre/tags) wired into the bridge `entity*` CRUD family. **Surfaced as a saved-grooves library on the standalone Drums page** — *not* folded into the harmony-oriented Content editor (a groove has no comping/key/feel/tonality/sheet, so it doesn't fit that editor's chrome). "Shared editor" is satisfied by the shared entity* CRUD family + the uniform `IContentStore`, not the Content-page UI (decision: chat-001, amended after implementation).
 - `IN7` **Default-pack starter grooves** shipped as `drums/*.dsl` (rock / blues shuffle / jazz swing / funk), imported through the normal pack path.
 - `IN8` **Reference-doc sync** in the same units of work: `chordflow-dsl-reference.md` (the Drums DSL), `chordflow-domain-model-reference.md` (the drum types + store), `chordflow-architecture-reference.md` (`Instruments/Drums/`, DrumsR, the 5th content kind, the percussion render path).
 - `IN9` A **soundfont percussion smoke test**: confirm the committed `wwwroot/soundfont/sonivox.sf2` sounds alphaTab's percussion articulations on GM channel 10 (CDP-driven).

@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: [rf_01KTSAPAT132QTEY5BEPRKS3MB, rf_01KTM41K36DYJ0CE44FE7TMCGH, rf_01KTSAQ6990GY3J4CZ7HPVPW6K]
-last_ai_block: 25
+last_ai_block: 27
 ---
 # basic-drums Chat 001
 
@@ -368,3 +368,33 @@ Steps 4–6 done ✅✅✅ — the standalone drums slice is now playable and an
 Full Core suite **1122 passed, 0 failed**. The whole path works: type `HH :2 x x x x x x x x` / `SD …` / `BD …` → see the grid + notation → hit play → hear it and watch the marker track.
 
 Committing 1–6 now. Remaining: **step 7** (persistence + CRUD, the 5th content kind), **8** (default-pack grooves), **9** (architecture-ref + final e2e).
+
+## AI:
+
+Step 7 — persistence core done (the part that's identical either way): `DrumGrooveEntity` + `DrumGrooveStore : IContentStore` (catalog metadata + meter, hit-grid DSL only) + EF migration `AddDrumGrooves` + `ContentEntity.Drums` + `StoreFor` mapping. So `entityList`/`entityGet`/`entitySave`/`entityDelete` for `drums` all work through the existing generic CRUD handler — **6 store tests pass** (round-trip, header preservation, fork-on-edit, delete, fail-loud).
+
+Now the fork I need you to decide — **where drums are authored** (both options use the store above; only the surface differs):
+
+**1. Drums as a Content-editor kind (faithful to req IN6's "shared Content editor").** Add `drums` to the Content page's entity table with a DrumsR-based preview; **retire the step-6 standalone Drums nav view + the `drumPreview` verb** (superseded, DrumsR + Core reused). One home, alongside progressions/rhythms/voicings — *but* drums would hide most of that editor's chrome (comping / key / feel / tonality / Score⇄Sheet) since a groove has no harmony. It's the odd kind out.
+
+**2. Keep the standalone Drums page + give it a saved-grooves library (my recommendation).** The step-6 Drums page gains list/save/load/delete via the same entity* family (already wired to `DrumGrooveStore`); the Content editor stays guitar-focused. Drums keep the tailored surface that actually fits them (grid + percussion score + play), and nothing from step 6 is thrown away.
+
+I lean **2**: drums genuinely don't fit the harmony-oriented Content editor (no comping/key/feel/sheet), and the Drums page is already the right surface. The req said "shared Content editor," but that was written before we saw how differently drums render — the **shared *persistence*** (the 5th `IContentStore` + entity* CRUD) is honored either way. If you agree, I'd amend req IN6 to say "the entity* CRUD family, surfaced on the Drums page" and proceed. If you'd rather stay literal to the req, I'll do option 1 and retire the standalone view.
+
+Which surface — **2** (Drums-page library, my rec) or **1** (Content-editor kind)?
+
+## AI:
+
+Steps 7–9 done ✅✅✅ — **plan complete (9/9), basic-drums MVP shipped.**
+
+**7 — persistence + CRUD (surface = Drums page, decision 2):** `DrumGrooveStore : IContentStore` + entity + `AddDrumGrooves` migration; joins the generic `entity*` family (no new bridge wiring). The Drums page got a **saved-grooves library** (list/save/load/delete). Req IN6 amended (v2) + re-locked to record the surface choice. 6 store tests; live-verified save→list→load→delete.
+
+**8 — default-pack grooves:** rock / blues-shuffle / jazz-swing / funk as `drums/*.dsl`, imported through the normal `PackReader`/`PackImporter` (`ContentKind.Drums` added). 6 import tests; live-verified all four list with the "ChordFlow Starter" badge and load/render.
+
+**9 — architecture ref + final e2e:** ref updated (tree, wwwroot, a dedicated Drums §3 subsection, the `drumPreview` verb). Final e2e: loaded the Funk pack groove → 21 hits, percussion score, marker animated during playback.
+
+Full Core suite **1134 passed, 0 failed**. All three refs synced (DSL / domain-model / architecture). Deferred work is on the roadmap: `drums-under-a-song`, `chordflow/instrument-rendering` (`IInstrument`), `drums-accent-ghost`.
+
+**The whole loop works:** pick or type a groove → see the notation + grid → hit play → hear it and watch the grid track the beat → save it to your library.
+
+Steps 7–9 are **not committed yet** (you asked me to commit 1–6 explicitly; didn't want to assume for this batch). Want me to commit 7–9, and should I `docs done` the thread (mark idea/design/chats done — the plan's already done)?

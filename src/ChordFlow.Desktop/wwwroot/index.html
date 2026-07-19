@@ -323,16 +323,27 @@
   <!-- Drums view: author a groove in the hit-grid DSL → the host parses it once into a percussion score
        (ScoreR, played) + a grid model (DrumsR, animated by the playback clock). The basic-drums dogfood page. -->
   <div id="drums-view" hidden>
-    <section class="toolbar" id="drumBuilder" style="align-items:flex-start;">
+    <section class="toolbar" id="drumBuilder" style="align-items:flex-start; gap:1.25rem;">
       <div style="display:flex; flex-direction:column; gap:.25rem;">
         <label for="drumDsl">Groove (hit grid)</label>
         <textarea id="drumDsl" class="dsl-input" rows="4" cols="40" spellcheck="false"
           style="font-family:monospace; white-space:pre;"></textarea>
+        <span class="cc-help">rows = voices (<code>HH SD BD OH RD …</code>) · <code>x</code> hit · <code>.</code> rest · <code>:n</code> subdivision · <code>|</code> bars</span>
       </div>
-      <div style="display:flex; flex-direction:column; gap:.25rem;">
+      <div style="display:flex; flex-direction:column; gap:.4rem;">
+        <label for="drumName">Name</label>
+        <input id="drumName" type="text" size="20" placeholder="My Groove" />
         <label for="drumTempo">Tempo</label>
         <input id="drumTempo" type="number" min="40" max="240" value="100" style="width:5rem;" />
-        <span class="cc-help">rows = voices (<code>HH SD BD OH RD …</code>) · <code>x</code> hit · <code>.</code> rest · <code>:n</code> subdivision · <code>|</code> bars</span>
+        <div style="display:flex; gap:.4rem; margin-top:.3rem;">
+          <button id="drumSave" type="button">Save</button>
+          <button id="drumNew" type="button">New</button>
+          <button id="drumDelete" type="button">Delete</button>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:.25rem; min-width:12rem;">
+        <label>Saved grooves</label>
+        <ul id="drumList" class="cc-list" style="margin:0; max-height:9rem; overflow:auto;"><li class="empty">No saved grooves</li></ul>
       </div>
     </section>
     <div id="drumError" class="cc-error" style="padding:.2rem 1rem;"></div>

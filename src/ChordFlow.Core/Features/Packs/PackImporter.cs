@@ -53,6 +53,9 @@ public sealed class PackImporter
                 case ContentKind.Voicing:
                     UpsertCatalog(_db.Voicings, def, packId, NewVoicing);
                     break;
+                case ContentKind.Drums:
+                    UpsertCatalog(_db.DrumGrooves, def, packId, NewDrums);
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(pack), def.Kind, "Unknown content kind.");
@@ -69,6 +72,7 @@ public sealed class PackImporter
         ReconcileOrphans(_db.Songs, packId, Shipped(shipped, ContentKind.Song), e => e.PackId);
         ReconcileOrphans(_db.RhythmPatterns, packId, Shipped(shipped, ContentKind.Rhythm), e => e.PackId);
         ReconcileOrphans(_db.Voicings, packId, Shipped(shipped, ContentKind.Voicing), e => e.PackId);
+        ReconcileOrphans(_db.DrumGrooves, packId, Shipped(shipped, ContentKind.Drums), e => e.PackId);
 
         _db.SaveChanges();
         return pack.Definitions.Count;
@@ -169,6 +173,22 @@ public sealed class PackImporter
         };
 
     private static VoicingEntity NewVoicing(PackDefinition def, string packId, CatalogMetadata meta) =>
+        new()
+        {
+            Id = def.Id,
+            Name = def.Name,
+            Dsl = def.Dsl,
+            Origin = Origin.Pack,
+            PackId = packId,
+            Genre = meta.Genre,
+            Subgenre = meta.Subgenre,
+            Tags = CatalogHeader.SerializeTags(meta.Tags),
+            CreatedUtc = DateTime.UtcNow,
+        };
+
+    // Drums are a catalog entity (genre-tagged) with the RhythmPattern meter columns; meter defaults to 4/4
+    // on the entity (a future `ts:` line is additive), so the factory sets only the catalog fields.
+    private static DrumGrooveEntity NewDrums(PackDefinition def, string packId, CatalogMetadata meta) =>
         new()
         {
             Id = def.Id,
