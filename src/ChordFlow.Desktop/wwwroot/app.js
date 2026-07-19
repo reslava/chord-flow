@@ -157,6 +157,8 @@ const ChordFlow = (function () {
       practice: { nav: $("navPractice"), el: $("practice-view") },
       content: { nav: $("navContent"), el: $("content-view"),
         onShow: () => window.ChordFlowContent && window.ChordFlowContent.show() },
+      drums: { nav: $("navDrums"), el: $("drums-view"),
+        onShow: () => window.ChordFlowDrumsView && window.ChordFlowDrumsView.show() },
       scales: { nav: $("navScales"), el: $("scales-view"),
         onShow: () => window.ChordFlowScales && window.ChordFlowScales.show() },
       caged: { nav: $("navCaged"), el: $("caged-shapes-view"),

@@ -2,6 +2,7 @@ using ChordFlow.Exercises;
 using ChordFlow.Music.Rhythm;
 using ChordFlow.Instruments.Guitar;
 using ChordFlow.Features.ContentCrud;
+using ChordFlow.Features.Drums;
 using ChordFlow.Features.ExerciseLibrary;
 using ChordFlow.Features.GenerateExercise;
 using ChordFlow.Features.Packs;
@@ -119,6 +120,7 @@ internal static class Program
                 // the 36 CAGED families list on the Content page alongside package + user voicings (IN2).
                 var contentCrud = new ContentCrudHandler(dbOptions, renderer, packNames, new EngineVoicingSource());
                 var scales = new ScalesHandler();
+                var drumPreview = new DrumGroovePreviewHandler();
                 var caged = new CagedShapesHandler();
                 var cagedChord = new CagedChordHandler();
                 var voicingGrid = new VoicingGridHandler();
@@ -310,6 +312,14 @@ internal static class Program
                 {
                     try { bridge.Send(scales.Preview(intervals, rootPc)); }
                     catch (FormatException ex) { bridge.Send(new ScaleErrorEnvelope(ex.Message)); }
+                };
+
+                // Drums page: parse the hit-grid DSL → percussion tex + grid diagram (one parse, two projections);
+                // a bad DSL surfaces inline as drumPreviewError (mirrors the scale/CRUD parse-error path).
+                router.DrumPreviewRequested += (dsl, tempo) =>
+                {
+                    try { bridge.Send(drumPreview.Preview(dsl, tempo)); }
+                    catch (FormatException ex) { bridge.Send(new DrumPreviewErrorEnvelope(ex.Message)); }
                 };
 
                 // CAGED Shapes page: build the octave-shape fretboard diagram; an unknown shape surfaces inline (cagedError).

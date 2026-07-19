@@ -131,6 +131,9 @@ public sealed class WebMessageRouter
     /// <summary>Preview an interval set on the fretboard (the Scales page) — <c>(intervals, rootPitchClass)</c>.</summary>
     public event Action<string, int>? ScalePreviewRequested;
 
+    /// <summary>Preview a drum groove (the Drums page) — <c>(dsl, tempo)</c> → tex + grid diagram.</summary>
+    public event Action<string, int>? DrumPreviewRequested;
+
     /// <summary>Preview a CAGED octave shape on the fretboard (the CAGED Shapes page) — <c>(shape, rootPitchClass)</c>.</summary>
     public event Action<string, int>? CagedPreviewRequested;
 
@@ -281,6 +284,12 @@ public sealed class WebMessageRouter
                 if (envelope.Intervals is { } scaleIntervals)
                 {
                     ScalePreviewRequested?.Invoke(scaleIntervals, envelope.RootPitchClass ?? 0);
+                }
+                break;
+            case "drumPreview":
+                if (envelope.Dsl is { } drumDsl)
+                {
+                    DrumPreviewRequested?.Invoke(drumDsl, envelope.Tempo ?? 100);
                 }
                 break;
             case "cagedPreview":

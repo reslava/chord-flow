@@ -274,6 +274,7 @@
     <nav class="nav" id="viewNav">
       <button id="navPractice" type="button" class="active">Practice</button>
       <button id="navContent" type="button">Content</button>
+      <button id="navDrums" type="button">Drums</button>
       <button id="navScales" type="button">Scales</button>
       <button id="navCaged" type="button">CAGED</button>
       <button id="navCagedChords" type="button">CAGED Chords</button>
@@ -318,6 +319,26 @@
 
   <!-- Content view: the generic CRUD editor for DSL-backed entities (populated by content-crud.js). -->
   <div id="content-view" hidden></div>
+
+  <!-- Drums view: author a groove in the hit-grid DSL → the host parses it once into a percussion score
+       (ScoreR, played) + a grid model (DrumsR, animated by the playback clock). The basic-drums dogfood page. -->
+  <div id="drums-view" hidden>
+    <section class="toolbar" id="drumBuilder" style="align-items:flex-start;">
+      <div style="display:flex; flex-direction:column; gap:.25rem;">
+        <label for="drumDsl">Groove (hit grid)</label>
+        <textarea id="drumDsl" class="dsl-input" rows="4" cols="40" spellcheck="false"
+          style="font-family:monospace; white-space:pre;"></textarea>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:.25rem;">
+        <label for="drumTempo">Tempo</label>
+        <input id="drumTempo" type="number" min="40" max="240" value="100" style="width:5rem;" />
+        <span class="cc-help">rows = voices (<code>HH SD BD OH RD …</code>) · <code>x</code> hit · <code>.</code> rest · <code>:n</code> subdivision · <code>|</code> bars</span>
+      </div>
+    </section>
+    <div id="drumError" class="cc-error" style="padding:.2rem 1rem;"></div>
+    <div id="drums-grid" style="margin:0 1rem 1rem;"></div>
+    <div id="drums-score" style="margin:0 1rem 1rem;"></div>
+  </div>
 
   <!-- Scales view: type an interval set + pick a root → the host lights it on the neck (scales.js). The
        interval-lattice dogfood page; the shared ChordFlowFretboard draws it (horizontal, root-red/rest-black). -->
@@ -413,6 +434,8 @@
   <script src="fretboard-render-component.js"></script>
   <script src="now-next-fretboards.js"></script>
   <script src="content-crud.js"></script>
+  <script src="drums-render-component.js"></script>
+  <script src="drums.js"></script>
   <script src="scales.js"></script>
   <script src="caged-shapes.js"></script>
   <script src="caged-chords.js"></script>

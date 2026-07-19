@@ -19,3 +19,13 @@ Three `loom/refs/` docs mirror the live system. Keeping them current is **mandat
 - **Always UPDATE**: when you change the code in one of those areas, edit the matching ref in the *same* unit of work — never "later."
 - **Always LOAD**: before designing or reasoning about one of those areas, read the matching ref first (it is the authoritative map; the source files are the detail).
 - These are versioned Loom docs but `loom/refs/*.md` is gate-excluded — edit them with `loom_patch_doc` / `loom_update_doc` to keep frontmatter consistent.
+
+## Deferral tracking (required)
+
+**Whenever we decide to defer something, it must land on the roadmap the same turn — never only in prose.** A deferral that lives only inside a chat or design body is a deferral that gets forgotten.
+
+- **Always create at least a `thread`** (`loom_create_thread`) for the deferred work, so it surfaces in the derived roadmap. Give it a `depends_on` edge to the thread it was deferred *from* when there is a real ordering.
+- **Optionally add an `idea`** to that thread:
+  - **Create the idea now** when we already have *enough foundation* — the shape is understood, constraints are known — so the reasoning isn't lost.
+  - **Defer the idea** (thread-only) when it's a *very early* notion — capture the pointer, flesh it out when it's picked up.
+- This applies to every kind of deferral — a phase-2 feature, an extracted seam, a small nice-to-have glyph — not just the big ones.

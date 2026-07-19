@@ -4,8 +4,8 @@ id: rf_01KTSAQ6990GY3J4CZ7HPVPW6K
 title: ChordFlow DSL
 status: active
 created: 2026-06-10
-updated: 2026-07-18
-version: 35
+updated: 2026-07-19
+version: 36
 tags: []
 parent_id: null
 requires_load: []
@@ -387,6 +387,85 @@ Triplet beats (`:3`, `:6`) render as proper tuplets — the notation shows the `
 - **`*`** (a "hold/extend" sugar glyph) is reserved but not implemented — use `.` sustains.
 - **Double-dots** aren't auto-emitted (single dot only) — write a double-dotted value by tying with `_`.
 - A tie **over a chord change** (within a bar or across the barline) **holds the previous chord** — rhythm wins over harmony; you keep ringing what you struck, whatever the progression does underneath.
+
+---
+
+## Drums hit-grid DSL
+
+> **Engine-internal today** — the drums hit-grid is how percussion **grooves** are authored in code, tests, and content packs; an end-user editor arrives with the Content › Drums page. Documented here because it's a core DSL. Drums are ChordFlow's first-class 2nd instrument; a groove is **standalone** (no chords, no key) — layering drums under a progression is a later feature.
+
+A **groove** is a grid of drum hits. Unlike the Rhythm DSL (which notates *durations* — a strummed chord rings), a drum hit is **instantaneous**, so the drums grid notates **onsets only**: every cell is either a hit or silence. It's a different *notation* over the **same** 48-PPQ tick model — each hit compiles to a one-cell event, exactly like a Rhythm-DSL attack.
+
+### Rows are voices
+
+Each line is one **drum voice** (lane): `<VOICE> [:n] <cells> [| <cells> …]`. A `#` starts an end-of-line comment; blank lines are ignored.
+
+```text
+HH :2 x x x x x x x x     # closed hi-hat, straight 8ths
+SD :2 . . x . . . x .     # snare backbeat (beats 2 & 4)
+BD :2 x . . . x . . .     # kick (beats 1 & 3)
+```
+
+### Glyphs
+
+| Glyph | Meaning |
+|-------|---------|
+| `x` | **hit** |
+| `.` | **no hit** (silence) |
+
+There is **one** hit glyph — a hit has no duration to notate. **Articulation variety is expressed as separate voices/rows**, not extra glyphs: an open hi-hat is an `OH` row, a ride bell an `RB` row. (`X` is reserved for a future *accent* glyph and is rejected today.)
+
+**Whitespace between cells is insignificant** — spaces are for lining the grid up into readable columns. `. . x .` and `..x.` parse identically.
+
+### Voices
+
+The row label is a **short token** or a **full-name alias** (case-insensitive):
+
+| Short | Full aliases | Drum |
+|-------|--------------|------|
+| `BD` | `Kick`, `KD` | Bass/kick drum |
+| `SD` | `Snare` | Snare |
+| `HH` | `HiHat`, `CH` | Closed hi-hat |
+| `OH` | `OpenHat` | Open hi-hat |
+| `PH` | `FootHat`, `HF` | Foot/pedal hi-hat |
+| `RD` | `Ride` | Ride cymbal |
+| `RB` | `RideBell` | Ride bell |
+| `CC` | `Crash` | Crash cymbal |
+| `HT` | `HighTom` | High tom |
+| `MT` | `MidTom` | Mid tom |
+| `FT` | `FloorTom` | Floor tom |
+
+### Subdivision — `:n`
+
+`n` = **cells per beat** (default `4` = sixteenths), the same meaning as the Rhythm DSL: `:1` quarters, `:2` eighths, `:3` eighth-triplets, `:4` sixteenths, `:6` 16th-triplets. A `:n` right after the voice sets that row's default; a `:n` **inside** a bar starts a new run at that subdivision, so straight and triplet beats mix in one bar. Each run's cell count must be a whole multiple of its `n`, and a bar must fill exactly one bar of beats.
+
+**Triplets are notation, not a swing flag** — a shuffle/swing groove is written literally with `:3` (`x . x` per beat). Play-time swing (if any) rides the same feel path as the rest of the app; the written grid never changes.
+
+```text
+# 12/8 blues shuffle — triplet feel written out
+RD :3 x . x   x . x   x . x   x . x
+SD :3 . . .   x . .   . . .   x . .
+BD :3 x . .   . . .   x . .   . . .
+```
+
+### Bars
+
+`|` separates **bars**; every row must agree on the bar count, and a voice appears in at most one row.
+
+```text
+HH :2 xxxxxxxx | xxxxxxxx
+SD :2 ..x...x. | ..x...x.
+BD :2 x...x... | x.x.x...   # a kick variation in bar 2
+```
+
+### Common errors
+
+- **"Unknown drum voice '…'"** — the row label isn't a known voice token/alias.
+- **"cell '…' is invalid (allowed: x = hit, . = no hit)"** — a stray glyph (including a reserved `X`).
+- **"bar spans N beat(s), expected 4"** — the bar's cells don't fill one 4/4 bar.
+- **"not a whole multiple of subdivision n"** — a run's cell count doesn't divide into whole beats.
+- **"has N bar(s), but the groove has M"** — rows disagree on bar count.
+- **"appears in more than one row"** — a voice is listed twice.
 
 ---
 
