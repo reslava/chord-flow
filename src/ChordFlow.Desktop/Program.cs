@@ -289,11 +289,11 @@ internal static class Program
                     try { bridge.Send(contentCrud.Preview(entity, dsl, renderOptions, tripletFeel, compingPatternId, keyPitchClass, keyIsMinor, tempo)); }
                     catch (FormatException ex) { bridge.Send(new EntityParseErrorEnvelope(entity, ex.Message)); }
                 };
-                router.EntitySaveRequested += (entity, id, name, dsl, sourceId, tonality) =>
+                router.EntitySaveRequested += (entity, id, name, dsl, sourceId, tonality, genre, subgenre, tags) =>
                 {
                     try
                     {
-                        bridge.Send(contentCrud.Save(entity, id, name, dsl, sourceId, tonality));
+                        bridge.Send(contentCrud.Save(entity, id, name, dsl, sourceId, tonality, genre, subgenre, tags));
                         bridge.Send(contentCrud.List(entity)); // refresh the list (and badges)
                     }
                     catch (FormatException ex) { bridge.Send(new EntityParseErrorEnvelope(entity, ex.Message)); }

@@ -22,7 +22,9 @@ window.ChordFlowDrumsView = (function () {
   let initialized = false;
   let scoreView = null; // ChordFlowScore handle (notation + transport)
   let gridView = null;  // ChordFlowDrums (DrumsR) handle
-  let dslEl, tempoEl, nameEl, errorEl, scoreEl, gridEl, listEl, saveBtn, newBtn, deleteBtn;
+  let dslEl, tempoEl, nameEl, errorEl, scoreEl, gridEl, listEl, saveBtn, newBtn, deleteBtn, metadataEl;
+  let metaEditor = null; // shared ChordFlowMetadataEditor handle (genre/subgenre/tags — content-metadata-editing)
+  let items = [];       // last-listed grooves, so entityLoaded can seed the metadata controls from the clicked row
   let debounceTimer = null;
   let editingId = null; // the saved groove being edited (null = a new/unsaved groove; a fork mints a new id)
 
@@ -43,7 +45,10 @@ window.ChordFlowDrumsView = (function () {
   // --- saved-grooves library (the shared entity* CRUD family, entity "drums") --------------------------
   function requestList() { if (Bridge.available) Bridge.send({ type: "entityList", entity: "drums" }); }
 
-  function renderList(items) {
+  function renderList(list) {
+    items = list || [];
+    // Refresh the metadata editor's datalist suggestions from the current grooves (client-side discovery — IN4).
+    if (metaEditor) metaEditor.setSuggestions(items);
     listEl.innerHTML = "";
     if (!items || items.length === 0) {
       listEl.innerHTML = '<li class="empty">No saved grooves</li>';
@@ -76,11 +81,17 @@ window.ChordFlowDrumsView = (function () {
 
   function save() {
     if (!Bridge.available) return;
+    // The editor's authoritative genre/subgenre/tags patch (grooves are genre-tagged); a present-but-empty
+    // field clears (IN9).
+    const meta = metaEditor ? metaEditor.getValues() : null;
     Bridge.send({
       type: "entitySave",
       entity: "drums",
       entityId: editingId, // null = create; a pack id forks a new user copy (store fork-on-edit)
       name: (nameEl.value || "Groove").trim(),
+      genre: meta ? meta.genre : undefined,
+      subgenre: meta ? meta.subgenre : undefined,
+      tags: meta ? meta.tags : undefined,
       dsl: dslEl.value,
     });
   }
@@ -88,6 +99,7 @@ window.ChordFlowDrumsView = (function () {
   function newGroove() {
     editingId = null;
     nameEl.value = "";
+    if (metaEditor) metaEditor.clear();
     dslEl.value = EXAMPLE;
     requestPreview();
     requestList(); // refresh active-row highlight
@@ -133,6 +145,11 @@ window.ChordFlowDrumsView = (function () {
         editingId = msg.id;
         nameEl.value = msg.name;
         dslEl.value = msg.dsl;
+        // Seed the metadata controls from the clicked groove row (it carries genre/subgenre/tags — IN7).
+        if (metaEditor) {
+          const it = items.find((i) => i.id === msg.id);
+          metaEditor.seed(it ? { genre: it.genre, subgenre: it.subgenre, tags: it.tags } : null);
+        }
         setError("");
         requestPreview();
         requestList();
@@ -159,6 +176,8 @@ window.ChordFlowDrumsView = (function () {
     saveBtn = $("drumSave");
     newBtn = $("drumNew");
     deleteBtn = $("drumDelete");
+    metadataEl = $("drumMetadata");
+    if (metadataEl && window.ChordFlowMetadataEditor) metaEditor = window.ChordFlowMetadataEditor.create(metadataEl);
     if (!dslEl.value) dslEl.value = EXAMPLE;
     dslEl.addEventListener("input", schedulePreview);
     tempoEl.addEventListener("change", requestPreview);

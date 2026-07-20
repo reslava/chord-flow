@@ -109,10 +109,12 @@ public sealed class WebMessageRouter
     /// </summary>
     public event Action<string, string, RenderOptions, TripletFeel, string?, int?, bool, int?>? EntityPreviewRequested;
 
-    /// <summary>Create/update a content definition — <c>(entity, id?, name, dsl, sourceId?, tonality?)</c> (null id =
-    /// create; sourceId = the fork-from item so its catalog header is preserved — EX3; tonality = the editor's
-    /// explicit "major"/"minor" choice, which overrides the preserved tonality when present).</summary>
-    public event Action<string, string?, string, string, string?, string?>? EntitySaveRequested;
+    /// <summary>Create/update a content definition — <c>(entity, id?, name, dsl, sourceId?, tonality?, genre?, subgenre?, tags?)</c>
+    /// (null id = create; sourceId = the fork-from item so its catalog header is preserved; tonality = the editor's
+    /// explicit "major"/"minor" choice, which overrides the preserved tonality when present; genre/subgenre/tags =
+    /// the editor's authoritative catalog-metadata patch — present for the metadata-bearing entities, absent (null)
+    /// for rhythm — content-metadata-editing IN5).</summary>
+    public event Action<string, string?, string, string, string?, string?, string?, string?, IReadOnlyList<string>?>? EntitySaveRequested;
 
     /// <summary>Delete (or revert) a content definition — <c>(entity, id)</c>.</summary>
     public event Action<string, string>? EntityDeleteRequested;
@@ -256,7 +258,9 @@ public sealed class WebMessageRouter
                     // EntityId is optional: null/absent means "create" (the store mints a GUID). SourceId (the
                     // fork-from item) is optional too — the store preserves its catalog header (tonality/…).
                     // Tonality (the editor's explicit choice) overrides the preserved tonality when present.
-                    EntitySaveRequested?.Invoke(saveEntity, envelope.EntityId, saveName, saveDsl, envelope.SourceId, envelope.Tonality);
+                    // Genre/Subgenre/Tags are the editor's authoritative catalog-metadata patch (absent for rhythm).
+                    EntitySaveRequested?.Invoke(saveEntity, envelope.EntityId, saveName, saveDsl, envelope.SourceId,
+                        envelope.Tonality, envelope.Genre, envelope.Subgenre, envelope.Tags);
                 }
                 break;
             case "entityDelete":
@@ -378,9 +382,12 @@ public sealed class WebMessageRouter
         string? DrumGrooveId, double? DrumVolume,
         // Content-CRUD fields: Entity discriminator, the string content id (distinct from the int Id used by
         // loadExercise), the editor's Name/Dsl payload, SourceId — the fork-from item whose catalog header
-        // (genre/tags/description/tonality) a save preserves onto the new user copy (EX3) — and Tonality, the
-        // editor tonality control's explicit "major"/"minor" choice (overrides the preserved tonality).
+        // (genre/tags/description/tonality) a save preserves onto the new user copy — and Tonality, the editor
+        // tonality control's explicit "major"/"minor" choice (overrides the preserved tonality).
         string? Entity, string? EntityId, string? Name, string? Dsl, string? SourceId, string? Tonality,
+        // content-metadata-editing: the editor's authoritative genre/subgenre/tags patch — present for the
+        // metadata-bearing entities (Progression/Song/Voicing/Drums), absent for rhythm. An all-empty patch CLEARS (IN9).
+        string? Genre, string? Subgenre, IReadOnlyList<string>? Tags,
         // setSoundFont: the chosen soundfont id (file name). A string, distinct from the int Id / string EntityId.
         string? SoundFontId,
         // setStaffProfile: the chosen staff-display profile ("tab"/"standard"/"both"). getStaffProfile carries none.

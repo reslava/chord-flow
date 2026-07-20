@@ -26,3 +26,31 @@ public sealed record CatalogMetadata(
     public bool IsEmpty =>
         Genre is null && Subgenre is null && Tags.Count == 0 && Description is null && Tonality == Tonality.Major;
 }
+
+/// <summary>
+/// An editor-authoritative overlay of the three user-editable catalog fields — <see cref="Genre"/>,
+/// <see cref="Subgenre"/>, and <see cref="Tags"/> (content-metadata-editing IN5). A save carries one when the
+/// editor's metadata controls were shown (the four metadata-bearing entities — Progression / Song / Voicing /
+/// Drums); it is <b>authoritative</b> for exactly those three fields. <see cref="ApplyTo"/> overlays them onto
+/// the preserved header while leaving <see cref="CatalogMetadata.Description"/> and
+/// <see cref="CatalogMetadata.Tonality"/> untouched (constraint C4 — a metadata edit never destroys them;
+/// tonality keeps its own dedicated control). <b>Present-but-empty clears:</b> a blank genre/subgenre or an
+/// empty tag list removes that field — distinct from a <c>null</c> patch ("not edited"), which preserves the
+/// source header as before (IN9). Rhythm carries no catalog metadata (EX1) and never receives a patch.
+/// </summary>
+public sealed record CatalogMetadataPatch(string? Genre, string? Subgenre, IReadOnlyList<string> Tags)
+{
+    /// <summary>Overlay this patch's three fields onto <paramref name="preserved"/>, keeping its
+    /// <see cref="CatalogMetadata.Description"/> and <see cref="CatalogMetadata.Tonality"/>. A blank
+    /// genre/subgenre normalizes to null (a cleared field emits no header line).</summary>
+    public CatalogMetadata ApplyTo(CatalogMetadata preserved)
+    {
+        ArgumentNullException.ThrowIfNull(preserved);
+        return preserved with
+        {
+            Genre = string.IsNullOrWhiteSpace(Genre) ? null : Genre.Trim(),
+            Subgenre = string.IsNullOrWhiteSpace(Subgenre) ? null : Subgenre.Trim(),
+            Tags = Tags ?? Array.Empty<string>(),
+        };
+    }
+}

@@ -129,7 +129,7 @@ public class WebMessageRouterContentTests
     {
         var router = new WebMessageRouter();
         (string Entity, string? Id, string Name, string Dsl, string? SourceId, string? Tonality)? got = null;
-        router.EntitySaveRequested += (e, id, name, dsl, sourceId, tonality) => got = (e, id, name, dsl, sourceId, tonality);
+        router.EntitySaveRequested += (e, id, name, dsl, sourceId, tonality, _, _, _) => got = (e, id, name, dsl, sourceId, tonality);
 
         router.Dispatch("""{"type":"entitySave","entity":"progression","entityId":"s1","name":"Demo","dsl":"1- 4- 5-","sourceId":"src1","tonality":"minor"}""");
 
@@ -145,7 +145,7 @@ public class WebMessageRouterContentTests
     {
         var router = new WebMessageRouter();
         (string Entity, string? Id, string Name, string Dsl, string? SourceId, string? Tonality)? got = null;
-        router.EntitySaveRequested += (e, id, name, dsl, sourceId, tonality) => got = (e, id, name, dsl, sourceId, tonality);
+        router.EntitySaveRequested += (e, id, name, dsl, sourceId, tonality, _, _, _) => got = (e, id, name, dsl, sourceId, tonality);
 
         router.Dispatch("""{"type":"entitySave","entity":"progression","name":"New","dsl":"1 4 5 1"}""");
 
@@ -154,6 +154,34 @@ public class WebMessageRouterContentTests
         Assert.Null(got.Value.SourceId); // absent source = a brand-new definition
         Assert.Null(got.Value.Tonality); // absent tonality = keep preserved/default (major)
         Assert.Equal("New", got.Value.Name);
+    }
+
+    [Fact]
+    public void EntitySave_CarriesGenreSubgenreTags_TheEditorMetadataPatch() // content-metadata-editing IN5
+    {
+        var router = new WebMessageRouter();
+        (string? Genre, string? Subgenre, IReadOnlyList<string>? Tags) got = ("unset", "unset", null);
+        router.EntitySaveRequested += (_, _, _, _, _, _, genre, subgenre, tags) => got = (genre, subgenre, tags);
+
+        router.Dispatch("""{"type":"entitySave","entity":"progression","name":"Demo","dsl":"1 4 5 1","genre":"Blues","subgenre":"Shuffle","tags":["12-bar","beginner"]}""");
+
+        Assert.Equal("Blues", got.Genre);
+        Assert.Equal("Shuffle", got.Subgenre);
+        Assert.Equal(new[] { "12-bar", "beginner" }, got.Tags);
+    }
+
+    [Fact]
+    public void EntitySave_AbsentMetadata_IsNull_SoRhythmSendsNoPatch() // EX1
+    {
+        var router = new WebMessageRouter();
+        (string? Genre, string? Subgenre, IReadOnlyList<string>? Tags) got = ("unset", "unset", Array.Empty<string>());
+        router.EntitySaveRequested += (_, _, _, _, _, _, genre, subgenre, tags) => got = (genre, subgenre, tags);
+
+        router.Dispatch("""{"type":"entitySave","entity":"rhythm","name":"Four","dsl":"X...X...X...X..."}""");
+
+        Assert.Null(got.Genre);
+        Assert.Null(got.Subgenre);
+        Assert.Null(got.Tags); // absent ⇒ null ⇒ the handler builds no patch (store preserves)
     }
 
     [Fact]

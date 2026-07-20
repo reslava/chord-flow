@@ -251,6 +251,25 @@
     .cc-tonality[hidden] { display: none; }
     .cc-tonality select { font: inherit; padding: .2rem .4rem; border: 1px solid #4a4a4f;
       border-radius: 4px; background: #3a3a3d; color: #e6e6e6; }
+
+    /* Catalog-metadata editor (genre/subgenre/tags) — the ChordFlowMetadataEditor dumb component's scoped styles
+       (content-metadata-editing). Mounted in the Content editor (#ccMetadata) and the Drums page (#drumMetadata). */
+    .cc-metadata-editor[hidden] { display: none; }
+    .cf-metadata { display: flex; flex-direction: column; gap: .35rem; }
+    .cf-metadata-field { display: flex; align-items: center; gap: .5rem; font-size: .8rem; color: #9aa0a6; }
+    .cf-metadata-field > label { min-width: 4.5rem; }
+    .cf-metadata-field input { font: inherit; padding: .2rem .4rem; border: 1px solid #4a4a4f;
+      border-radius: 4px; background: #3a3a3d; color: #e6e6e6; }
+    .cf-metadata-field input[data-role="genre"], .cf-metadata-field input[data-role="subgenre"] { flex: 1; min-width: 8rem; }
+    .cf-metadata-tags { align-items: flex-start; flex-wrap: wrap; }
+    .cf-tag-pills { display: flex; flex-wrap: wrap; gap: .25rem; }
+    .cf-tag-pill { display: inline-flex; align-items: center; gap: .25rem; font-size: .75rem;
+      padding: .1rem .2rem .1rem .45rem; border-radius: 10px; background: #3a4d78; color: #fff; }
+    .cf-tag-remove { font: inherit; line-height: 1; padding: 0 .15rem; border: none; border-radius: 8px;
+      background: transparent; color: #cdd6ee; cursor: pointer; }
+    .cf-tag-remove:hover { color: #fff; }
+    .cf-metadata-tags input[data-role="tag"] { width: 7rem; }
+    .cf-metadata-disabled { opacity: .55; pointer-events: none; }
     .cc-preview { margin-top: .3rem; border: 1px solid #333; border-radius: 6px; background: #fff; min-height: 4rem; overflow: auto; }
     .cc-preview.empty { background: #252526; color: #6b7075; font-style: italic; padding: 1rem; }
 
@@ -354,6 +373,7 @@
         <input id="drumName" type="text" size="20" placeholder="My Groove" />
         <label for="drumTempo">Tempo</label>
         <input id="drumTempo" type="number" min="40" max="240" value="100" style="width:5rem;" />
+        <div class="cc-metadata-editor" id="drumMetadata"></div>
         <div style="display:flex; gap:.4rem; margin-top:.3rem;">
           <button id="drumSave" type="button">Save</button>
           <button id="drumNew" type="button">New</button>
@@ -464,6 +484,7 @@
   <script src="fretboard-render-component.js"></script>
   <script src="filter-render-component.js"></script>
   <script src="filter-cascade.js"></script>
+  <script src="metadata-editor-component.js"></script>
   <script src="now-next-fretboards.js"></script>
   <script src="content-crud.js"></script>
   <script src="drums-render-component.js"></script>

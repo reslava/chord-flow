@@ -86,7 +86,7 @@ public sealed class SongStore : IContentStore
     }
 
     /// <inheritdoc/>
-    public string Save(string? id, string name, string dsl, string? sourceId = null, Tonality? tonality = null)
+    public string Save(string? id, string name, string dsl, string? sourceId = null, Tonality? tonality = null, CatalogMetadataPatch? metadata = null)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(dsl);
@@ -101,11 +101,13 @@ public sealed class SongStore : IContentStore
         string targetId = row?.Id ?? Guid.NewGuid().ToString();
         Validate(targetId, name, body);
 
-        // Metadata isn't edited here (EX3) but must NOT be destroyed: carry the source header (genre/tags/…)
-        // through — the in-place row's own, else the forked-from source's. No header ⇒ body stored verbatim.
-        CatalogMetadata meta = row is not null
+        // The preserved header is the baseline: the in-place row's own, else the forked-from source's. The
+        // editor's authoritative genre/subgenre/tags patch (content-metadata-editing IN5) overlays those three
+        // fields, keeping description + tonality (C4); no patch ⇒ preserve verbatim.
+        CatalogMetadata preserved = row is not null
             ? CatalogHeader.Parse(row.Dsl).Metadata
             : SourceMetadata(sourceId ?? id);
+        CatalogMetadata meta = metadata is not null ? metadata.ApplyTo(preserved) : preserved;
         string storedDsl = CatalogHeader.Serialize(meta, body);
 
         if (row is null)
@@ -115,6 +117,9 @@ public sealed class SongStore : IContentStore
                 Id = targetId,
                 Name = name,
                 Dsl = storedDsl,
+                Genre = meta.Genre,
+                Subgenre = meta.Subgenre,
+                Tags = CatalogHeader.SerializeTags(meta.Tags),
                 Origin = Origin.UserDefined,
                 CreatedUtc = DateTime.UtcNow,
             });
@@ -123,6 +128,9 @@ public sealed class SongStore : IContentStore
         {
             row.Name = name;
             row.Dsl = storedDsl;
+            row.Genre = meta.Genre;
+            row.Subgenre = meta.Subgenre;
+            row.Tags = CatalogHeader.SerializeTags(meta.Tags);
         }
 
         _db.SaveChanges();

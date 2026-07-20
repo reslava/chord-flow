@@ -478,4 +478,157 @@ public class ContentCrudStoreTests
         Assert.True(byId["am"].InitialKeyIsMinor);     // `key Am` → minor mode carried to the list
         Assert.False(byId["cmaj"].InitialKeyIsMinor);  // `key C` → major
     }
+
+    // ---- Editable catalog metadata: Save carries an authoritative genre/subgenre/tags patch --------------
+    // (content-metadata-editing IN5/IN6/IN9 — the patch overlays the header + populates the denormalized columns)
+
+    private const string DrumRockDsl = "HH :2 xxxxxxxx\nSD :2 ..x...x.\nBD :2 x...x...";
+
+    [Fact]
+    public void Save_WithMetadataPatch_WritesTheHeaderAndPopulatesTheColumns()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        var store = new ProgressionStore(db);
+
+        string id = store.Save(
+            id: null, name: "My Tune", dsl: "1 4 5 1",
+            metadata: new CatalogMetadataPatch("Blues", "Shuffle", new[] { "12-bar", "beginner" }));
+
+        // Canonical header written into the stored DSL...
+        ProgressionEntity row = db.Progressions.AsNoTracking().Single(p => p.Id == id);
+        Assert.Contains("genre: Blues", row.Dsl);
+        Assert.Contains("subgenre: Shuffle", row.Dsl);
+        Assert.Contains("tags: [12-bar, beginner]", row.Dsl);
+
+        // ...and denormalized into the columns too (IN6).
+        Assert.Equal("Blues", row.Genre);
+        Assert.Equal("Shuffle", row.Subgenre);
+        Assert.Equal(new[] { "12-bar", "beginner" }, CatalogHeader.DeserializeTags(row.Tags));
+
+        // The body is still valid + editable (header stripped on Get).
+        Assert.Equal("1 4 5 1", store.Get(id)!.Dsl);
+    }
+
+    [Fact]
+    public void Save_MetadataPatch_KeepsPreservedTonalityAndDescription()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        db.Progressions.Add(new ProgressionEntity
+        {
+            Id = "u1", Name = "Mine", Dsl = "tonality: minor\ndescription: my tune\n1- 4- 5-",
+            Origin = Origin.UserDefined, CreatedUtc = DateTime.UtcNow,
+        });
+        db.SaveChanges();
+        var store = new ProgressionStore(db);
+
+        // Re-tag in place — the patch touches only genre/subgenre/tags (C4: description + tonality survive).
+        store.Save(id: "u1", name: "Mine", dsl: "1- 4- 5-", sourceId: "u1",
+            metadata: new CatalogMetadataPatch("Jazz", null, Array.Empty<string>()));
+
+        (CatalogMetadata meta, _) = CatalogHeader.Parse(db.Progressions.AsNoTracking().Single(p => p.Id == "u1").Dsl);
+        Assert.Equal("Jazz", meta.Genre);
+        Assert.Equal("my tune", meta.Description);          // description untouched
+        Assert.Equal(Tonality.Minor, meta.Tonality);         // tonality untouched
+        Assert.Equal(Tonality.Minor, store.Find("u1")!.Home); // still realizes minor
+    }
+
+    [Fact]
+    public void Save_EmptyMetadataPatch_ClearsTheFields_AndColumns()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        db.Progressions.Add(new ProgressionEntity
+        {
+            Id = "u1", Name = "Mine", Dsl = "genre: Blues\ntags: [12-bar]\n1 4 5 1",
+            Genre = "Blues", Tags = "[\"12-bar\"]",
+            Origin = Origin.UserDefined, CreatedUtc = DateTime.UtcNow,
+        });
+        db.SaveChanges();
+        var store = new ProgressionStore(db);
+
+        // A present-but-empty patch clears (IN9) — distinct from a null patch (which would preserve).
+        store.Save(id: "u1", name: "Mine", dsl: "1 4 5 1", sourceId: "u1",
+            metadata: new CatalogMetadataPatch(null, null, Array.Empty<string>()));
+
+        ProgressionEntity row = db.Progressions.AsNoTracking().Single(p => p.Id == "u1");
+        Assert.Equal("1 4 5 1", row.Dsl);   // no header emitted at all
+        Assert.Null(row.Genre);
+        Assert.Null(row.Subgenre);
+        Assert.Empty(CatalogHeader.DeserializeTags(row.Tags));
+    }
+
+    [Fact]
+    public void Save_NullMetadataPatch_PreservesSourceHeader_AndPopulatesColumnsFromIt()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        db.Progressions.Add(new ProgressionEntity
+        {
+            Id = "blues", Name = "Blues", Dsl = "genre: Blues\ntags: [12-bar]\n17 47 17 57",
+            Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow,
+        });
+        db.SaveChanges();
+        var store = new ProgressionStore(db);
+
+        // Fork with NO patch (metadata == null): the source header is preserved as before — and now the
+        // forked user row's columns are populated from it too.
+        string id = store.Save(id: null, name: "My Blues", dsl: "17 47 17 57", sourceId: "blues", metadata: null);
+
+        ProgressionEntity copy = db.Progressions.AsNoTracking().Single(p => p.Id == id && p.Origin == Origin.UserDefined);
+        Assert.Contains("genre: Blues", copy.Dsl);
+        Assert.Equal("Blues", copy.Genre);
+        Assert.Equal(new[] { "12-bar" }, CatalogHeader.DeserializeTags(copy.Tags));
+    }
+
+    [Fact]
+    public void Song_SaveWithMetadataPatch_WritesHeaderAndColumns()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        var store = new SongStore(db);
+
+        string id = store.Save(null, "Demo", "intro = 17 47 17 17\nintro",
+            metadata: new CatalogMetadataPatch("Jazz", "Bebop", new[] { "standard" }));
+
+        SongEntity row = db.Songs.AsNoTracking().Single(s => s.Id == id);
+        Assert.Contains("genre: Jazz", row.Dsl);
+        Assert.Equal("Jazz", row.Genre);
+        Assert.Equal("Bebop", row.Subgenre);
+        Assert.Equal(new[] { "standard" }, CatalogHeader.DeserializeTags(row.Tags));
+    }
+
+    [Fact]
+    public void Voicing_SaveWithMetadataPatch_WritesHeaderAndColumns()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        var store = new VoicingStore(db);
+
+        string id = store.Save(null, "Open C", "voicing Cmaj shape:C root:5 frets: x 3 2 0 1 0",
+            metadata: new CatalogMetadataPatch("Folk", null, new[] { "open" }));
+
+        VoicingEntity row = db.Voicings.AsNoTracking().Single(v => v.Id == id);
+        Assert.Contains("genre: Folk", row.Dsl);
+        Assert.Contains("voicing Cmaj", row.Dsl);   // the canonical body still rides after the header
+        Assert.Equal("Folk", row.Genre);
+        Assert.Equal(new[] { "open" }, CatalogHeader.DeserializeTags(row.Tags));
+    }
+
+    [Fact]
+    public void Drums_SaveWithMetadataPatch_WritesHeaderAndColumns()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        var store = new DrumGrooveStore(db);
+
+        string id = store.Save(null, "Rock", DrumRockDsl,
+            metadata: new CatalogMetadataPatch("Rock", null, new[] { "straight" }));
+
+        DrumGrooveEntity row = db.DrumGrooves.AsNoTracking().Single(g => g.Id == id);
+        Assert.Contains("genre: Rock", row.Dsl);
+        Assert.Equal("Rock", row.Genre);
+        Assert.Equal(new[] { "straight" }, CatalogHeader.DeserializeTags(row.Tags));
+    }
 }

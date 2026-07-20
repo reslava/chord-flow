@@ -41,13 +41,14 @@ public sealed class RhythmPatternStore : IContentStore
     }
 
     /// <inheritdoc/>
-    public string Save(string? id, string name, string dsl, string? sourceId = null, Tonality? tonality = null)
+    public string Save(string? id, string name, string dsl, string? sourceId = null, Tonality? tonality = null, CatalogMetadataPatch? metadata = null)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(dsl);
 
-        // sourceId + tonality are unused: rhythm patterns carry no catalog metadata (no header, no mode).
-        _ = (sourceId, tonality);
+        // sourceId + tonality + metadata are unused: rhythm patterns carry no catalog metadata (no header, no
+        // mode) — EX1. The editor never shows metadata controls for a rhythm, so the patch is always null.
+        _ = (sourceId, tonality, metadata);
         var ts = TimeSignature.FourFour; // 4/4 only today (EX-meter); a future `ts:` line is additive
 
         // User-only, fork-on-edit (content-source-model): update an existing user row in place; a blank id or

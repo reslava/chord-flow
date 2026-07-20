@@ -117,11 +117,13 @@ public sealed class ContentCrudHandler
     }
 
     /// <summary>Create/update a definition (UserDefined tier). Throws <see cref="FormatException"/> on invalid DSL.</summary>
-    public EntitySavedEnvelope Save(string entity, string? id, string name, string dsl, string? sourceId = null, string? tonality = null)
+    public EntitySavedEnvelope Save(
+        string entity, string? id, string name, string dsl, string? sourceId = null, string? tonality = null,
+        string? genre = null, string? subgenre = null, IReadOnlyList<string>? tags = null)
     {
         ContentEntity kind = ContentEntities.Parse(entity);
         using var db = new ChordFlowDbContext(_dbOptions);
-        string savedId = StoreFor(kind, db).Save(id, name, dsl, sourceId, ParseTonality(tonality));
+        string savedId = StoreFor(kind, db).Save(id, name, dsl, sourceId, ParseTonality(tonality), MetadataPatch(genre, subgenre, tags));
         if (kind == ContentEntity.Voicing)
         {
             VoicingsChanged?.Invoke();
@@ -139,6 +141,15 @@ public sealed class ContentCrudHandler
         "minor" => Tonality.Minor,
         var other => throw new FormatException($"Unknown tonality \"{other}\" (expected \"major\" or \"minor\")."),
     };
+
+    // The editor's authoritative genre/subgenre/tags patch (content-metadata-editing IN5). The JS sends all three
+    // (genre/subgenre as strings, tags as an array — even when empty) for the metadata-bearing entities, so an
+    // all-empty patch CLEARS (IN9); rhythm sends none ⇒ every field null ⇒ no patch, and the store preserves the
+    // header as before (EX1). Present-but-empty vs. absent is the store's clear-vs-keep distinction.
+    private static CatalogMetadataPatch? MetadataPatch(string? genre, string? subgenre, IReadOnlyList<string>? tags) =>
+        genre is null && subgenre is null && tags is null
+            ? null
+            : new CatalogMetadataPatch(genre, subgenre, tags ?? Array.Empty<string>());
 
     /// <summary>Delete (or revert) a definition's UserDefined row.</summary>
     public EntityDeletedEnvelope Delete(string entity, string id)

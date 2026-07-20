@@ -2,12 +2,12 @@
 type: idea
 id: id_01KY03B4BMNFT8QKXP39FBZ7XE
 title: Editable genre/subgenre/tags in the Content CRUD editor
-status: draft
+status: done
 created: 2026-07-20
 version: 1
 tags: []
 parent_id: null
-requires_load: []
+requires_load: [rf_01KTSAPAT132QTEY5BEPRKS3MB]
 ---
 # Editable genre/subgenre/tags in the Content CRUD editor
 

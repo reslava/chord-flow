@@ -60,12 +60,13 @@ public sealed class ProgressionStore : IProgressionStore, IContentStore
     }
 
     /// <inheritdoc/>
-    public string Save(string? id, string name, string dsl, string? sourceId = null, Tonality? tonality = null)
+    public string Save(string? id, string name, string dsl, string? sourceId = null, Tonality? tonality = null, CatalogMetadataPatch? metadata = null)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(dsl);
 
-        // Drop any header the user typed (EX3 — metadata isn't edited here), validate the body by parsing.
+        // Drop any header the user typed (the body is authored bare — metadata rides its own controls now),
+        // validate the body by parsing.
         (_, string body) = CatalogHeader.Parse(dsl);
 
         // User-only, fork-on-edit (content-source-model): update an existing user row in place; a blank id or
@@ -74,12 +75,14 @@ public sealed class ProgressionStore : IProgressionStore, IContentStore
         string targetId = row?.Id ?? Guid.NewGuid().ToString();
         ProgressionParser.Parse(targetId, name, body, _ts); // throws FormatException on bad input — writes nothing
 
-        // Metadata isn't edited here (EX3) but must NOT be destroyed: carry the source header (incl. `tonality:`)
-        // through — the in-place row's own metadata, else the forked-from source's — so a minor progression keeps
-        // its tonality across fork/edit (else it silently misrealizes as major). No header ⇒ body stored verbatim.
-        CatalogMetadata meta = row is not null
+        // The preserved header is the baseline (incl. `tonality:`): the in-place row's own metadata, else the
+        // forked-from source's — so a minor progression keeps its tonality across fork/edit (else it silently
+        // misrealizes as major). The editor's authoritative genre/subgenre/tags patch (content-metadata-editing
+        // IN5) overlays those three fields, keeping description + tonality (C4); no patch ⇒ preserve verbatim.
+        CatalogMetadata preserved = row is not null
             ? CatalogHeader.Parse(row.Dsl).Metadata
             : SourceMetadata(sourceId ?? id);
+        CatalogMetadata meta = metadata is not null ? metadata.ApplyTo(preserved) : preserved;
         // The editor's tonality control is authoritative when it sends a value: override the preserved tonality
         // (authoring a new minor progression, or a major↔minor flip). Absent ⇒ keep the preserved source (C3).
         if (tonality is Tonality chosen)
@@ -96,6 +99,9 @@ public sealed class ProgressionStore : IProgressionStore, IContentStore
                 Id = targetId,
                 Name = name,
                 Dsl = storedDsl,
+                Genre = meta.Genre,
+                Subgenre = meta.Subgenre,
+                Tags = CatalogHeader.SerializeTags(meta.Tags),
                 Origin = Origin.UserDefined,
                 CreatedUtc = DateTime.UtcNow,
             });
@@ -104,6 +110,9 @@ public sealed class ProgressionStore : IProgressionStore, IContentStore
         {
             row.Name = name;
             row.Dsl = storedDsl;
+            row.Genre = meta.Genre;
+            row.Subgenre = meta.Subgenre;
+            row.Tags = CatalogHeader.SerializeTags(meta.Tags);
         }
 
         _db.SaveChanges();

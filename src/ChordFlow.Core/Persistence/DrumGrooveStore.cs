@@ -46,14 +46,14 @@ public sealed class DrumGrooveStore : IContentStore
     }
 
     /// <inheritdoc/>
-    public string Save(string? id, string name, string dsl, string? sourceId = null, Tonality? tonality = null)
+    public string Save(string? id, string name, string dsl, string? sourceId = null, Tonality? tonality = null, CatalogMetadataPatch? metadata = null)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(dsl);
 
         _ = tonality; // grooves have no tonality/mode (percussion has no harmony); accepted inertly.
         var ts = TimeSignature.FourFour; // 4/4 only today (req C8)
-        (_, string body) = CatalogHeader.Parse(dsl); // drop any typed header (EX3), validate the body below.
+        (_, string body) = CatalogHeader.Parse(dsl); // drop any typed header, validate the body below.
 
         // User-only, fork-on-edit (content-source-model): update an existing user row in place; a blank id or a
         // non-user id (editing a pack groove) forks a new user row with a fresh id — never a same-id shadow.
@@ -61,11 +61,13 @@ public sealed class DrumGrooveStore : IContentStore
         string targetId = row?.Id ?? Guid.NewGuid().ToString();
         DrumGrooveParser.Parse(targetId, name, body, ts); // throws FormatException on bad input — writes nothing
 
-        // Preserve catalog metadata (genre/tags) — not edited here (EX3) but not destroyed: the in-place row's
-        // own header, else the forked-from source's. No header ⇒ body stored verbatim.
-        CatalogMetadata meta = row is not null
+        // The preserved header is the baseline: the in-place row's own, else the forked-from source's. The
+        // editor's authoritative genre/subgenre/tags patch (content-metadata-editing IN5) overlays those three
+        // fields, keeping description + tonality (C4); no patch ⇒ preserve verbatim.
+        CatalogMetadata preserved = row is not null
             ? CatalogHeader.Parse(row.Dsl).Metadata
             : SourceMetadata(sourceId ?? id);
+        CatalogMetadata meta = metadata is not null ? metadata.ApplyTo(preserved) : preserved;
         string storedDsl = CatalogHeader.Serialize(meta, body);
 
         if (row is null)
@@ -77,6 +79,9 @@ public sealed class DrumGrooveStore : IContentStore
                 Dsl = storedDsl,
                 TsNumerator = ts.Numerator,
                 TsDenominator = ts.Denominator,
+                Genre = meta.Genre,
+                Subgenre = meta.Subgenre,
+                Tags = CatalogHeader.SerializeTags(meta.Tags),
                 Origin = Origin.UserDefined,
                 CreatedUtc = DateTime.UtcNow,
             });
@@ -85,6 +90,9 @@ public sealed class DrumGrooveStore : IContentStore
         {
             row.Name = name;
             row.Dsl = storedDsl;
+            row.Genre = meta.Genre;
+            row.Subgenre = meta.Subgenre;
+            row.Tags = CatalogHeader.SerializeTags(meta.Tags);
         }
 
         _db.SaveChanges();

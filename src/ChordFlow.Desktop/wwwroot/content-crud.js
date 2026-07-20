@@ -21,23 +21,24 @@ window.ChordFlowContent = (function () {
   // The per-entity config — the table that makes one component serve all four.
   const ENTITIES = [
     {
-      key: "progression", label: "Progressions", previewKind: "score", sheet: true, comping: true, tonality: true,
+      key: "progression", label: "Progressions", previewKind: "score", sheet: true, comping: true, tonality: true, metadata: true,
       placeholder: "17 47 17 57",
       help: "Nashville numbers. Space = next bar, _ = next chord in the bar (e.g. 1_4 5).",
     },
     {
-      key: "song", label: "Songs", previewKind: "score", sheet: true, comping: true,
+      key: "song", label: "Songs", previewKind: "score", sheet: true, comping: true, metadata: true,
       placeholder: "intro = 17 47 17 17\nintro",
       help: "Define parts (NAME = inline | NAME: stored-id), then list them in order.",
     },
     {
       // Rhythm previews score-only — a bare rhythm on a single I chord has no meaningful chord sheet (C2).
+      // No metadata block: rhythm patterns carry no catalog metadata (EX1).
       key: "rhythm", label: "Rhythms", previewKind: "score",
       placeholder: "X...X...X...X...",
       help: "X = attack, . = sustain the sounding note, - = rest, _ = tie. A note lasts its dots; X..... = dotted quarter. Leading :n sets the subdivision.",
     },
     {
-      key: "voicing", label: "Voicings", previewKind: "diagram",
+      key: "voicing", label: "Voicings", previewKind: "diagram", metadata: true,
       placeholder: "voicing Cmaj shape:C root:5 frets: x 3 2 0 1 0",
       help: "Author once at the C anchor; the shape is movable to every key.",
     },
@@ -69,7 +70,8 @@ window.ChordFlowContent = (function () {
   // DOM refs (set in buildDom)
   let root, tabsEl, listEl, filterEl, countEl, nameEl, dslEl, helpEl, errorEl;
   let saveBtn, deleteBtn, duplicateBtn, newBtn, previewWrap, scoreSurfaceEl, transportEl, scoreEl, sheetEl, diagramEl, compingBar, compingEl;
-  let tonalityRow, tonalityEl;
+  let tonalityRow, tonalityEl, metadataEl;
+  let metaEditor = null;      // shared ChordFlowMetadataEditor handle (genre/subgenre/tags); one instance, gated per entity
 
   const setStatus = (text) => {
     const el = document.getElementById("status");
@@ -108,6 +110,7 @@ window.ChordFlowContent = (function () {
               <option value="minor">Minor</option>
             </select>
           </div>
+          <div class="cc-metadata-editor" id="ccMetadata" hidden></div>
           <textarea id="ccDsl" class="dsl-input" spellcheck="false"></textarea>
           <div class="cc-help" id="ccHelp"></div>
           <div class="cc-error" id="ccError"></div>
@@ -154,6 +157,8 @@ window.ChordFlowContent = (function () {
     compingEl = document.getElementById("ccComping");
     tonalityRow = document.getElementById("ccTonalityRow");
     tonalityEl = document.getElementById("ccTonality");
+    metadataEl = document.getElementById("ccMetadata");
+    if (window.ChordFlowMetadataEditor) metaEditor = window.ChordFlowMetadataEditor.create(metadataEl);
 
     // Entity tabs
     for (const e of ENTITIES) {
@@ -185,6 +190,8 @@ window.ChordFlowContent = (function () {
     compingBar.hidden = !current.comping;
     // The tonality control is a progression-only content property (a song's mode is its key/mod stream, EX4).
     tonalityRow.hidden = !current.tonality;
+    // The metadata block is shown for the catalog entities (progression/song/voicing); hidden for rhythm (EX1).
+    metadataEl.hidden = !current.metadata;
     if (current.comping) Bridge.send({ type: "entityList", entity: "rhythm" });
     newItem();
     requestList();
@@ -201,6 +208,7 @@ window.ChordFlowContent = (function () {
     forkSourceId = null;   // authored from scratch — no source header to inherit
     nameEl.value = "";
     if (tonalityEl) tonalityEl.value = "major"; // a new definition defaults to major
+    if (metaEditor) metaEditor.clear();          // a new definition starts with no genre/subgenre/tags
     dslEl.value = "";
     clearError();
     clearPreview();
@@ -218,12 +226,18 @@ window.ChordFlowContent = (function () {
       showError("Give the definition a name.");
       return;
     }
+    // The editor's authoritative metadata patch (progression/song/voicing); omitted for rhythm so the store
+    // preserves as before (EX1). A present-but-empty field clears (IN9).
+    const meta = current.metadata && metaEditor ? metaEditor.getValues() : null;
     Bridge.send({
       type: "entitySave",
       entity: current.key,
       entityId: editingId, // null = create (or fork a package item into a new user copy)
       sourceId: forkSourceId, // the shown item, so its catalog header (tonality/…) survives a fork (EX3)
       tonality: current.tonality ? tonalityEl.value : undefined, // the editor's explicit mode (progressions only)
+      genre: meta ? meta.genre : undefined,
+      subgenre: meta ? meta.subgenre : undefined,
+      tags: meta ? meta.tags : undefined,
       name,
       dsl: dslEl.value,
     });
@@ -331,6 +345,9 @@ window.ChordFlowContent = (function () {
         };
         // Seed the tonality control from the content's own mode (a manual flip afterward still wins).
         if (tonalityEl) tonalityEl.value = pendingSeeds.keyIsMinor ? "minor" : "major";
+        // Seed the metadata controls from the clicked list row (no load-path change — the row already carries
+        // genre/subgenre/tags; IN7). A manual edit afterward still wins.
+        if (metaEditor) metaEditor.seed(it ? { genre: it.genre, subgenre: it.subgenre, tags: it.tags } : null);
         applySeeds();
         requestPreview();
         break;
@@ -389,6 +406,8 @@ window.ChordFlowContent = (function () {
 
   function renderList(list) {
     items = list;
+    // Refresh the metadata editor's datalist suggestions from the current rows (client-side discovery — IN4).
+    if (metaEditor) metaEditor.setSuggestions(items);
     selected = window.ChordFlowFilterCascade.initialSelected(items, CONTENT_LEVELS); // all-on
     rebuildFilter();
   }
@@ -486,6 +505,7 @@ window.ChordFlowContent = (function () {
     const editable = source === "user" || source == null;
     nameEl.disabled = !editable;
     dslEl.readOnly = !editable;
+    if (metaEditor) metaEditor.setEnabled(editable); // a package/automatic item shows its metadata read-only
     saveBtn.hidden = !editable;
     duplicateBtn.hidden = editable;
     deleteBtn.hidden = !editable;
