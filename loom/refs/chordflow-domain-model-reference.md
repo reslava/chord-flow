@@ -4,8 +4,8 @@ id: rf_01KTM41K36DYJ0CE44FE7TMCGH
 title: ChordFlow Domain Model
 status: active
 created: 2026-06-08
-updated: 2026-07-19
-version: 132
+updated: 2026-07-20
+version: 133
 tags: []
 parent_id: null
 requires_load: []
@@ -120,6 +120,25 @@ The old sequential `Beat(Duration, IsHit)` model was **removed**; rhythm is now 
 | `PickupMeasure(Events, LengthTicks)` | Anacrusis as its own short **leading measure**, not a negative position. |
 | `RhythmPatternParser` | **slice-1.** Pure static `Parse(id, name, dsl, ts) → RhythmPattern` — the rhythmic peer of `ProgressionParser`/`SongParser`. Glyphs `X` (attack — lasts itself + following `.`s) / `.` (sustain a **sounding** note; illegal where nothing sounds) / `-` (one silence cell) / `_` (a **tied note** — occupies cells like `X` but ties to the previous note; a leading `_` sets `PatternBar.StartsTied`), `:n` subdivisions (per-row default + per-run override, **model-B run-splitting**: a run's cells split into beats by count), `\|` bars, and a `PICKUP:` block. Authors **timing only** (no stroke/accent, C2). Throws `FormatException` naming the bad run/cell. End-user view: `chordflow-dsl-reference.md` § Rhythm DSL. |
 | **Music constants** (`SeedData`, in `Music.Progressions`) | `TwelveBarBlues` (`Progression`), `Beat1`/`Beat1And3`/`Quarters` (`RhythmPattern`, ids `beat_1`/`beat_1_3`/`quarters`), `RhythmPatterns`, `AllMajorKeys` — the live values used by rendering and tests. The **persisted** built-in content (the rows seeded on first run) is no longer authored here: it ships as the on-disk **default pack** (`Content/default-pack/`) imported via `Features/Packs/DefaultPack` (IN6). The DSL strings here match the pack's `.dsl` files. |
+
+### Rhythm generation (`Music/Rhythm/Generation/`) — generated-rhythms-for-practice (Phase 1)
+
+The **rhythm generation engine** manufactures timing on the fly (for groove/time-feel practice) as an instrument-agnostic **onset grid**, then projects it to the concrete play-unit. Pure/immutable, no I/O, references nothing under `Instruments/` (frozen by `MusicLayeringTests`).
+
+| Type | Role |
+|------|------|
+| `Block(int Subdivision, IReadOnlyList<int> Onsets)` | **One beat's** onset pattern — the canonical unit (block = one beat). `Subdivision` = cells-per-beat (the Rhythm DSL `:n`, must divide `TickGrid.Ppq`); `Onsets` ⊂ `[0, Subdivision)` are the attacking cells. On-beat 8th = `Of(2,0)`, the `&` = `Of(2,1)`, both = `Of(2,0,1)`, empty = `Empty(n)`. `OnsetTicks(beatTicks)` → intra-beat ticks. Duration-free: ring-vs-hit is a projection decision. |
+| `OnsetBar(IReadOnlyList<Block> Beats)` | One bar = `Numerator` blocks (4 in 4/4); beats may differ in subdivision (per-beat runs — future-proof; v1 families keep a bar uniform). `Rest(beats)`, `IsEmpty`, and `OnsetTicks(ts)` (the single bar-relative onset stream both projections read). |
+| `OnsetGrid(IReadOnlyList<OnsetBar> Bars, TimeSignature Ts)` | The generator's **only output type** — pure attack positions. Guarded `Of(bars, ts)` (≥1 bar; every bar has `ts.Numerator` beats). Tiles cyclically onto a progression like a multi-bar `RhythmPattern`. |
+| `RhythmFamily(Name, Subdivision, IReadOnlyList<Block> Blocks)` | A named, ordered palette of non-empty blocks at one subdivision (the set Cycle/Rotate draw from). v1: `Quarter` (subdiv 1, `{[0]}`, Axis A = which beats sound) and `Eighth` (subdiv 2, `{[0],[1],[0,1]}` = on-beat/&/both, Axis B = placement in the beat). `Primary` = first (strong) block; `Silence` = an empty beat. Triplet/16th families are a later phase. |
+| `BarOperator` (abstract record) | Decides per beat which family block a beat gets — `Apply(family, beatIndex, beatsPerBar, rng) → Block` + shared `BuildBar → OnsetBar`. Six arms: `Uniform`, `Isolate(Beat)`, `AnchorRotate` (beat 0 fixed, rest rotate), `Mask(Beats)`, `Displace(Cells)` (shift the primary within the beat — the offbeat maker), `Accumulate(Count)`/`Thin(Count)`. |
+| `SequenceBehaviour` (abstract record) | Decides per bar how the base operator evolves — `BarAt(barIndex, baseOperator, family, beatsPerBar, rng) → OnsetBar`. Five arms: `Repeat`, `Cycle` (tour the family list), `Sweep` (bind `Isolate.Beat`/`Displace.Cells` to `barIndex` — the signature drill), `RestBar(ContentBars,RestBars)`, `CallResponse`. |
+| `GenerationParams(TimeSignature Ts, int Seed)` (abstract) → `PatternParams` / `RandomParams` | The generation request. `PatternParams(Family, Operator, Behaviour, BarCount, Ts, Seed)` (pedagogical); `RandomParams(ValuePalette, ContentBars, SilenceBars, Ts, Seed)` (free fill on a v1 sixteenth grid; values are alphaTex denominators). `Seed` makes every generation reproducible — a generation is fully described by `{strategy, params, seed}` (saveable later; ephemeral now). |
+| `RhythmGenerator` / `PatternStrategy` / `RandomStrategy` | `RhythmGenerator.Generate(GenerationParams) → OnsetGrid` dispatches on the arm. `PatternStrategy` runs the behaviour×operator×family composition; `RandomStrategy` seed-fills content bars from the value palette then appends silence bars. Deterministic. |
+| `OnsetGridToRhythmPattern` (`Music/Rhythm/Generation/`) | **Projection → comping/lead.** `Project(grid, id?, name?) → RhythmPattern`, **ring-to-next-onset** (legato, fixed v1): each onset lasts to the next onset; the last rings to the barline (no cross-bar tie); empty bar → whole-bar rest. Stays inside the verified `:N`+rest vocabulary by construction (no unverified tie/dotted token reaches the renderer). |
+| `OnsetGridToDrumGroove` (`Instruments/Drums/`) | **Projection → drums.** `Project(grid, voice=HiHatClosed, id?, name?) → DrumGroove`: each onset → a one-cell `RhythmEvent` hit on one `DrumLane`; onsets map 1:1 (no sustain policy). Lives under `Instruments/Drums` (the legal `Instruments → Music` edge). Onset ticks agree with the `RhythmPattern` projection (unit-test invariant). |
+
+Consumed later by the Rhythm Generator dogfood page (Phase 2, DrumsR + count overlay) and Practice (Phase 4). Not yet wired to a bridge verb or UI in Phase 1.
 
 ### Composable overlays (never mutate the base; return new event lists)
 
