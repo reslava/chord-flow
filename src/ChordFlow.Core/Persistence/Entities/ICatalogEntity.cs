@@ -6,8 +6,9 @@ namespace ChordFlow.Persistence.Entities;
 /// and the denormalized <see cref="Genre"/>/<see cref="Subgenre"/>/<see cref="Tags"/> columns). Implemented by
 /// <c>ProgressionEntity</c>, <c>SongEntity</c>, <c>VoicingEntity</c> and <c>DrumGrooveEntity</c> so one generic
 /// upsert serves all four (rhythm patterns carry no catalog metadata — EX3 — and are upserted separately). The
-/// denormalized columns are now populated on user saves too (content-metadata-editing), though <c>List()</c>
-/// still reads the DSL header (the canonical source); switching the read path to the columns is deferred.
+/// denormalized columns are populated on every write (pack import + user saves) and reconciled from the
+/// canonical DSL header by the startup <c>CatalogColumnBackfill</c>; <c>List()</c> now reads them directly
+/// (content-list-reads-columns), while the header remains the canonical source of catalog metadata.
 /// </summary>
 public interface ICatalogEntity : IOriginated
 {

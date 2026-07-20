@@ -2,7 +2,7 @@
 type: idea
 id: id_01KY09RF449JNPQ451Q0P2YB04
 title: Content List() reads the denormalized columns (retire header-parse + backfill)
-status: draft
+status: done
 created: 2026-07-20
 version: 1
 tags: []

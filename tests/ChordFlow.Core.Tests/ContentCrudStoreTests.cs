@@ -420,17 +420,21 @@ public class ContentCrudStoreTests
         Assert.False(byId["maj"].InitialKeyIsMinor);  // no header → major
     }
 
-    // ---- List surfaces genre/subgenre/tags for the list fields + shared FilterR (filter-toggle-buttons IN1) ----
+    // ---- List surfaces genre/subgenre/tags from the DENORMALIZED COLUMNS (content-list-reads-columns IN1) ----
+    // The read path flipped from CatalogHeader.Parse(dsl) to the columns — proven by making header and columns
+    // disagree: the column value must win (the header is no longer read on the list path).
 
     [Fact]
-    public void ProgressionList_SurfacesGenreSubgenreTags_FromTheCatalogHeader()
+    public void ProgressionList_SurfacesGenreSubgenreTags_FromTheColumns_NotTheHeader()
     {
         using var conn = MigratedConnection();
         using var db = new ChordFlowDbContext(Options(conn));
+        // Header and columns intentionally DISAGREE — the column value is what must surface (IN1).
         db.Progressions.Add(new ProgressionEntity
         {
             Id = "blues", Name = "12-Bar Blues",
-            Dsl = "genre: Blues\nsubgenre: Shuffle\ntags: [12-bar, beginner]\n17 47 17 57",
+            Dsl = "genre: HeaderGenre\nsubgenre: HeaderSub\ntags: [header-tag]\n17 47 17 57",
+            Genre = "Blues", Subgenre = "Shuffle", Tags = "[\"12-bar\", \"beginner\"]",
             Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow,
         });
         db.Progressions.Add(new ProgressionEntity
@@ -441,12 +445,71 @@ public class ContentCrudStoreTests
 
         var byId = new ProgressionStore(db).List().ToDictionary(s => s.Id);
 
-        Assert.Equal("Blues", byId["blues"].Genre);
-        Assert.Equal("Shuffle", byId["blues"].Subgenre);
-        Assert.Equal(new[] { "12-bar", "beginner" }, byId["blues"].Tags);
-        Assert.Null(byId["bare"].Genre);          // no header → no metadata
+        Assert.Equal("Blues", byId["blues"].Genre);        // the COLUMN, not "HeaderGenre"
+        Assert.Equal("Shuffle", byId["blues"].Subgenre);   // the COLUMN, not "HeaderSub"
+        Assert.Equal(new[] { "12-bar", "beginner" }, byId["blues"].Tags); // the COLUMN, not [header-tag] (C2 round-trip)
+        Assert.Null(byId["bare"].Genre);          // empty columns → no metadata
         Assert.Null(byId["bare"].Subgenre);
         Assert.Empty(byId["bare"].Tags!);
+    }
+
+    [Fact]
+    public void VoicingList_SurfacesGenreTags_FromTheColumns_NotTheHeader()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        db.Voicings.Add(new VoicingEntity
+        {
+            Id = "openc", Name = "Open C",
+            Dsl = "genre: HeaderGenre\ntags: [header-tag]\nvoicing Cmaj shape:C root:5 frets: x 3 2 0 1 0",
+            Genre = "Folk", Tags = "[\"open\"]",
+            Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow,
+        });
+        db.SaveChanges();
+
+        ContentSummary summary = Assert.Single(new VoicingStore(db).List());
+        Assert.Equal("Folk", summary.Genre);                 // the COLUMN, not "HeaderGenre"
+        Assert.Equal(new[] { "open" }, summary.Tags);        // the COLUMN, not [header-tag]
+    }
+
+    [Fact]
+    public void DrumsList_SurfacesGenreTags_FromTheColumns_NotTheHeader()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        db.DrumGrooves.Add(new DrumGrooveEntity
+        {
+            Id = "rock", Name = "Rock",
+            Dsl = "genre: HeaderGenre\ntags: [header-tag]\n" + DrumRockDsl,
+            Genre = "Rock", Tags = "[\"straight\"]",
+            Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow,
+        });
+        db.SaveChanges();
+
+        ContentSummary summary = Assert.Single(new DrumGrooveStore(db).List());
+        Assert.Equal("Rock", summary.Genre);                 // the COLUMN, not "HeaderGenre"
+        Assert.Equal(new[] { "straight" }, summary.Tags);    // the COLUMN, not [header-tag]
+    }
+
+    [Fact]
+    public void SongList_SurfacesGenreTags_FromTheColumns_WhileSeedsStayFromTheDsl()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        // Columns carry the metadata; the DSL body still drives the key/feel seeds (C3 — SeedsOf parse stays).
+        db.Songs.Add(new SongEntity
+        {
+            Id = "tune", Name = "Tune",
+            Dsl = "genre: HeaderGenre\ntags: [header-tag]\nkey Am\nhead = 1 4 5 1\nhead",
+            Genre = "Jazz", Tags = "[\"standard\"]",
+            Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow,
+        });
+        db.SaveChanges();
+
+        ContentSummary summary = Assert.Single(new SongStore(db).List());
+        Assert.Equal("Jazz", summary.Genre);                 // metadata from the COLUMN
+        Assert.Equal(new[] { "standard" }, summary.Tags);
+        Assert.True(summary.InitialKeyIsMinor);              // seed still parsed from the DSL `key Am` (C3)
     }
 
     [Fact]
@@ -630,5 +693,58 @@ public class ContentCrudStoreTests
         Assert.Contains("genre: Rock", row.Dsl);
         Assert.Equal("Rock", row.Genre);
         Assert.Equal(new[] { "straight" }, CatalogHeader.DeserializeTags(row.Tags));
+    }
+
+    // ---- CatalogColumnBackfill: reconcile legacy rows' columns from the header (content-list-reads-columns IN4) ----
+
+    [Fact]
+    public void Backfill_PopulatesLegacyRowColumns_FromTheHeader_SoTheFlippedListSurfacesThem()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        // A legacy row: the header carries metadata, but the denormalized columns are empty (a user row saved
+        // before content-metadata-editing began populating them).
+        db.Progressions.Add(new ProgressionEntity
+        {
+            Id = "legacy", Name = "Legacy",
+            Dsl = "genre: Blues\nsubgenre: Shuffle\ntags: [12-bar, beginner]\n17 47 17 57",
+            Origin = Origin.UserDefined, CreatedUtc = DateTime.UtcNow,
+        });
+        db.SaveChanges();
+
+        // Before the backfill the flipped List() reads the (empty) columns → the metadata is missing.
+        Assert.Null(Assert.Single(new ProgressionStore(db).List()).Genre);
+
+        int changed = CatalogColumnBackfill.Run(db);
+
+        Assert.Equal(1, changed);
+        ProgressionEntity row = db.Progressions.AsNoTracking().Single(p => p.Id == "legacy");
+        Assert.Equal("Blues", row.Genre);
+        Assert.Equal("Shuffle", row.Subgenre);
+        Assert.Equal(new[] { "12-bar", "beginner" }, CatalogHeader.DeserializeTags(row.Tags));
+        // …and now List() surfaces the metadata from the reconciled columns.
+        Assert.Equal("Blues", Assert.Single(new ProgressionStore(db).List()).Genre);
+    }
+
+    [Fact]
+    public void Backfill_IsIdempotent_ASecondRunWritesNothing()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        db.Progressions.Add(new ProgressionEntity
+        {
+            Id = "legacy", Name = "Legacy", Dsl = "genre: Blues\ntags: [12-bar]\n17 47 17 57",
+            Origin = Origin.UserDefined, CreatedUtc = DateTime.UtcNow,
+        });
+        // A bare row (no header, columns already at their empty default) must stay a no-op — never churned.
+        db.Voicings.Add(new VoicingEntity
+        {
+            Id = "bare", Name = "Bare", Dsl = "voicing Cmaj shape:C root:5 frets: x 3 2 0 1 0",
+            Origin = Origin.UserDefined, CreatedUtc = DateTime.UtcNow,
+        });
+        db.SaveChanges();
+
+        Assert.Equal(1, CatalogColumnBackfill.Run(db));  // only the legacy progression is reconciled
+        Assert.Equal(0, CatalogColumnBackfill.Run(db));  // everything consistent → no write (C4)
     }
 }

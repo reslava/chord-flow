@@ -97,6 +97,10 @@ internal static class Program
                     // Retire the legacy BuiltIn tier + fork legacy user shadows into unique-id copies
                     // (content-source-model). Idempotent — a no-op once migrated.
                     ContentSourceMigration.Run(db);
+                    // Reconcile the denormalized catalog columns from each row's canonical header, so legacy
+                    // rows still surface their metadata now that List() reads the columns (content-list-reads-
+                    // columns IN4). Idempotent — a no-op once every row's columns match its header.
+                    CatalogColumnBackfill.Run(db);
                 }
 
                 // Bridge wiring — same envelope contract, WebView2 transport. Build it

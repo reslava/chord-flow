@@ -31,7 +31,10 @@ public sealed class ProgressionStore : IProgressionStore, IContentStore
     public IReadOnlyList<ContentSummary> List()
     {
         List<ProgressionEntity> rows = _db.Progressions.AsNoTracking().ToList();
-        return ContentSummaries.Build(rows.Select(p => (p.Id, p.Name, p.Origin, p.PackId, CatalogHeader.Parse(p.Dsl).Metadata)))
+        // Catalog metadata (genre/subgenre/tags) reads from the denormalized columns now (content-list-reads-columns
+        // IN1) — the per-row header parse is retired here. The `tonality:` header parse stays: IsMinorTonality still
+        // reads the winning row's header for InitialKeyIsMinor (tonality isn't a column — C3/EX2).
+        return ContentSummaries.Build(rows.Select(p => (p.Id, p.Name, p.Origin, p.PackId, p.Genre, p.Subgenre, CatalogHeader.DeserializeTags(p.Tags))))
             .Select(summary => summary with { InitialKeyIsMinor = IsMinorTonality(rows, summary.Id) })
             .ToList();
     }

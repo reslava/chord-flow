@@ -36,7 +36,10 @@ public sealed class SongStore : IContentStore
     public IReadOnlyList<ContentSummary> List()
     {
         List<SongEntity> rows = _db.Songs.AsNoTracking().ToList();
-        return ContentSummaries.Build(rows.Select(s => (s.Id, s.Name, s.Origin, s.PackId, CatalogHeader.Parse(s.Dsl).Metadata)))
+        // Catalog metadata (genre/subgenre/tags) reads from the denormalized columns now (content-list-reads-columns
+        // IN1). SeedsOf still parses each winning row's header + body for the key/feel/tempo/minor seeds — those aren't
+        // columns (C3/EX2), so that parse stays.
+        return ContentSummaries.Build(rows.Select(s => (s.Id, s.Name, s.Origin, s.PackId, s.Genre, s.Subgenre, CatalogHeader.DeserializeTags(s.Tags))))
             .Select(summary =>
             {
                 (int? key, string? feel, int? tempo, bool? isMinor) = SeedsOf(rows, summary.Id);

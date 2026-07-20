@@ -24,9 +24,11 @@ public sealed class VoicingStore : IContentStore
 
     /// <inheritdoc/>
     public IReadOnlyList<ContentSummary> List() =>
+        // Catalog metadata reads straight from the denormalized columns — no header parse on the list path at all
+        // now (content-list-reads-columns IN1/IN3): a voicing carries only genre/subgenre/tags, all three columns.
         ContentSummaries.Build(_db.Voicings.AsNoTracking()
-            .Select(v => new { v.Id, v.Name, v.Origin, v.PackId, v.Dsl }).ToList()
-            .Select(v => (v.Id, v.Name, v.Origin, v.PackId, CatalogHeader.Parse(v.Dsl).Metadata)));
+            .Select(v => new { v.Id, v.Name, v.Origin, v.PackId, v.Genre, v.Subgenre, v.Tags }).ToList()
+            .Select(v => (v.Id, v.Name, v.Origin, v.PackId, v.Genre, v.Subgenre, CatalogHeader.DeserializeTags(v.Tags))));
 
     /// <inheritdoc/>
     public ContentDoc? Get(string id)

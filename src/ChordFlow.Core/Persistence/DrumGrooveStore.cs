@@ -26,9 +26,11 @@ public sealed class DrumGrooveStore : IContentStore
 
     /// <inheritdoc/>
     public IReadOnlyList<ContentSummary> List() =>
+        // Catalog metadata reads straight from the denormalized columns — no header parse on the list path at all
+        // now (content-list-reads-columns IN1/IN3): a groove carries only genre/subgenre/tags, all three columns.
         ContentSummaries.Build(_db.DrumGrooves.AsNoTracking()
-            .Select(g => new { g.Id, g.Name, g.Origin, g.PackId, g.Dsl }).ToList()
-            .Select(g => (g.Id, g.Name, g.Origin, g.PackId, CatalogHeader.Parse(g.Dsl).Metadata)));
+            .Select(g => new { g.Id, g.Name, g.Origin, g.PackId, g.Genre, g.Subgenre, g.Tags }).ToList()
+            .Select(g => (g.Id, g.Name, g.Origin, g.PackId, g.Genre, g.Subgenre, CatalogHeader.DeserializeTags(g.Tags))));
 
     /// <inheritdoc/>
     public ContentDoc? Get(string id)

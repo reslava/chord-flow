@@ -29,7 +29,7 @@ public sealed class RhythmPatternStore : IContentStore
         // FilterR shows only the Source level.
         ContentSummaries.Build(_db.RhythmPatterns.AsNoTracking()
             .Select(p => new { p.Id, p.Name, p.Origin, p.PackId }).ToList()
-            .Select(p => (p.Id, p.Name, p.Origin, p.PackId, CatalogMetadata.Empty)));
+            .Select(p => (p.Id, p.Name, p.Origin, p.PackId, (string?)null, (string?)null, (IReadOnlyList<string>)Array.Empty<string>())));
 
     /// <inheritdoc/>
     public ContentDoc? Get(string id)
