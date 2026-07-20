@@ -52,8 +52,8 @@ window.ChordFlowContent = (function () {
   let forkSourceId = null;     // id of the item the editor is showing → the server preserves its catalog header
                                // (genre/tags/tonality) on Save even when we fork to a new user copy (EX3)
   let items = [];              // last-rendered list items
-  let filterR = null;          // shared FilterR handle (Source + Genre/Subgenre/Tags); recreated per entity (transient)
-  let currentLevels = [];      // the levels last handed to FilterR — held so applyFilter knows each level's full chip set
+  let filterR = null;          // shared FilterR handle (Source + Genre/Subgenre/Tags cascade); recreated per entity (transient)
+  let selected = {};           // cascade selection per level ({ [key]: Set }); recomputed on each toggle (filter-ux-facets)
   let surfaceView = null;      // lazy ChordFlowRenderSurface handle (composite: ScoreR + ChordSheetR + Score⇄Sheet
                                // toggle + page transport) for the score strategy
   let surfaceHasSheet = false; // whether the live composite was built with a Sheet surface (progression/song); a
@@ -67,7 +67,7 @@ window.ChordFlowContent = (function () {
   let pendingSeeds = { key: 0, tempo: 80, feel: "None", keyIsMinor: false };
 
   // DOM refs (set in buildDom)
-  let root, tabsEl, listEl, filterEl, nameEl, dslEl, helpEl, errorEl;
+  let root, tabsEl, listEl, filterEl, countEl, nameEl, dslEl, helpEl, errorEl;
   let saveBtn, deleteBtn, duplicateBtn, newBtn, previewWrap, scoreSurfaceEl, transportEl, scoreEl, sheetEl, diagramEl, compingBar, compingEl;
   let tonalityRow, tonalityEl;
 
@@ -93,7 +93,7 @@ window.ChordFlowContent = (function () {
       <div class="cc-tabs" id="ccTabs"></div>
       <div class="cc-body">
         <div class="cc-list-pane">
-          <h2>Definitions</h2>
+          <h2>Definitions <span class="cc-count" id="ccCount"></span></h2>
           <div class="cc-filter" id="ccFilter"></div>
           <ul class="cc-list" id="ccList"></ul>
         </div>
@@ -135,6 +135,7 @@ window.ChordFlowContent = (function () {
     tabsEl = document.getElementById("ccTabs");
     listEl = document.getElementById("ccList");
     filterEl = document.getElementById("ccFilter");
+    countEl = document.getElementById("ccCount");
     nameEl = document.getElementById("ccName");
     dslEl = document.getElementById("ccDsl");
     helpEl = document.getElementById("ccHelp");
@@ -179,7 +180,7 @@ window.ChordFlowContent = (function () {
     helpEl.textContent = current.help;
     // The filter is transient per entity (content-source-model D5): drop the FilterR so it rebuilds all-on.
     if (filterR) { filterR.dispose(); filterR = null; }
-    currentLevels = [];
+    selected = {};
     // The comping picker is a progression/song-only content knob; fetch the rhythm catalog to fill it.
     compingBar.hidden = !current.comping;
     // The tonality control is a progression-only content property (a song's mode is its key/mod stream, EX4).
@@ -377,62 +378,48 @@ window.ChordFlowContent = (function () {
     return key.slice("pack:".length) || "Package";
   }
 
-  // Distinct, stable-sorted values across the list for one accessor (null/blank dropped).
-  function distinct(list, accessor) {
-    const seen = new Set();
-    for (const it of list) for (const v of accessor(it)) if (v != null && v !== "") seen.add(v);
-    return [...seen].sort((a, b) => String(a).localeCompare(String(b)));
-  }
-
-  // The item's value(s) for a level's key — the OR-within-a-level candidates matched against its enabled set.
-  function valuesFor(it, key) {
-    if (key === "source") return [filterKey(it)];
-    if (key === "genre") return it.genre ? [it.genre] : [];
-    if (key === "subgenre") return it.subgenre ? [it.subgenre] : [];
-    if (key === "tags") return it.tags || [];
-    return [];
-  }
-
-  // Build the FilterR levels from the rows present: Source (packs alpha after automatic/user) + Genre/Subgenre/Tags,
-  // each discovered from the list. Rhythm rows carry no catalog metadata, so those levels come out empty (FilterR
-  // hides <2-chip levels), leaving Rhythms with only the Source level.
-  function buildLevels(list) {
-    const packNames = [...new Set(list.filter((i) => i.source === "package").map((i) => i.packName || ""))].sort();
-    const sourceTokens = [
-      ...(list.some((i) => i.source === "automatic") ? ["automatic"] : []),
-      ...(list.some((i) => i.source === "user") ? ["user"] : []),
-      ...packNames.map((n) => "pack:" + n),
-    ];
-    return [
-      { key: "source", label: "Source", chips: sourceTokens.map((t) => ({ token: t, label: keyLabel(t) })) },
-      { key: "genre", label: "Genre", chips: distinct(list, (it) => (it.genre ? [it.genre] : [])).map((g) => ({ token: g, label: g })) },
-      { key: "subgenre", label: "Subgenre", chips: distinct(list, (it) => (it.subgenre ? [it.subgenre] : [])).map((s) => ({ token: s, label: s })) },
-      { key: "tags", label: "Tags", chips: distinct(list, (it) => it.tags || []).map((t) => ({ token: t, label: t })) },
-    ];
-  }
+  // Ordered cascade level defs (filter-ux-facets): Source heads the chain, then the catalog facets. Rhythm rows
+  // carry no genre/subgenre/tags, so those levels come out empty (no chips ⇒ FilterR renders nothing for them).
+  const CONTENT_LEVELS = [
+    { key: "source", label: "Source", tokenLabel: keyLabel, values: (it) => [filterKey(it)] },
+    { key: "genre", label: "Genre", values: (it) => (it.genre ? [it.genre] : []) },
+    { key: "subgenre", label: "Subgenre", values: (it) => (it.subgenre ? [it.subgenre] : []) },
+    { key: "tags", label: "Tags", values: (it) => it.tags || [] },
+  ];
 
   function renderList(list) {
     items = list;
-    currentLevels = buildLevels(list);
-    if (!filterR) {
-      filterR = window.ChordFlowFilter.create(filterEl, { levels: currentLevels, onChange: applyFilter });
-    } else {
-      filterR.setLevels(currentLevels); // preserves the user's sticky-off selections across a refresh
-    }
-    applyFilter();
+    selected = window.ChordFlowFilterCascade.initialSelected(items, CONTENT_LEVELS); // all-on
+    rebuildFilter();
   }
 
-  // Client-side, no round-trip (C3): OR within a level, AND across levels; a level whose chips are ALL on is
-  // unconstrained (all-on ⇒ everything, so a row with no value for that facet still shows). An emptied level
-  // admits nothing ⇒ an empty list, never an error (C2).
-  function applyFilter() {
-    const state = filterR ? filterR.getState() : {};
-    const visible = items.filter((it) =>
-      currentLevels.every((level) => {
-        const set = state[level.key];
-        if (!set || set.size === level.chips.length) return true; // unconstrained (all-on, single, or empty level)
-        return valuesFor(it, level.key).some((v) => set.has(v));
-      }));
+  // Build the cascade from the current selection, (re)mount FilterR with the computed chips (counts + greyed
+  // unavailable + selection), and render the filtered rows + the "N of M" total. Client-side, no round-trip (C2).
+  function rebuildFilter() {
+    const built = window.ChordFlowFilterCascade.build(items, CONTENT_LEVELS, selected);
+    if (!filterR) {
+      filterR = window.ChordFlowFilter.create(filterEl, { levels: built.levels, onChange: onFilterChange });
+    } else {
+      filterR.setLevels(built.levels);
+    }
+    renderRows(built.filtered);
+    renderCount(built.total, items.length);
+  }
+
+  // A chip toggled: adopt the changed level's selection, reset the levels below it to all-available (the cascade
+  // reset model — C3/C4), then rebuild.
+  function onFilterChange(state, changedKey) {
+    selected[changedKey] = state[changedKey];
+    selected = window.ChordFlowFilterCascade.resetBelow(items, CONTENT_LEVELS, selected, changedKey);
+    rebuildFilter();
+  }
+
+  function renderCount(shown, total) {
+    if (!countEl) return;
+    countEl.textContent = total === 0 ? "" : (shown === total ? "(" + total + ")" : shown + " of " + total);
+  }
+
+  function renderRows(visible) {
     listEl.innerHTML = "";
     if (visible.length === 0) {
       const li = document.createElement("li");

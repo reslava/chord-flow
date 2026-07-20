@@ -134,8 +134,10 @@
     .cf-player-controls .cf-toggle { display: inline-flex; align-items: center; gap: .25rem; color: #cfd2d6; cursor: pointer; }
 
     /* Practice content filter strip (filter-toggle-buttons): spacing above the definition controls. */
-    .practice-filter { margin: 0 0 .5rem; }
+    .practice-filter { margin: 0 0 .3rem; }
     .practice-filter:empty { display: none; }
+    .practice-filter-count { font-size: .68rem; color: #6b7075; margin: 0 0 .5rem; }
+    .practice-filter-count:empty { display: none; }
 
     /* ---- Shared harmony/definition controls (harmony-controls-component.js) ---- */
     /* The definition strip (HarmonyControlsR): harmony/key/feel/comping+vol/lead+vol/difficulty/frets/actions.
@@ -185,6 +187,7 @@
     .cc-body { display: flex; gap: 1rem; align-items: flex-start; }
     .cc-list-pane { width: 240px; flex: none; }
     .cc-list-pane h2 { font-size: .85rem; margin: .2rem .3rem .5rem; color: #9aa0a6; font-weight: 600; }
+    .cc-count { font-weight: 400; color: #6b7075; font-size: .72rem; }
     .cc-list { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow: auto;
       background: #252526; border: 1px solid #333; border-radius: 6px; }
     .cc-list li { padding: .4rem .5rem; border-radius: 4px; cursor: pointer; font-size: .82rem;
@@ -303,6 +306,7 @@
          pickers — Harmony (Song/Progression) + Drums — by genre/subgenre/tags. Comping/Lead (rhythm) carry no
          catalog metadata and are never narrowed; source is always all. Built + wired by app.js. -->
     <div id="practice-filter" class="practice-filter"></div>
+    <div id="practice-filter-count" class="practice-filter-count"></div>
 
     <!-- HarmonyControlsR mounts here (harmony-controls-component.js): harmony/key/feel/comping+vol/lead+vol/
          difficulty/voicing-frets/Generate/Save/Mark practiced. Populated from the entity* bridge via app.js. -->
@@ -459,6 +463,7 @@
   <script src="score-render-component.js"></script>
   <script src="fretboard-render-component.js"></script>
   <script src="filter-render-component.js"></script>
+  <script src="filter-cascade.js"></script>
   <script src="now-next-fretboards.js"></script>
   <script src="content-crud.js"></script>
   <script src="drums-render-component.js"></script>

@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: [rf_01KTSAPAT132QTEY5BEPRKS3MB]
-last_ai_block: 13
+last_ai_block: 18
 ---
 # filter-toggle-buttons Chat 001
 
@@ -222,3 +222,27 @@ The clean fix is exactly your **tweak #1** — so I'd fold it in there rather th
 These three grow FilterR's contract a bit (per-chip counts, All/None, an initial-off state) while keeping it dumb — the cascade *recompute* stays in each consumer, since it owns the data.
 
 Settle the two open Qs (hide-vs-grey, per-chip counts y/n) and I'll write the `filter-ux-facets` idea/design/plan. The `content-metadata-editing` idea is ready to turn into design/req whenever you want to pick it up.
+
+## Rafa:
+
+1. greyed-and-disabled 
+3. per-chips counts too
+
+## AI:
+
+Both answers baked in — written up `ui/filter-ux-facets` (idea + design + **locked req**).
+
+**The model** (your answers → concrete):
+- **Cascade** Source → Genre → Subgenre → Tags. Change a higher level → lower levels re-derive from the still-matching items; a value with items = **available + selected**, a value with none = **greyed-and-disabled** (visible, not clickable). Changing a higher level **resets** the lower ones to "all-available-selected" — a predictable faceted model that replaces the old sticky-off. The Subgenre-hidden issue dissolves (facets show whenever a value exists).
+- **Per-chip counts** ("Blues (3)") **and** a grand total ("N of M").
+- **All / None** per level (selects only available chips).
+
+**Where it lives (FilterR stays dumb):** FilterR gains chip `count`/`disabled`/`selected` rendering + All/None; the **cascade recompute** goes into a shared **pure `filter-cascade.js` util** (items + accessors → levels with counts/availability) — data logic, not view, so it doesn't muddy the dumb-view contract and can't drift between the Content and Practice cascades. That util is the one piece with real logic → unit-tested (C5).
+
+**Two scope calls I made** (flag if you disagree):
+- **Voicings grid** gets **All/None only** — no cascade/counts there, because its facets are a *fixed vocabulary filtered server-side*; counts would need a `voicingGrid` reply extension (parked as EX1 for a later thread).
+- The cascade util is a **shared pure file**, not duplicated (design D1).
+
+Req is IN1–IN7 / C1–C5 / EX1–EX3; the plan would be ~6 steps (FilterR → cascade util → Content → Practice → Voicings All/None → ref touch).
+
+Stopping here — say `do plan` (or `write plan` first) and I'll build it. `content-metadata-editing` is still sitting ready for its own design/req whenever you want it.

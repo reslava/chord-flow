@@ -1,23 +1,23 @@
-// ChordFlow FilterR — the shared, dumb, faceted toggle-chip filter (filter-toggle-buttons IN3).
+// ChordFlow FilterR — the shared, dumb, faceted toggle-chip filter (filter-toggle-buttons IN3, filter-ux-facets).
 //
-// The toggle-filter twin of FretR / ChordSheetR / PlayerControlsR: it renders a stack of chip rows (one row per
-// "level"), tracks which chips are enabled, and reports the enabled sets via `onChange`. That is ALL it does —
-// it owns NO data source, NO filtering logic, and NO music theory (C1). Each consumer supplies the levels and
-// wires `onChange` to its own behavior: the Content list + Practice pickers filter client-side over already-loaded
-// rows; GuitarVoicingsR re-issues its server-side `voicingGrid` round-trip. One component, both idioms.
+// The toggle-filter twin of FretR / ChordSheetR / PlayerControlsR: it renders a stack of chip rows (one per
+// "level"), each chip carrying an optional count, a disabled/greyed state, and a selected state — and reports the
+// selected sets via `onChange`. That is ALL it does — NO data source, NO filtering logic, NO music theory (C1).
+// Consumers own the data: the Content list + Practice strip cascade client-side (via filter-cascade.js) and hand
+// FilterR fully-specified chips through `setLevels`; GuitarVoicingsR wires `onChange` to its server round-trip.
 //
 //   const f = ChordFlowFilter.create(el, {
-//     levels: [{ key:"genre", label:"Genre", chips:[{token:"Blues",label:"Blues"}, ...] }, ...],
-//     onChange(enabledByKey) { /* enabledByKey = { genre: Set<token>, ... } — the enabled tokens per level */ },
+//     levels: [{ key:"genre", label:"Genre", chips:[{token:"Blues", label:"Blues", count:3, disabled:false, selected:true}, ...] }],
+//     onChange(enabledByKey, changedKey) { /* enabledByKey = { genre: Set<token>, ... }; changedKey = the level toggled */ },
+//     showAllNone: true,   // per-level "All · None" (default true)
 //   });
-//   f.setLevels(nextLevels);   // re-render when the discovered facet values change (state is preserved per token)
-//   f.getState();              // { [key]: Set<token> } — the same shape onChange receives
+//   f.setLevels(nextLevels);   // re-render with fully-specified chips (the cascade owns counts/availability/selection)
+//   f.getState();              // { [key]: Set<token> } — the selected, non-disabled tokens per level
 //
-// Semantics are the CONSUMER's (C1/C2): FilterR only reports which chips are on. The convention every consumer
-// follows — OR within a level, AND across levels, and a level whose chips are ALL on is treated as unconstrained
-// (all-on ⇒ everything, so items with no value for that facet still pass). "Default on, sticky off": a chip the
-// user turns off stays off across `setLevels`; a newly-appearing value arrives on. A level with fewer than two
-// chips renders nothing (nothing to narrow) unless `hideSingleChoiceLevels:false`.
+// Chip fields: { token, label?, count?, disabled?, selected? }. `label` defaults to the token; `count` renders as
+// a "(n)" suffix when present; `disabled` greys the chip and blocks clicks + selection; `selected` defaults to
+// true (so a consumer that passes bare chips — e.g. GuitarVoicingsR — gets all-on). FilterR clones the chips, so
+// the caller's objects are never mutated. Semantics (OR-within / AND-across, cascade reset) live in the consumer.
 "use strict";
 
 window.ChordFlowFilter = (function () {
@@ -32,7 +32,13 @@ window.ChordFlowFilter = (function () {
       .cf-chip { font-size:.68rem; padding:.12rem .55rem; border-radius:999px; cursor:pointer;
         background:#252526; color:#6b7075; border:1px solid #3a3a3d; }
       .cf-chip:hover { background:#2d2d30; }
-      .cf-chip.active { background:#3a4d78; color:#fff; border-color:#3a4d78; }`;
+      .cf-chip.active { background:#3a4d78; color:#fff; border-color:#3a4d78; }
+      .cf-chip.disabled { opacity:.4; cursor:default; background:#252526; color:#6b7075; border-color:#333; }
+      .cf-chip-count { opacity:.7; margin-left:.25rem; }
+      .cf-allnone { display:inline-flex; gap:.3rem; margin-left:.2rem; }
+      .cf-allnone button { font-size:.62rem; padding:.05rem .3rem; background:none; border:none;
+        color:#7a8ea8; cursor:pointer; text-decoration:underline; }
+      .cf-allnone button:hover { color:#a9c0e0; }`;
     const style = document.createElement("style");
     style.textContent = css;
     document.head.appendChild(style);
@@ -45,88 +51,97 @@ window.ChordFlowFilter = (function () {
     return node;
   }
 
+  // Clone the caller's levels into FilterR-owned chip objects (so clicks/All/None never mutate the caller's data).
+  function cloneLevels(levels) {
+    return (Array.isArray(levels) ? levels : []).map((level) => ({
+      key: level.key,
+      label: level.label,
+      mode: level.mode,
+      chips: (level.chips || []).map((c) => ({
+        token: c.token,
+        label: c.label != null ? c.label : c.token,
+        count: c.count,
+        disabled: !!c.disabled,
+        selected: c.selected !== false, // default on
+      })),
+    }));
+  }
+
   function create(container, opts) {
     opts = opts || {};
     injectStyles();
     const onChange = typeof opts.onChange === "function" ? opts.onChange : function () {};
-    const hideSingle = opts.hideSingleChoiceLevels !== false; // default: hide a level with <2 chips
+    const showAllNone = opts.showAllNone !== false;
 
-    let levels = Array.isArray(opts.levels) ? opts.levels : [];
-    // "Sticky off": the tokens the user has explicitly turned off, per level. Everything else is on — including
-    // values that first appear on a later setLevels(). Kept across re-renders so a narrowed filter survives a refresh.
-    const off = {}; // { [key]: Set<token> }
+    let levels = cloneLevels(opts.levels);
 
     const root = el("div", "cf-filter");
     container.appendChild(root);
 
-    function offSet(key) {
-      if (!off[key]) off[key] = new Set();
-      return off[key];
-    }
-
-    // The enabled tokens PRESENT in a level right now = its chips minus the sticky-off set.
-    function enabledFor(level) {
-      const gone = offSet(level.key);
-      const set = new Set();
-      for (const chip of level.chips) if (!gone.has(chip.token)) set.add(chip.token);
-      return set;
-    }
-
+    // The selected, non-disabled tokens per level — the shape onChange receives and getState returns.
     function state() {
       const out = {};
-      for (const level of levels) out[level.key] = enabledFor(level);
+      for (const level of levels) {
+        const set = new Set();
+        for (const chip of level.chips) if (chip.selected && !chip.disabled) set.add(chip.token);
+        out[level.key] = set;
+      }
       return out;
     }
 
-    function emit() {
-      onChange(state());
-    }
-
-    function toggle(level, token, mode) {
-      const gone = offSet(level.key);
-      if (mode === "single") {
-        // Radio-like: the clicked token becomes the only one on (all others off).
-        for (const chip of level.chips) gone.add(chip.token);
-        gone.delete(token);
-      } else if (gone.has(token)) {
-        gone.delete(token); // turn on
-      } else {
-        gone.add(token); // turn off
-      }
+    function emit(changedKey) {
+      onChange(state(), changedKey);
     }
 
     function render() {
       root.innerHTML = "";
       for (const level of levels) {
-        if (hideSingle && level.chips.length < 2) continue;
-        const gone = offSet(level.key);
+        if (!level.chips.length) continue; // nothing to show for an empty-vocabulary level
         const row = el("div", "cf-level");
         if (level.label != null) row.appendChild(el("span", "cf-level-label", level.label));
-        for (const chip of level.chips) {
-          const active = !gone.has(chip.token);
-          const btn = el("button", "cf-chip" + (active ? " active" : ""), chip.label != null ? chip.label : chip.token);
-          btn.type = "button";
-          btn.addEventListener("click", () => {
-            toggle(level, chip.token, level.mode);
-            if (level.mode === "single") render(); // a single-select flip changes sibling chips too
-            else btn.classList.toggle("active");
-            emit();
-          });
-          row.appendChild(btn);
-        }
+        for (const chip of level.chips) row.appendChild(buildChip(level, chip));
+        if (showAllNone) row.appendChild(buildAllNone(level));
         root.appendChild(row);
       }
     }
 
-    function setLevels(next) {
-      levels = Array.isArray(next) ? next : [];
-      // Drop sticky-off entries for tokens that no longer exist anywhere in a level, so the set can't grow forever;
-      // a token that reappears is treated as new (on) — matching "default on, sticky off" for values in view.
-      for (const level of levels) {
-        const present = new Set(level.chips.map((c) => c.token));
-        const gone = offSet(level.key);
-        for (const t of [...gone]) if (!present.has(t)) gone.delete(t);
+    function buildChip(level, chip) {
+      const btn = el("button", "cf-chip"
+        + (chip.selected && !chip.disabled ? " active" : "")
+        + (chip.disabled ? " disabled" : ""));
+      btn.type = "button";
+      btn.appendChild(document.createTextNode(chip.label));
+      if (chip.count != null) btn.appendChild(el("span", "cf-chip-count", "(" + chip.count + ")"));
+      if (!chip.disabled) {
+        btn.addEventListener("click", () => {
+          chip.selected = !chip.selected;
+          btn.classList.toggle("active", chip.selected);
+          emit(level.key); // a consumer may setLevels() here (cascade re-render); nothing touched after this
+        });
       }
+      return btn;
+    }
+
+    function buildAllNone(level) {
+      const wrap = el("div", "cf-allnone");
+      const set = (on) => {
+        for (const chip of level.chips) if (!chip.disabled) chip.selected = on;
+        render();          // reflect the bulk change (All selects only available chips — disabled stay off)
+        emit(level.key);
+      };
+      const all = el("button", null, "All");
+      all.type = "button";
+      all.addEventListener("click", () => set(true));
+      const none = el("button", null, "None");
+      none.type = "button";
+      none.addEventListener("click", () => set(false));
+      wrap.appendChild(all);
+      wrap.appendChild(none);
+      return wrap;
+    }
+
+    function setLevels(next) {
+      levels = cloneLevels(next);
       render();
     }
 

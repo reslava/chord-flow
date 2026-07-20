@@ -135,7 +135,8 @@ window.ChordFlowGuitarVoicings = (function () {
       wrap.appendChild(bar);
 
       // Faceted filter stack — the shared FilterR (chip rendering + enabled-set state); a change re-issues the
-      // server-side voicingGrid round-trip (behavior unchanged from the old in-component stack).
+      // server-side voicingGrid round-trip. FilterR's per-level All/None comes for free (filter-ux-facets IN6);
+      // the grid has NO cascade/counts (its facets are a fixed vocabulary filtered server-side — EX1).
       const filters = el("div", "gv-filters");
       wrap.appendChild(filters);
       filterR = window.ChordFlowFilter.create(filters, { levels: LEVELS, onChange: sendQuery });
