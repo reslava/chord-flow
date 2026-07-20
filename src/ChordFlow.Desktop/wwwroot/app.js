@@ -61,6 +61,8 @@ const ChordFlow = (function () {
   let hc = null;               // HarmonyControlsR — the definition strip (page-specific, wraps the composite)
   let nowNext = null;          // ChordFlowNowNext (the now/next chord fretboards, synced to playback)
   let lastScoreRequest = null; // last render-producing envelope (sans renderOptions), for replay
+  let practiceFilter = null;   // shared FilterR narrowing the metadata-bearing pickers (Harmony + Drums) by g/s/t
+  let practiceLevels = [];     // the levels last handed to FilterR — held so the filter predicate knows each level's chips
 
   // Content catalog, populated from the entity* bridge — feeds HarmonyControlsR and the library's name map.
   const catalog = { progression: [], song: [], rhythm: [], drums: [] };
@@ -141,14 +143,63 @@ const ChordFlow = (function () {
     }
   }
 
-  // A catalog list arrived — cache it, feed HarmonyControlsR (the single population path, IN8), and re-label
-  // the library (whose names resolve against the catalog). entityList also fans out from the Content view's
-  // own requests; harmless to re-apply.
+  // A catalog list arrived — cache it, refresh the Practice filter's discovered values, feed HarmonyControlsR
+  // through the filter (the single population path, IN8), and re-label the library (whose names resolve against
+  // the catalog). entityList also fans out from the Content view's own requests; harmless to re-apply.
   function onCatalogList(entity, items) {
     if (!(entity in catalog)) return;
     catalog[entity] = items || [];
-    if (hc) hc.setCatalog(entity, items || []);
+    refreshPracticeLevels();      // rebuild g/s/t chips from the new union (setLevels preserves sticky-off)
+    feedHarmony(entity);          // (re)feed just the entity that changed, narrowed by the current filter
     if (lastLibrary) renderLibrary(lastLibrary); // re-label with freshly resolved names
+  }
+
+  // --- Practice content filter (filter-toggle-buttons IN6) -------------------
+  // The metadata-bearing Practice pickers are Harmony (Song + Progression) and Drums; Comping/Lead are rhythm-
+  // backed and carry no catalog metadata (EX3), so they are never narrowed (C4). Source is always all here.
+  function buildPracticeLevels() {
+    const list = [...catalog.song, ...catalog.progression, ...catalog.drums];
+    const distinct = (accessor) => {
+      const seen = new Set();
+      for (const it of list) for (const v of accessor(it)) if (v != null && v !== "") seen.add(v);
+      return [...seen].sort((a, b) => String(a).localeCompare(String(b)));
+    };
+    return [
+      { key: "genre", label: "Genre", chips: distinct((it) => (it.genre ? [it.genre] : [])).map((g) => ({ token: g, label: g })) },
+      { key: "subgenre", label: "Subgenre", chips: distinct((it) => (it.subgenre ? [it.subgenre] : [])).map((s) => ({ token: s, label: s })) },
+      { key: "tags", label: "Tags", chips: distinct((it) => it.tags || []).map((t) => ({ token: t, label: t })) },
+    ];
+  }
+
+  function refreshPracticeLevels() {
+    practiceLevels = buildPracticeLevels();
+    if (practiceFilter) practiceFilter.setLevels(practiceLevels);
+  }
+
+  // OR within a level, AND across levels (C3); a level whose chips are ALL on is unconstrained (all-on ⇒
+  // everything, so an item with no value for that facet still shows). An emptied level admits nothing.
+  function passesPracticeFilter(it, state) {
+    return practiceLevels.every((level) => {
+      const set = state[level.key];
+      if (!set || set.size === level.chips.length) return true;
+      const vals = level.key === "tags" ? (it.tags || []) : (it[level.key] ? [it[level.key]] : []);
+      return vals.some((v) => set.has(v));
+    });
+  }
+
+  // Feed one entity into HarmonyControlsR, narrowed by the current filter (rhythm is never narrowed — C4).
+  function feedHarmony(entity) {
+    if (!hc) return;
+    if (entity === "rhythm") { hc.setCatalog("rhythm", catalog.rhythm); return; }
+    const state = practiceFilter ? practiceFilter.getState() : {};
+    hc.setCatalog(entity, catalog[entity].filter((it) => passesPracticeFilter(it, state)));
+  }
+
+  // The filter changed — re-feed every metadata-bearing picker (rhythm is unaffected).
+  function applyPracticeFilter() {
+    feedHarmony("song");
+    feedHarmony("progression");
+    feedHarmony("drums");
   }
 
   // --- top-level view toggle (Practice ⇄ Content ⇄ diagnostics pages) ---------
@@ -343,6 +394,13 @@ const ChordFlow = (function () {
       // A live param changed (key = transpose re-emit, feel = \tf line, voicing = re-voiced grips): replay.
       onDefinitionChange: () => replayScoreRequest(),
       onHarmonySwitch: onHarmonySwitch,
+    });
+
+    // The Practice content filter (IN6): narrows the Harmony + Drums pickers by genre/subgenre/tags. Levels are
+    // discovered from the catalogs as they arrive (refreshPracticeLevels); a toggle re-feeds HarmonyControlsR.
+    practiceFilter = window.ChordFlowFilter.create($("practice-filter"), {
+      levels: practiceLevels,
+      onChange: applyPracticeFilter,
     });
 
     // The now/next chord fretboards live above the surfaces; fed the loadScore schedule + the composite's beat fan-out.

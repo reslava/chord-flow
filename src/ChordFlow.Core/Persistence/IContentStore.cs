@@ -72,9 +72,15 @@ public enum ContentSource
 /// no feel or for the feel-independent entities. <paramref name="DefaultTempo"/> is the song's
 /// <see cref="Song.DefaultTempo"/> (BPM) — also set only by <see cref="SongStore"/> so the tempo control can
 /// seed (scorer-render-params IN1); null when the song declares no tempo or for the other entities.</summary>
+/// <para><paramref name="Genre"/> / <paramref name="Subgenre"/> / <paramref name="Tags"/> are the catalog
+/// metadata surfaced for the list fields + the shared FilterR (filter-toggle-buttons IN1). Read from the row's
+/// own DSL header (<see cref="CatalogHeader"/>, the canonical source — the denormalized entity columns aren't
+/// populated on user saves), so a fork shows its inherited header. Empty for rhythm patterns (no catalog
+/// metadata — EX3).</para>
 public sealed record ContentSummary(
     string Id, string Name, ContentSource Source, string? PackId, int? InitialKey = null, string? DefaultFeel = null,
-    int? DefaultTempo = null, bool? InitialKeyIsMinor = null); // tonality mode: true=minor, false=major, null=n/a (rhythm/voicing)
+    int? DefaultTempo = null, bool? InitialKeyIsMinor = null, // tonality mode: true=minor, false=major, null=n/a (rhythm/voicing)
+    string? Genre = null, string? Subgenre = null, IReadOnlyList<string>? Tags = null);
 
 /// <summary>The editable payload of one definition: id, display name, and the header-stripped DSL body.</summary>
 public sealed record ContentDoc(string Id, string Name, string Dsl);
@@ -105,13 +111,15 @@ internal static class ContentSummaries
         _ => throw new ArgumentOutOfRangeException(nameof(origin), origin, "Unhandled origin."),
     };
 
-    public static IReadOnlyList<ContentSummary> Build(IEnumerable<(string Id, string Name, Origin Origin, string? PackId)> rows)
+    public static IReadOnlyList<ContentSummary> Build(
+        IEnumerable<(string Id, string Name, Origin Origin, string? PackId, CatalogMetadata Meta)> rows)
     {
         ArgumentNullException.ThrowIfNull(rows);
 
         return rows
             .Select(r => new ContentSummary(
-                r.Id, r.Name, SourceOf(r.Origin), r.Origin == Origin.Pack ? r.PackId : null))
+                r.Id, r.Name, SourceOf(r.Origin), r.Origin == Origin.Pack ? r.PackId : null,
+                Genre: r.Meta.Genre, Subgenre: r.Meta.Subgenre, Tags: r.Meta.Tags))
             .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }

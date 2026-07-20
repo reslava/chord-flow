@@ -52,8 +52,8 @@ window.ChordFlowContent = (function () {
   let forkSourceId = null;     // id of the item the editor is showing → the server preserves its catalog header
                                // (genre/tags/tonality) on Save even when we fork to a new user copy (EX3)
   let items = [];              // last-rendered list items
-  let activeSources = null;    // Set of active filter keys (null = uninitialized → all on); transient
-  let knownKeys = new Set();   // filter keys seen this session, so a toggled-off key isn't re-enabled on refresh
+  let filterR = null;          // shared FilterR handle (Source + Genre/Subgenre/Tags); recreated per entity (transient)
+  let currentLevels = [];      // the levels last handed to FilterR — held so applyFilter knows each level's full chip set
   let surfaceView = null;      // lazy ChordFlowRenderSurface handle (composite: ScoreR + ChordSheetR + Score⇄Sheet
                                // toggle + page transport) for the score strategy
   let surfaceHasSheet = false; // whether the live composite was built with a Sheet surface (progression/song); a
@@ -177,7 +177,9 @@ window.ChordFlowContent = (function () {
     for (const b of tabsEl.children) b.classList.toggle("active", b.dataset.entity === current.key);
     dslEl.placeholder = current.placeholder;
     helpEl.textContent = current.help;
-    activeSources = null; // transient filter resets per entity (content-source-model D5)
+    // The filter is transient per entity (content-source-model D5): drop the FilterR so it rebuilds all-on.
+    if (filterR) { filterR.dispose(); filterR = null; }
+    currentLevels = [];
     // The comping picker is a progression/song-only content knob; fetch the rhythm catalog to fill it.
     compingBar.hidden = !current.comping;
     // The tonality control is a progression-only content property (a song's mode is its key/mod stream, EX4).
@@ -356,8 +358,9 @@ window.ChordFlowContent = (function () {
     }
   }
 
-  // --- list + source filter --------------------------------------------------
-  // A filter key identifies a source for filtering: a pack is keyed by its name, user/automatic by kind.
+  // --- list + FilterR (Source + Genre/Subgenre/Tags) -------------------------
+  // A filter token identifies a source: a pack is keyed by its name, user/automatic by kind. This is also the
+  // per-item value the Source level filters on (valuesFor).
   function filterKey(it) {
     return it.source === "package" ? "pack:" + (it.packName || "") : it.source;
   }
@@ -374,60 +377,67 @@ window.ChordFlowContent = (function () {
     return key.slice("pack:".length) || "Package";
   }
 
-  function renderList(list) {
-    items = list;
+  // Distinct, stable-sorted values across the list for one accessor (null/blank dropped).
+  function distinct(list, accessor) {
+    const seen = new Set();
+    for (const it of list) for (const v of accessor(it)) if (v != null && v !== "") seen.add(v);
+    return [...seen].sort((a, b) => String(a).localeCompare(String(b)));
+  }
 
-    // Available sources in a stable order: automatic, user, then packs (alphabetical).
+  // The item's value(s) for a level's key — the OR-within-a-level candidates matched against its enabled set.
+  function valuesFor(it, key) {
+    if (key === "source") return [filterKey(it)];
+    if (key === "genre") return it.genre ? [it.genre] : [];
+    if (key === "subgenre") return it.subgenre ? [it.subgenre] : [];
+    if (key === "tags") return it.tags || [];
+    return [];
+  }
+
+  // Build the FilterR levels from the rows present: Source (packs alpha after automatic/user) + Genre/Subgenre/Tags,
+  // each discovered from the list. Rhythm rows carry no catalog metadata, so those levels come out empty (FilterR
+  // hides <2-chip levels), leaving Rhythms with only the Source level.
+  function buildLevels(list) {
     const packNames = [...new Set(list.filter((i) => i.source === "package").map((i) => i.packName || ""))].sort();
-    const availableKeys = [
+    const sourceTokens = [
       ...(list.some((i) => i.source === "automatic") ? ["automatic"] : []),
       ...(list.some((i) => i.source === "user") ? ["user"] : []),
       ...packNames.map((n) => "pack:" + n),
     ];
+    return [
+      { key: "source", label: "Source", chips: sourceTokens.map((t) => ({ token: t, label: keyLabel(t) })) },
+      { key: "genre", label: "Genre", chips: distinct(list, (it) => (it.genre ? [it.genre] : [])).map((g) => ({ token: g, label: g })) },
+      { key: "subgenre", label: "Subgenre", chips: distinct(list, (it) => (it.subgenre ? [it.subgenre] : [])).map((s) => ({ token: s, label: s })) },
+      { key: "tags", label: "Tags", chips: distinct(list, (it) => it.tags || []).map((t) => ({ token: t, label: t })) },
+    ];
+  }
 
-    if (activeSources === null) {
-      activeSources = new Set(availableKeys); // default: all on (transient)
+  function renderList(list) {
+    items = list;
+    currentLevels = buildLevels(list);
+    if (!filterR) {
+      filterR = window.ChordFlowFilter.create(filterEl, { levels: currentLevels, onChange: applyFilter });
     } else {
-      for (const k of availableKeys) if (!activeSources.has(k) && !knownKeys.has(k)) activeSources.add(k);
+      filterR.setLevels(currentLevels); // preserves the user's sticky-off selections across a refresh
     }
-    knownKeys = new Set(availableKeys);
-
-    renderFilter(availableKeys);
     applyFilter();
   }
 
-  function renderFilter(keys) {
-    filterEl.innerHTML = "";
-    // No filter UI when there's only one source — nothing to narrow.
-    if (keys.length < 2) {
-      filterEl.hidden = true;
-      return;
-    }
-    filterEl.hidden = false;
-    for (const key of keys) {
-      const chip = document.createElement("button");
-      chip.type = "button";
-      // Tag the chip with its source kind so the active colour matches the list badge (user=green, etc.).
-      const kind = key === "user" ? "user" : key === "automatic" ? "automatic" : "package";
-      chip.className = "cc-chip " + kind + (activeSources.has(key) ? " active" : "");
-      chip.textContent = keyLabel(key);
-      chip.addEventListener("click", () => {
-        if (activeSources.has(key)) activeSources.delete(key);
-        else activeSources.add(key);
-        chip.classList.toggle("active");
-        applyFilter();
-      });
-      filterEl.appendChild(chip);
-    }
-  }
-
+  // Client-side, no round-trip (C3): OR within a level, AND across levels; a level whose chips are ALL on is
+  // unconstrained (all-on ⇒ everything, so a row with no value for that facet still shows). An emptied level
+  // admits nothing ⇒ an empty list, never an error (C2).
   function applyFilter() {
-    const visible = items.filter((it) => activeSources.has(filterKey(it)));
+    const state = filterR ? filterR.getState() : {};
+    const visible = items.filter((it) =>
+      currentLevels.every((level) => {
+        const set = state[level.key];
+        if (!set || set.size === level.chips.length) return true; // unconstrained (all-on, single, or empty level)
+        return valuesFor(it, level.key).some((v) => set.has(v));
+      }));
     listEl.innerHTML = "";
     if (visible.length === 0) {
       const li = document.createElement("li");
       li.className = "empty";
-      li.textContent = items.length === 0 ? "No definitions yet" : "No definitions for the selected sources";
+      li.textContent = items.length === 0 ? "No definitions yet" : "No definitions match the filter";
       listEl.appendChild(li);
       return;
     }
@@ -435,17 +445,46 @@ window.ChordFlowContent = (function () {
     for (const it of visible) {
       const li = document.createElement("li");
       li.dataset.id = it.id;
+      // Top row: name + source badge.
+      const top = document.createElement("div");
+      top.className = "cc-row-top";
       const name = document.createElement("span");
       name.textContent = it.name;
       const badge = document.createElement("span");
       badge.className = "cc-badge " + it.source; // cc-badge user|package|automatic
       badge.textContent = sourceLabel(it);
-      li.appendChild(name);
-      li.appendChild(badge);
+      top.appendChild(name);
+      top.appendChild(badge);
+      li.appendChild(top);
+      // Meta row: genre · subgenre + tag pills (omitted for rows with no catalog metadata, e.g. rhythms).
+      const metaEl = renderMeta(it);
+      if (metaEl) li.appendChild(metaEl);
       li.addEventListener("click", () => loadItem(it.id));
       listEl.appendChild(li);
     }
     highlightSelected();
+  }
+
+  // The per-row catalog-metadata line: "Genre · Subgenre" then tag pills. Returns null when the row carries none.
+  function renderMeta(it) {
+    const gs = [it.genre, it.subgenre].filter((v) => v != null && v !== "");
+    const tags = it.tags || [];
+    if (gs.length === 0 && tags.length === 0) return null;
+    const meta = document.createElement("div");
+    meta.className = "cc-meta";
+    if (gs.length) {
+      const label = document.createElement("span");
+      label.className = "cc-meta-genre";
+      label.textContent = gs.join(" · ");
+      meta.appendChild(label);
+    }
+    for (const t of tags) {
+      const tag = document.createElement("span");
+      tag.className = "cc-tag";
+      tag.textContent = t;
+      meta.appendChild(tag);
+    }
+    return meta;
   }
 
   function highlightSelected() {

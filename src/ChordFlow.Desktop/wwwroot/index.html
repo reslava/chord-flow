@@ -133,6 +133,10 @@
     .cf-player-controls .cf-tempo { width: 4rem; }
     .cf-player-controls .cf-toggle { display: inline-flex; align-items: center; gap: .25rem; color: #cfd2d6; cursor: pointer; }
 
+    /* Practice content filter strip (filter-toggle-buttons): spacing above the definition controls. */
+    .practice-filter { margin: 0 0 .5rem; }
+    .practice-filter:empty { display: none; }
+
     /* ---- Shared harmony/definition controls (harmony-controls-component.js) ---- */
     /* The definition strip (HarmonyControlsR): harmony/key/feel/comping+vol/lead+vol/difficulty/frets/actions.
        Self-styled like PlayerControlsR so it reads the same wherever the page mounts it. */
@@ -184,7 +188,13 @@
     .cc-list { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow: auto;
       background: #252526; border: 1px solid #333; border-radius: 6px; }
     .cc-list li { padding: .4rem .5rem; border-radius: 4px; cursor: pointer; font-size: .82rem;
-      display: flex; align-items: center; gap: .4rem; }
+      display: flex; flex-direction: column; gap: .2rem; }
+    .cc-row-top { display: flex; align-items: center; gap: .4rem; }
+    /* Per-row catalog metadata (filter-toggle-buttons): "Genre · Subgenre" + tag pills. */
+    .cc-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; }
+    .cc-meta-genre { font-size: .66rem; color: #9aa0a6; }
+    .cc-tag { font-size: .6rem; padding: .03rem .3rem; border-radius: 3px;
+      background: #2e2e31; color: #9aa0a6; border: 1px solid #3a3a3d; }
     .cc-list li:hover { background: #2d2d30; }
     .cc-list li.active { background: #34374a; }
     .cc-list li.empty { color: #6b7075; cursor: default; font-style: italic; }
@@ -289,6 +299,11 @@
        PlayerControlsR bound to ScoreR's engine) + Now/Next + the two swappable surfaces (Score / Sheet) +
        the saved-exercise library. All shared pieces exist ONCE; only the surfaces swap. -->
   <div id="practice-view">
+    <!-- Practice content filter (filter-toggle-buttons IN6): a shared FilterR that narrows the metadata-bearing
+         pickers — Harmony (Song/Progression) + Drums — by genre/subgenre/tags. Comping/Lead (rhythm) carry no
+         catalog metadata and are never narrowed; source is always all. Built + wired by app.js. -->
+    <div id="practice-filter" class="practice-filter"></div>
+
     <!-- HarmonyControlsR mounts here (harmony-controls-component.js): harmony/key/feel/comping+vol/lead+vol/
          difficulty/voicing-frets/Generate/Save/Mark practiced. Populated from the entity* bridge via app.js. -->
     <div id="harmony-controls"></div>
@@ -443,6 +458,7 @@
   <script src="harmony-controls-component.js"></script>
   <script src="score-render-component.js"></script>
   <script src="fretboard-render-component.js"></script>
+  <script src="filter-render-component.js"></script>
   <script src="now-next-fretboards.js"></script>
   <script src="content-crud.js"></script>
   <script src="drums-render-component.js"></script>

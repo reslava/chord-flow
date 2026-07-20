@@ -25,8 +25,8 @@ public sealed class VoicingStore : IContentStore
     /// <inheritdoc/>
     public IReadOnlyList<ContentSummary> List() =>
         ContentSummaries.Build(_db.Voicings.AsNoTracking()
-            .Select(v => new { v.Id, v.Name, v.Origin, v.PackId }).ToList()
-            .Select(v => (v.Id, v.Name, v.Origin, v.PackId)));
+            .Select(v => new { v.Id, v.Name, v.Origin, v.PackId, v.Dsl }).ToList()
+            .Select(v => (v.Id, v.Name, v.Origin, v.PackId, CatalogHeader.Parse(v.Dsl).Metadata)));
 
     /// <inheritdoc/>
     public ContentDoc? Get(string id)

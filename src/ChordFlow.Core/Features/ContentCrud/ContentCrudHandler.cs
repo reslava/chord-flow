@@ -84,7 +84,10 @@ public sealed class ContentCrudHandler
         s.InitialKey,
         s.DefaultFeel,
         s.DefaultTempo,
-        s.InitialKeyIsMinor);
+        s.InitialKeyIsMinor,
+        s.Genre,
+        s.Subgenre,
+        s.Tags ?? Array.Empty<string>());
 
     private static string SourceLabel(ContentSource source) => source switch
     {

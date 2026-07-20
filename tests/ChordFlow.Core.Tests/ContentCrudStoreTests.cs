@@ -420,6 +420,50 @@ public class ContentCrudStoreTests
         Assert.False(byId["maj"].InitialKeyIsMinor);  // no header → major
     }
 
+    // ---- List surfaces genre/subgenre/tags for the list fields + shared FilterR (filter-toggle-buttons IN1) ----
+
+    [Fact]
+    public void ProgressionList_SurfacesGenreSubgenreTags_FromTheCatalogHeader()
+    {
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        db.Progressions.Add(new ProgressionEntity
+        {
+            Id = "blues", Name = "12-Bar Blues",
+            Dsl = "genre: Blues\nsubgenre: Shuffle\ntags: [12-bar, beginner]\n17 47 17 57",
+            Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow,
+        });
+        db.Progressions.Add(new ProgressionEntity
+        {
+            Id = "bare", Name = "Bare", Dsl = "1 4 5 1", Origin = Origin.Pack, PackId = "default", CreatedUtc = DateTime.UtcNow,
+        });
+        db.SaveChanges();
+
+        var byId = new ProgressionStore(db).List().ToDictionary(s => s.Id);
+
+        Assert.Equal("Blues", byId["blues"].Genre);
+        Assert.Equal("Shuffle", byId["blues"].Subgenre);
+        Assert.Equal(new[] { "12-bar", "beginner" }, byId["blues"].Tags);
+        Assert.Null(byId["bare"].Genre);          // no header → no metadata
+        Assert.Null(byId["bare"].Subgenre);
+        Assert.Empty(byId["bare"].Tags!);
+    }
+
+    [Fact]
+    public void RhythmList_CarriesNoCatalogMetadata_BecauseRhythmsAreNotGenreFiltered()
+    {
+        // EX3: rhythm patterns carry no genre/subgenre/tags — the Rhythms tab's FilterR shows only Source.
+        using var conn = MigratedConnection();
+        using var db = new ChordFlowDbContext(Options(conn));
+        var store = new RhythmPatternStore(db);
+        store.Save(null, "Four On The Floor", "X...X...X...X...");
+
+        ContentSummary summary = Assert.Single(store.List());
+        Assert.Null(summary.Genre);
+        Assert.Null(summary.Subgenre);
+        Assert.Empty(summary.Tags!);
+    }
+
     [Fact]
     public void SongList_SurfacesInitialKeyIsMinor_FromTheSongsOwnKeyMode()
     {

@@ -31,7 +31,7 @@ public sealed class ProgressionStore : IProgressionStore, IContentStore
     public IReadOnlyList<ContentSummary> List()
     {
         List<ProgressionEntity> rows = _db.Progressions.AsNoTracking().ToList();
-        return ContentSummaries.Build(rows.Select(p => (p.Id, p.Name, p.Origin, p.PackId)))
+        return ContentSummaries.Build(rows.Select(p => (p.Id, p.Name, p.Origin, p.PackId, CatalogHeader.Parse(p.Dsl).Metadata)))
             .Select(summary => summary with { InitialKeyIsMinor = IsMinorTonality(rows, summary.Id) })
             .ToList();
     }

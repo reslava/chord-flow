@@ -27,8 +27,8 @@ public sealed class DrumGrooveStore : IContentStore
     /// <inheritdoc/>
     public IReadOnlyList<ContentSummary> List() =>
         ContentSummaries.Build(_db.DrumGrooves.AsNoTracking()
-            .Select(g => new { g.Id, g.Name, g.Origin, g.PackId }).ToList()
-            .Select(g => (g.Id, g.Name, g.Origin, g.PackId)));
+            .Select(g => new { g.Id, g.Name, g.Origin, g.PackId, g.Dsl }).ToList()
+            .Select(g => (g.Id, g.Name, g.Origin, g.PackId, CatalogHeader.Parse(g.Dsl).Metadata)));
 
     /// <inheritdoc/>
     public ContentDoc? Get(string id)

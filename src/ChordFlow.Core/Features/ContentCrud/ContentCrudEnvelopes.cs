@@ -23,7 +23,9 @@ namespace ChordFlow.Features.ContentCrud;
 /// when the song declares no tempo or for the other entities.</summary>
 public sealed record ContentItem(
     string Id, string Name, string Source, string? PackName, int? InitialKey = null, string? DefaultFeel = null,
-    int? DefaultTempo = null, bool? InitialKeyIsMinor = null);
+    int? DefaultTempo = null, bool? InitialKeyIsMinor = null,
+    // Catalog metadata for the list fields + the shared FilterR (filter-toggle-buttons IN2); empty for rhythm patterns (EX3).
+    string? Genre = null, string? Subgenre = null, IReadOnlyList<string>? Tags = null);
 
 /// <summary>The definitions of one entity type, for the list pane: <c>{"type":"entityList","entity":"…","items":[…]}</c>.</summary>
 public sealed record EntityListEnvelope(string Entity, IReadOnlyList<ContentItem> Items, string Type = "entityList");

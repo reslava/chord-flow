@@ -25,9 +25,11 @@ public sealed class RhythmPatternStore : IContentStore
 
     /// <inheritdoc/>
     public IReadOnlyList<ContentSummary> List() =>
+        // Rhythm patterns carry no catalog metadata (EX3) — empty genre/subgenre/tags, so the Rhythms tab's
+        // FilterR shows only the Source level.
         ContentSummaries.Build(_db.RhythmPatterns.AsNoTracking()
             .Select(p => new { p.Id, p.Name, p.Origin, p.PackId }).ToList()
-            .Select(p => (p.Id, p.Name, p.Origin, p.PackId)));
+            .Select(p => (p.Id, p.Name, p.Origin, p.PackId, CatalogMetadata.Empty)));
 
     /// <inheritdoc/>
     public ContentDoc? Get(string id)

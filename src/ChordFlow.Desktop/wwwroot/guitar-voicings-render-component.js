@@ -18,19 +18,20 @@ window.ChordFlowGuitarVoicings = (function () {
   // Root names per pitch class (0 = C .. 11 = B), matching the renderer's spelling (the selector value is the pc).
   const KEY_NAMES = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
 
-  // The faceted filter levels: { token, label }. Tokens are the wire vocabulary the Core handler filters on
-  // (family tokens + the 3rd/5th/7th facet tokens of QualityFacets); labels are presentation only. Order top→bottom.
+  // The faceted filter levels handed to the shared FilterR: { key, label, chips:[{token,label}] }. Tokens are the
+  // wire vocabulary the Core handler filters on (family tokens + the 3rd/5th/7th facet tokens of QualityFacets);
+  // labels are presentation only. Order top→bottom. Root stays a dropdown (single global root), not a chip level.
   const LEVELS = [
     { key: "sources", label: "Source", chips: [
-      { t: "automatic", l: "Automatic" }, { t: "package", l: "Package" }, { t: "user", l: "User" }] },
+      { token: "automatic", label: "Automatic" }, { token: "package", label: "Package" }, { token: "user", label: "User" }] },
     { key: "families", label: "Family", chips: [
-      { t: "caged", l: "CAGED" }, { t: "shell", l: "Shell" }, { t: "dshell", l: "Doubled shell" }] },
+      { token: "caged", label: "CAGED" }, { token: "shell", label: "Shell" }, { token: "dshell", label: "Doubled shell" }] },
     { key: "thirds", label: "3rd", chips: [
-      { t: "major", l: "Major" }, { t: "minor", l: "Minor" }, { t: "suspended", l: "Suspended" }] },
+      { token: "major", label: "Major" }, { token: "minor", label: "Minor" }, { token: "suspended", label: "Suspended" }] },
     { key: "fifths", label: "5th", chips: [
-      { t: "perfect", l: "Perfect" }, { t: "augmented", l: "Augmented" }, { t: "diminished", l: "Diminished" }] },
+      { token: "perfect", label: "Perfect" }, { token: "augmented", label: "Augmented" }, { token: "diminished", label: "Diminished" }] },
     { key: "sevenths", label: "7th", chips: [
-      { t: "triad", l: "Triad" }, { t: "6", l: "6" }, { t: "7", l: "7" }, { t: "maj7", l: "maj7" }, { t: "dim7", l: "dim7" }] },
+      { token: "triad", label: "Triad" }, { token: "6", label: "6" }, { token: "7", label: "7" }, { token: "maj7", label: "maj7" }, { token: "dim7", label: "dim7" }] },
   ];
 
   // Quality enum name → display label (presentation only; mirrors Core's EngineVoicingSource display names). Used
@@ -56,11 +57,6 @@ window.ChordFlowGuitarVoicings = (function () {
       .gv-select { font:inherit; font-size:.78rem; padding:.2rem .4rem; border:1px solid #4a4a4f; border-radius:4px; background:#2c2c2f; color:#e6e6e6; }
       .gv-btn { font:inherit; font-size:.75rem; padding:.15rem .6rem; border:1px solid #4a4a4f; border-radius:4px; background:#3a3a3d; color:#e6e6e6; cursor:pointer; }
       .gv-filters { display:flex; flex-direction:column; gap:.35rem; }
-      .gv-level { display:flex; flex-wrap:wrap; gap:.3rem; align-items:center; }
-      .gv-level .gv-level-label { font-size:.72rem; color:#9aa0a6; min-width:3.4rem; }
-      .gv-chip { font-size:.68rem; padding:.12rem .55rem; border-radius:999px; cursor:pointer; background:#252526; color:#6b7075; border:1px solid #3a3a3d; }
-      .gv-chip:hover { background:#2d2d30; }
-      .gv-chip.active { background:#3a4d78; color:#fff; border-color:#3a4d78; }
       .gv-grid { display:flex; flex-direction:column; gap:1.1rem; }
       .gv-qgroup { display:flex; flex-direction:column; gap:.3rem; }
       .gv-qhead { font-size:.82rem; font-weight:600; color:#e6e6e6; }
@@ -76,9 +72,8 @@ window.ChordFlowGuitarVoicings = (function () {
     opts = opts || {};
     injectStyles();
 
-    // Filter state: a Set of enabled tokens per level (all-on by default ⇒ everything), and the single root.
-    const enabled = {};
-    for (const level of LEVELS) enabled[level.key] = new Set(level.chips.map((c) => c.t));
+    // Filter state now lives in the shared FilterR (all-on by default ⇒ everything); the single root stays local.
+    let filterR = null;
     let rootPc = Number.isInteger(opts.defaultRoot) ? opts.defaultRoot : 0;
     let orientation = opts.orientation === "horizontal" ? "horizontal" : "vertical";
     let labelMode = opts.labelMode === "note" ? "note" : "interval";
@@ -139,48 +134,33 @@ window.ChordFlowGuitarVoicings = (function () {
 
       wrap.appendChild(bar);
 
-      // Faceted filter stack: one row of toggle chips per level.
+      // Faceted filter stack — the shared FilterR (chip rendering + enabled-set state); a change re-issues the
+      // server-side voicingGrid round-trip (behavior unchanged from the old in-component stack).
       const filters = el("div", "gv-filters");
-      for (const level of LEVELS) filters.appendChild(buildLevel(level));
       wrap.appendChild(filters);
+      filterR = window.ChordFlowFilter.create(filters, { levels: LEVELS, onChange: sendQuery });
 
       gridEl = el("div", "gv-grid");
       wrap.appendChild(gridEl);
       container.appendChild(wrap);
     }
 
-    function buildLevel(level) {
-      const row = el("div", "gv-level");
-      row.appendChild(el("span", "gv-level-label", level.label));
-      for (const chip of level.chips) {
-        const btn = el("button", "gv-chip" + (enabled[level.key].has(chip.t) ? " active" : ""), chip.l);
-        btn.type = "button";
-        btn.addEventListener("click", () => {
-          if (enabled[level.key].has(chip.t)) enabled[level.key].delete(chip.t);
-          else enabled[level.key].add(chip.t);
-          btn.classList.toggle("active");
-          sendQuery();
-        });
-        row.appendChild(btn);
-      }
-      return row;
-    }
-
-    // Ask the host to resolve the whole filtered grid (one round-trip). The arrays are the enabled-token sets:
-    // all-on ⇒ everything; a level emptied ⇒ that level admits nothing ⇒ an empty grid (never an error, C5).
+    // Ask the host to resolve the whole filtered grid (one round-trip). The arrays are FilterR's enabled-token
+    // sets: all-on ⇒ everything; a level emptied ⇒ that level admits nothing ⇒ an empty grid (never an error, C5).
     function sendQuery() {
       if (!Bridge || !Bridge.available) {
         showMessage("Open in the ChordFlow app to render voicings.");
         return;
       }
+      const s = filterR ? filterR.getState() : {};
       Bridge.send({
         type: "voicingGrid",
         rootPitchClass: rootPc,
-        sources: [...enabled.sources],
-        families: [...enabled.families],
-        thirds: [...enabled.thirds],
-        fifths: [...enabled.fifths],
-        sevenths: [...enabled.sevenths],
+        sources: [...(s.sources || [])],
+        families: [...(s.families || [])],
+        thirds: [...(s.thirds || [])],
+        fifths: [...(s.fifths || [])],
+        sevenths: [...(s.sevenths || [])],
       });
     }
 
@@ -273,6 +253,7 @@ window.ChordFlowGuitarVoicings = (function () {
 
     function dispose() {
       disposeCells();
+      if (filterR) { filterR.dispose(); filterR = null; }
       container.innerHTML = "";
       built = false;
     }

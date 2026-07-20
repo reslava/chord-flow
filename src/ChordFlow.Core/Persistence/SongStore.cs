@@ -36,7 +36,7 @@ public sealed class SongStore : IContentStore
     public IReadOnlyList<ContentSummary> List()
     {
         List<SongEntity> rows = _db.Songs.AsNoTracking().ToList();
-        return ContentSummaries.Build(rows.Select(s => (s.Id, s.Name, s.Origin, s.PackId)))
+        return ContentSummaries.Build(rows.Select(s => (s.Id, s.Name, s.Origin, s.PackId, CatalogHeader.Parse(s.Dsl).Metadata)))
             .Select(summary =>
             {
                 (int? key, string? feel, int? tempo, bool? isMinor) = SeedsOf(rows, summary.Id);
