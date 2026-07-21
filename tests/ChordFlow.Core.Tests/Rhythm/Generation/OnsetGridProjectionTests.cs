@@ -36,7 +36,7 @@ public class OnsetGridProjectionTests
     [Fact]
     public void Legato_SingleOnset_RingsToTheBarline()
     {
-        var g = Pattern(RhythmKind.Density(1, 1), new PatternSelection.Fixed(1), 1); // beat 2 only
+        var g = Pattern(RhythmKind.Placement(1, "all", 1), new PatternSelection.Fixed(1), 1); // beat 2 only
         var bar = OnsetGridToRhythmPattern.Project(g).Bars[0];
         // beat 2 onset (tick 48) rings the remaining three beats — a dotted half.
         Assert.Equal(new[] { (48, 144) }, bar.Events.Select(PL));
@@ -56,7 +56,7 @@ public class OnsetGridProjectionTests
     [Fact]
     public void Drums_ProjectsToOneVoice_DefaultsClosedHiHat()
     {
-        var g = Pattern(RhythmKind.Density(2, 2), new PatternSelection.Cycle(), 3);
+        var g = Pattern(RhythmKind.Placement(2, "all", 2), new PatternSelection.Cycle(), 3);
         var groove = OnsetGridToDrumGroove.Project(g);
         Assert.Equal(new[] { DrumVoice.HiHatClosed }, groove.DistinctVoices());
     }
@@ -92,7 +92,7 @@ public class OnsetGridProjectionTests
     public static IEnumerable<object[]> AgreementGrids() => new[]
     {
         new object[] { Pattern(Figure("four-on-floor"), new PatternSelection.Fixed(0), 1) },
-        new object[] { Pattern(RhythmKind.Density(2, 3), new PatternSelection.Cycle(), 4) },
+        new object[] { Pattern(RhythmKind.Placement(2, "all", 3), new PatternSelection.Cycle(), 4) },
         new object[] { Pattern(Figure("tresillo"), new PatternSelection.Fixed(0), 4, behaviours: new SequenceBehaviour.Sweep()) },
         new object[] { RandomStrategy.Generate(new RandomParams(new[] { 4, 8, 16 }, 3, 1, TimeSignature.FourFour, 99)) },
     };

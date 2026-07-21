@@ -5,7 +5,7 @@ title: Generated Rhythms for Practice — Requirements
 status: locked
 created: 2026-07-20
 updated: 2026-07-21
-version: 4
+version: 5
 design_version: 2
 tags: []
 parent_id: de_01KY0RDXS9C7X93BX8Y1HVCMC3
@@ -19,7 +19,7 @@ Requirements for the rhythm **generation engine** and its pedagogy layer — the
 
 - `IN1` An instrument-agnostic **onset-grid** generation model: `Block` (one beat's onset pattern), `OnsetBar` (4 blocks in 4/4), `OnsetGrid` (1–4 bars) — attack positions only, no durations/pitch/instrument.
 - `IN2` One `RhythmGenerator` with **two selectable strategies** — `Pattern` (pedagogical) and `Random` (free fill) — over the shared onset-grid substrate.
-- `IN3` The **Pattern strategy** pedagogy, built on **whole-bar patterns** (revised chat-001 — supersedes the original per-beat operators; "block = a bar pattern"): a **kind** vocabulary of generated families (quarter/eighth **density** families by onset count 1–4; eighth **placement** families on-beat / off-beat(`&`) / both) plus a curated **named-figure** catalog (Backbeat, Downbeats, Charleston, Tresillo, Cinquillo, clave, … — cheap data, grown freely); a **selection** of how bars are drawn from a kind (Fixed / Cycle / RandomInKind / FixedPlusRotating); the multi-bar behaviours **RestBar / CallResponse / Sweep**; and an optional **Displace** transform (shift onsets later → offbeat/pushed variants).
+- `IN3` The **Pattern strategy** pedagogy, built on **whole-bar patterns** (revised chat-001; "block = a bar pattern"): a **kind** vocabulary of generated **placement families** (subdivision × region `all` / `onbeat` / `offbeat` × onset count — the `all` region **subsumes the former density family**, which is dropped) plus a curated **named-figure** catalog (Backbeat, Charleston, Tresillo, Cinquillo, Habanera, Son/Rumba/Bossa clave, … — cheap data, grown freely); surfaced as three top-level UI strategies **Figure / Pattern / Random** (no separate kind selector). A **selection** draws bars from a kind — **Fixed** / **Cycle** (with a start index) / **RandomInKind** / **FixedPlusRotating** (a fixed index + a rotating-start index); the multi-bar behaviours **RestBar / CallResponse / Sweep**; an optional **Displace** transform (shift onsets later → offbeat/pushed variants); **1–16 bars**.
 - `IN4` The **Random strategy**: fill 1–4 content bars from a note-value palette, plus a silence-bar fill, tiled across the progression. (Refined by `IN12` — within-content-bar rests.)
 - `IN5` Two **projections** from one `OnsetGrid`: `→ RhythmPattern` (comping/lead, **ring-to-next-onset legato**) and `→ DrumGroove` (drums, **single voice**, onsets 1:1).
 - `IN6` **Determinism**: a generation is fully described by `{strategy, params, seed}` and re-running reproduces the same grid.

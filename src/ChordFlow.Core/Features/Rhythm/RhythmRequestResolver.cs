@@ -6,9 +6,9 @@ namespace ChordFlow.Features.Rhythm;
 
 /// <summary>
 /// Maps a wire <see cref="RhythmGenerationRequest"/> onto the Core <see cref="GenerationParams"/> union — the
-/// one place that knows the token vocabulary (kind / selection / behaviour tokens; random palette). Every
-/// unknown token or out-of-range count fails loud as a <see cref="FormatException"/>, which the handler
-/// surfaces as a <c>rhythmGenerateError</c> (never a host crash). 4/4 only (req EX5).
+/// one place that knows the token vocabulary. Three strategies: <c>figure</c> / <c>pattern</c> (placement
+/// family) / <c>random</c>. Every unknown token or out-of-range count fails loud as a
+/// <see cref="FormatException"/>, which the handler surfaces as a <c>rhythmGenerateError</c>. 4/4 only (req EX5).
 /// </summary>
 public static class RhythmRequestResolver
 {
@@ -19,42 +19,44 @@ public static class RhythmRequestResolver
         ArgumentNullException.ThrowIfNull(r);
         return Normalize(r.Strategy) switch
         {
-            "pattern" => ResolvePattern(r),
+            "figure" => BuildPattern(r, ResolveFigure(r.FigureId)),
+            "pattern" => BuildPattern(r, ResolvePlacement(r)),
             "random" => ResolveRandom(r),
-            _ => throw new FormatException($"Unknown rhythm strategy '{r.Strategy}' (expected pattern/random)."),
+            _ => throw new FormatException($"Unknown rhythm strategy '{r.Strategy}' (expected figure/pattern/random)."),
         };
     }
 
-    // --- Pattern strategy (v2: kind + selection + behaviours) --------------
+    // --- Pattern (figure + placement share selection/behaviours/bars) ------
 
-    private static PatternParams ResolvePattern(RhythmGenerationRequest r)
+    private static PatternParams BuildPattern(RhythmGenerationRequest r, RhythmKind kind)
     {
         int barCount = r.BarCount ?? 1;
-        if (barCount is < 1 or > 4)
+        if (barCount is < 1 or > 16)
         {
-            throw new FormatException($"BarCount {barCount} is out of range (1–4).");
+            throw new FormatException($"BarCount {barCount} is out of range (1–16).");
         }
 
         var behaviours = (r.Behaviours ?? Array.Empty<RhythmBehaviourSpec>()).Select(ResolveBehaviour).ToArray();
-        return new PatternParams(
-            ResolveKind(r.Kind), ResolveSelection(r.Selection), behaviours, barCount, TimeSignature.FourFour, r.Seed);
+        return new PatternParams(kind, ResolveSelection(r.Selection), behaviours, barCount, TimeSignature.FourFour, r.Seed);
     }
 
-    private static RhythmKind ResolveKind(RhythmKindSpec? spec)
+    private static RhythmKind ResolveFigure(string? figureId) =>
+        GrooveFigures.ById(figureId ?? "") ?? throw new FormatException($"Unknown groove figure '{figureId}'.");
+
+    private static RhythmKind ResolvePlacement(RhythmGenerationRequest r)
     {
-        if (spec is null)
+        int subdivision = r.Subdivision ?? 2;
+        string region = Normalize(r.Region) is "" ? "all" : Normalize(r.Region);
+        int onsetCount = r.OnsetCount ?? 1;
+        var kind = RhythmKind.Placement(subdivision, region, onsetCount);
+        if (kind.Patterns.Count == 0)
         {
-            throw new FormatException("A pattern needs a kind.");
+            throw new FormatException(
+                $"No '{region}' bar has {onsetCount} onset(s) at subdivision {subdivision} " +
+                "(e.g. the quarter grid has no off-beat cells).");
         }
 
-        return Normalize(spec.Source) switch
-        {
-            "density" => RhythmKind.Density(spec.Subdivision ?? 2, spec.OnsetCount ?? 1),
-            "placement" => RhythmKind.Placement(spec.Subdivision ?? 2, Normalize(spec.Region) is "" ? "all" : Normalize(spec.Region), spec.OnsetCount ?? 1),
-            "figure" => GrooveFigures.ById(spec.FigureId ?? "")
-                ?? throw new FormatException($"Unknown groove figure '{spec.FigureId}'."),
-            _ => throw new FormatException($"Unknown kind source '{spec.Source}' (expected density/placement/figure)."),
-        };
+        return kind;
     }
 
     private static PatternSelection ResolveSelection(RhythmSelectionSpec? spec)
@@ -67,9 +69,9 @@ public static class RhythmRequestResolver
         return Normalize(spec.Kind) switch
         {
             "fixed" => new PatternSelection.Fixed(spec.Index ?? 0),
-            "cycle" => new PatternSelection.Cycle(),
+            "cycle" => new PatternSelection.Cycle(spec.Index ?? 0),
             "randominkind" or "random" => new PatternSelection.RandomInKind(),
-            "fixedplusrotating" => new PatternSelection.FixedPlusRotating(spec.Index ?? 0),
+            "fixedplusrotating" => new PatternSelection.FixedPlusRotating(spec.Index ?? 0, spec.RotatingIndex ?? 0),
             _ => throw new FormatException($"Unknown selection '{spec.Kind}'."),
         };
     }

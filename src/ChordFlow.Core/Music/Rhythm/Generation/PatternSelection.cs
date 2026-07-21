@@ -21,11 +21,11 @@ public abstract record PatternSelection
             kind.Patterns[Mod(Index, kind.Patterns.Count)];
     }
 
-    /// <summary>Bar N = the kind's N-th pattern (wrapping) — a tour, and the clave player.</summary>
-    public sealed record Cycle : PatternSelection
+    /// <summary>Tour the kind from <see cref="StartIndex"/> — bar N = pattern (StartIndex + N) wrapping. Also the clave player.</summary>
+    public sealed record Cycle(int StartIndex = 0) : PatternSelection
     {
         public override OnsetBar BarAt(int barIndex, RhythmKind kind, Random rng) =>
-            kind.Patterns[Mod(barIndex, kind.Patterns.Count)];
+            kind.Patterns[Mod(StartIndex + barIndex, kind.Patterns.Count)];
     }
 
     /// <summary>Each bar a seeded random pattern from the kind.</summary>
@@ -35,12 +35,12 @@ public abstract record PatternSelection
             kind.Patterns[rng.Next(kind.Patterns.Count)];
     }
 
-    /// <summary>Even bars = a fixed pattern; odd bars = cycle through the kind (fixed + rotating).</summary>
-    public sealed record FixedPlusRotating(int FixedIndex) : PatternSelection
+    /// <summary>Even bars = the fixed pattern (<see cref="FixedIndex"/>); odd bars = cycle from <see cref="RotatingStartIndex"/>.</summary>
+    public sealed record FixedPlusRotating(int FixedIndex, int RotatingStartIndex = 0) : PatternSelection
     {
         public override OnsetBar BarAt(int barIndex, RhythmKind kind, Random rng) =>
             barIndex % 2 == 0
                 ? kind.Patterns[Mod(FixedIndex, kind.Patterns.Count)]
-                : kind.Patterns[Mod(barIndex / 2, kind.Patterns.Count)];
+                : kind.Patterns[Mod(RotatingStartIndex + barIndex / 2, kind.Patterns.Count)];
     }
 }

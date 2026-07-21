@@ -1,13 +1,12 @@
 // ChordFlow Rhythm Generator view — the generation-engine dogfood page.
 //
-// Pick a strategy + params; the host (RhythmGenerateHandler) generates an onset grid, projects it to a
-// single-voice drum groove, and returns the percussion tex (played by the shared ScoreR, looping by default)
-// + the grid model (drawn by DrumsR with the "1 e & a" overlay) + an onset-ASCII debug string. A Beat-1
-// reference row anchors the ear. Generations are EPHEMERAL (no save/library).
+// Three strategies: FIGURE (a named groove figure), PATTERN (a placement family — subdivision × region ×
+// onset count), RANDOM (free fill). Figure/Pattern draw bars from their kind via a SELECTION (fixed/cycle/
+// randomInKind/fixedPlusRotating, with indexes) and behaviours (displace/sweep/restBar/callResponse). The
+// host projects the onset grid to a single-voice drum groove → percussion tex (played, looping) + DrumsR
+// grid (with the "1 e & a" overlay + a Beat-1 reference row) + an onset-ASCII debug line. Ephemeral.
 //
-// Pattern strategy (v2): a KIND of bar patterns (density/placement family or a named figure) drawn across
-// bars by a SELECTION (fixed/cycle/randomInKind/fixedPlusRotating), with behaviours (displace/sweep/restBar/
-// callResponse). A DUMB page: it assembles the request and draws the reply; all rhythm theory lives in Core.
+// A DUMB page: it assembles the request and draws the reply; all rhythm theory lives in Core.
 "use strict";
 
 window.ChordFlowRhythmGen = (function () {
@@ -23,12 +22,13 @@ window.ChordFlowRhythmGen = (function () {
     ["son-clave-32", "Son clave (3-2)"], ["son-clave-23", "Son clave (2-3)"], ["rumba-clave-32", "Rumba clave (3-2)"],
     ["bossa-clave", "Bossa clave"],
   ];
-  const KIND_SOURCES = ["figure", "density", "placement"];
+  const STRATEGIES = ["figure", "pattern", "random"];
   const SUBDIVISIONS = [["1", "Quarter"], ["2", "Eighth"]];
   const REGIONS = ["all", "onbeat", "offbeat"];
   const SELECTIONS = ["cycle", "fixed", "randomInKind", "fixedPlusRotating"];
   const VOICES = ["HH", "SD", "BD", "OH", "RD", "CC"];
   const PALETTE_VALUES = [4, 8, 16];
+  const MAX_BARS = 16;
 
   let initialized = false;
   let scoreView = null;
@@ -38,6 +38,8 @@ window.ChordFlowRhythmGen = (function () {
   let debounceTimer = null;
 
   function setError(text) { if (errorEl) errorEl.textContent = text || ""; }
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const randInt = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
 
   // --- control builders --------------------------------------------------
   function field(labelText, node) {
@@ -81,30 +83,39 @@ window.ChordFlowRhythmGen = (function () {
     return wrap;
   }
 
+  function row(...children) {
+    const d = document.createElement("div");
+    d.style.cssText = "display:flex; gap:.75rem; flex-wrap:wrap; align-items:flex-end;";
+    d.append(...children);
+    return d;
+  }
+
   function buildControls() {
     controlsEl.innerHTML = "";
-    ctrl.strategy = select(["pattern", "random"], "pattern");
+    ctrl.strategy = select(STRATEGIES, "figure");
 
-    // Pattern group — Kind (source + params) · Selection · Behaviours · Bars.
-    ctrl.kindSource = select(KIND_SOURCES, "figure");
+    // Figure + Pattern kind controls.
     ctrl.figureId = select(FIGURES, "tresillo");
     ctrl.subdivision = select(SUBDIVISIONS, "2");
-    ctrl.onsetCount = number(2, 1, 4);
     ctrl.region = select(REGIONS, "all");
+    ctrl.onsetCount = number(2, 1, 8);
+
+    // Shared selection + behaviours + bars (figure & pattern).
     ctrl.selection = select(SELECTIONS, "cycle");
-    ctrl.selIndex = number(0, 0, 63);
-    ctrl.displace = number(0, 0, 8);
+    ctrl.selIndex = number(0, 0, 999);
+    ctrl.selRotIndex = number(0, 0, 999);
+    ctrl.displace = number(0, 0, 15);
     ctrl.sweep = checkbox("Sweep", false);
     ctrl.restBar = checkbox("RestBar", false);
-    ctrl.restContent = number(1, 1, 4);
-    ctrl.restRest = number(1, 0, 4);
+    ctrl.restContent = number(1, 1, 8);
+    ctrl.restRest = number(1, 0, 8);
     ctrl.callResponse = checkbox("Call/Resp", false);
-    ctrl.barCount = number(2, 1, 4);
+    ctrl.barCount = number(2, 1, MAX_BARS);
 
-    ctrl.patternGroup = row(
-      field("Kind", ctrl.kindSource), field("Figure", ctrl.figureId),
-      field("Subdiv", ctrl.subdivision), field("Onsets", ctrl.onsetCount), field("Region", ctrl.region),
-      field("Selection", ctrl.selection), field("Index", ctrl.selIndex),
+    ctrl.figureGroup = row(field("Figure", ctrl.figureId));
+    ctrl.placementGroup = row(field("Subdiv", ctrl.subdivision), field("Region", ctrl.region), field("Onsets", ctrl.onsetCount));
+    ctrl.selectionGroup = row(
+      field("Selection", ctrl.selection), field("Index", ctrl.selIndex), field("Rot idx", ctrl.selRotIndex),
       field("Displace", ctrl.displace), ctrl.sweep, ctrl.restBar,
       field("Content", ctrl.restContent), field("Rest", ctrl.restRest), ctrl.callResponse,
       field("Bars", ctrl.barCount));
@@ -146,41 +157,54 @@ window.ChordFlowRhythmGen = (function () {
     ctrl.voice = select(VOICES, "HH");
     ctrl.tempo = number(100, 40, 240);
     ctrl.seed = number(1, 0);
-    const reroll = document.createElement("button");
-    reroll.type = "button"; reroll.textContent = "Reroll";
-    reroll.addEventListener("click", () => { ctrl.seed.value = String(Math.floor(Math.random() * 100000)); generate(); });
-    const gen = document.createElement("button");
-    gen.type = "button"; gen.textContent = "Generate";
-    gen.addEventListener("click", generate);
-    const commonRow = row(field("Voice", ctrl.voice), field("Tempo", ctrl.tempo), field("Seed", ctrl.seed), reroll, gen);
+    const reroll = button("Reroll", () => { ctrl.seed.value = String(randInt(0, 99999)); generate(); });
+    const surprise = button("🎲 Surprise me", surpriseMe);
+    const gen = button("Generate", generate);
+    const commonRow = row(field("Voice", ctrl.voice), field("Tempo", ctrl.tempo), field("Seed", ctrl.seed), reroll, surprise, gen);
 
-    controlsEl.append(field("Strategy", ctrl.strategy), ctrl.patternGroup, ctrl.randomGroup, commonRow);
+    controlsEl.append(
+      field("Strategy", ctrl.strategy),
+      ctrl.figureGroup, ctrl.placementGroup, ctrl.selectionGroup, ctrl.randomGroup, commonRow);
     sync();
   }
 
-  function row(...children) {
-    const d = document.createElement("div");
-    d.style.cssText = "display:flex; gap:.75rem; flex-wrap:wrap; align-items:flex-end;";
-    d.append(...children);
-    return d;
+  function button(label, onClick) {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = label;
+    b.addEventListener("click", onClick);
+    return b;
   }
 
-  // Show only the fields relevant to the current strategy / kind source / selection.
+  // Show only the fields relevant to the current strategy / selection.
   function sync() {
-    const pattern = ctrl.strategy.value === "pattern";
-    ctrl.patternGroup.style.display = pattern ? "flex" : "none";
-    ctrl.randomGroup.style.display = pattern ? "none" : "flex";
+    const s = ctrl.strategy.value;
+    const isFigure = s === "figure", isPattern = s === "pattern", isRandom = s === "random";
+    ctrl.figureGroup.style.display = isFigure ? "flex" : "none";
+    ctrl.placementGroup.style.display = isPattern ? "flex" : "none";
+    ctrl.selectionGroup.style.display = isRandom ? "none" : "flex";
+    ctrl.randomGroup.style.display = isRandom ? "flex" : "none";
 
-    const source = ctrl.kindSource.value;
-    showField(ctrl.figureId, source === "figure");
-    showField(ctrl.subdivision, source !== "figure");
-    showField(ctrl.onsetCount, source !== "figure");
-    showField(ctrl.region, source === "placement");
+    if (isPattern) {
+      const sub = intVal(ctrl.subdivision, 2);
+      showField(ctrl.region, sub >= 2); // quarter has no off-beat cells; on-beat == all — so region is eighth-only
+      if (sub < 2) ctrl.region.value = "all";
+      const avail = availCells(sub, ctrl.region.value);
+      ctrl.onsetCount.max = String(avail);
+      if (intVal(ctrl.onsetCount, 1) > avail) ctrl.onsetCount.value = String(avail);
+    }
+
     const sel = ctrl.selection.value;
-    showField(ctrl.selIndex, sel === "fixed" || sel === "fixedPlusRotating");
+    showField(ctrl.selIndex, sel === "fixed" || sel === "cycle" || sel === "fixedPlusRotating");
+    showField(ctrl.selRotIndex, sel === "fixedPlusRotating");
     const rest = ctrl.restBar._input.checked;
     showField(ctrl.restContent, rest);
     showField(ctrl.restRest, rest);
+  }
+
+  // Cells available for onsets at a subdivision × region (quarter off-beat = 0, so it's hidden for quarter).
+  function availCells(subdivision, region) {
+    const total = subdivision * 4;
+    return region === "onbeat" ? 4 : region === "offbeat" ? total - 4 : total;
   }
 
   function showField(node, visible) {
@@ -191,18 +215,11 @@ window.ChordFlowRhythmGen = (function () {
   // --- request assembly --------------------------------------------------
   function intVal(el, fallback) { const n = parseInt(el.value, 10); return Number.isFinite(n) ? n : fallback; }
 
-  function buildKind() {
-    const source = ctrl.kindSource.value;
-    if (source === "figure") return { source: "figure", figureId: ctrl.figureId.value };
-    const kind = { source, subdivision: intVal(ctrl.subdivision, 2), onsetCount: intVal(ctrl.onsetCount, 1) };
-    if (source === "placement") kind.region = ctrl.region.value;
-    return kind;
-  }
-
   function buildSelection() {
     const kind = ctrl.selection.value;
     const sel = { kind };
-    if (kind === "fixed" || kind === "fixedPlusRotating") sel.index = intVal(ctrl.selIndex, 0);
+    if (kind === "fixed" || kind === "cycle") sel.index = intVal(ctrl.selIndex, 0);
+    if (kind === "fixedPlusRotating") { sel.index = intVal(ctrl.selIndex, 0); sel.rotatingIndex = intVal(ctrl.selRotIndex, 0); }
     return sel;
   }
 
@@ -217,25 +234,45 @@ window.ChordFlowRhythmGen = (function () {
   }
 
   function buildRequest() {
+    const s = ctrl.strategy.value;
     const req = {
-      strategy: ctrl.strategy.value,
-      seed: intVal(ctrl.seed, 0), voice: ctrl.voice.value, tempo: intVal(ctrl.tempo, 100),
-      // The rhythm is the only sound here, so anchor the ear with an implicit (non-generated) beat-1 reference.
+      strategy: s, seed: intVal(ctrl.seed, 0), voice: ctrl.voice.value, tempo: intVal(ctrl.tempo, 100),
       referencePulse: "beat1",
     };
-    if (ctrl.strategy.value === "pattern") {
-      req.kind = buildKind();
-      req.selection = buildSelection();
-      req.behaviours = buildBehaviours();
-      req.barCount = intVal(ctrl.barCount, 1);
+    if (s === "figure") {
+      req.figureId = ctrl.figureId.value;
+      req.selection = buildSelection(); req.behaviours = buildBehaviours(); req.barCount = intVal(ctrl.barCount, 1);
+    } else if (s === "pattern") {
+      req.subdivision = intVal(ctrl.subdivision, 2); req.region = ctrl.region.value; req.onsetCount = intVal(ctrl.onsetCount, 1);
+      req.selection = buildSelection(); req.behaviours = buildBehaviours(); req.barCount = intVal(ctrl.barCount, 1);
     } else {
       req.palette = ctrl.palette.filter((cb) => cb.checked).map((cb) => parseInt(cb.value, 10));
-      req.contentBars = intVal(ctrl.contentBars, 1);
-      req.silenceBars = intVal(ctrl.silenceBars, 0);
+      req.contentBars = intVal(ctrl.contentBars, 1); req.silenceBars = intVal(ctrl.silenceBars, 0);
       req.restProbability = intVal(ctrl.restPct, 30) / 100;
     }
     // The router reads the request nested (envelope.RhythmGenerate).
     return { type: "rhythmGenerate", rhythmGenerate: req };
+  }
+
+  // Randomize all Pattern params (strategy figure/pattern) and generate.
+  function surpriseMe() {
+    ctrl.strategy.value = pick(["figure", "pattern"]);
+    ctrl.figureId.value = pick(FIGURES)[0];
+    const sub = pick([1, 2]);
+    ctrl.subdivision.value = String(sub);
+    ctrl.region.value = sub === 1 ? "all" : pick(REGIONS); // no off-beat at the quarter grid
+    ctrl.onsetCount.value = String(randInt(1, availCells(sub, ctrl.region.value)));
+    ctrl.selection.value = pick(SELECTIONS);
+    ctrl.selIndex.value = String(randInt(0, 5));
+    ctrl.selRotIndex.value = String(randInt(0, 5));
+    ctrl.displace.value = String(Math.random() < 0.4 ? randInt(1, parseInt(ctrl.subdivision.value, 10) * 2) : 0);
+    ctrl.sweep._input.checked = Math.random() < 0.25;
+    ctrl.restBar._input.checked = Math.random() < 0.3;
+    ctrl.callResponse._input.checked = Math.random() < 0.2;
+    ctrl.barCount.value = String(randInt(2, 8));
+    ctrl.seed.value = String(randInt(0, 99999));
+    sync();
+    generate();
   }
 
   function generate() {

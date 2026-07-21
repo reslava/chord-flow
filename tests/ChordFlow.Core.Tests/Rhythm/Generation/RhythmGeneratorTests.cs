@@ -27,7 +27,7 @@ public class RhythmGeneratorTests
     [Fact]
     public void Fixed_RepeatsTheChosenPattern()
     {
-        var g = Pattern(RhythmKind.Density(1, 2), new PatternSelection.Fixed(0), 2);
+        var g = Pattern(RhythmKind.Placement(1, "all", 2), new PatternSelection.Fixed(0), 2);
         // Density(1,2)[0] = cells {0,1} = beats 1&2 → ticks [0,48]
         Assert.Equal(new[] { new[] { 0, 48 }, new[] { 0, 48 } }, Canonical(g));
     }
@@ -35,14 +35,14 @@ public class RhythmGeneratorTests
     [Fact]
     public void Cycle_ToursTheKind()
     {
-        var g = Pattern(RhythmKind.Density(1, 2), new PatternSelection.Cycle(), 3);
+        var g = Pattern(RhythmKind.Placement(1, "all", 2), new PatternSelection.Cycle(), 3);
         Assert.Equal(new[] { new[] { 0, 48 }, new[] { 0, 96 }, new[] { 0, 144 } }, Canonical(g));
     }
 
     [Fact]
     public void RandomInKind_SameSeed_SameGrid()
     {
-        var kind = RhythmKind.Density(2, 3);
+        var kind = RhythmKind.Placement(2, "all", 3);
         Assert.Equal(
             Canonical(Pattern(kind, new PatternSelection.RandomInKind(), 4, seed: 9)),
             Canonical(Pattern(kind, new PatternSelection.RandomInKind(), 4, seed: 9)));
@@ -51,9 +51,25 @@ public class RhythmGeneratorTests
     [Fact]
     public void FixedPlusRotating_AlternatesFixedAndCycling()
     {
-        var g = Pattern(RhythmKind.Density(1, 2), new PatternSelection.FixedPlusRotating(0), 4);
+        var g = Pattern(RhythmKind.Placement(1, "all", 2), new PatternSelection.FixedPlusRotating(0), 4);
         // even bars = fixed[0]=[0,48]; odd bar1 = cycle[0]=[0,48]; odd bar3 = cycle[1]=[0,96]
         Assert.Equal(new[] { new[] { 0, 48 }, new[] { 0, 48 }, new[] { 0, 48 }, new[] { 0, 96 } }, Canonical(g));
+    }
+
+    [Fact]
+    public void Cycle_StartIndex_ShiftsTheTour()
+    {
+        var g = Pattern(RhythmKind.Placement(1, "all", 2), new PatternSelection.Cycle(1), 2);
+        // start at patterns[1]={0,2}→[0,96], then patterns[2]={0,3}→[0,144]
+        Assert.Equal(new[] { new[] { 0, 96 }, new[] { 0, 144 } }, Canonical(g));
+    }
+
+    [Fact]
+    public void FixedPlusRotating_HonoursTheRotatingStartIndex()
+    {
+        var g = Pattern(RhythmKind.Placement(1, "all", 2), new PatternSelection.FixedPlusRotating(0, 1), 4);
+        // even = fixed[0]=[0,48]; odd bars cycle from index 1: [0,96] then [0,144]
+        Assert.Equal(new[] { new[] { 0, 48 }, new[] { 0, 96 }, new[] { 0, 48 }, new[] { 0, 144 } }, Canonical(g));
     }
 
     // --- Pattern strategy: figures + behaviours ----------------------------
@@ -106,7 +122,7 @@ public class RhythmGeneratorTests
     public void Pattern_RejectsBarCountOutOfRange()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            Pattern(RhythmKind.Density(1, 2), new PatternSelection.Fixed(0), 5));
+            Pattern(RhythmKind.Placement(1, "all", 2), new PatternSelection.Fixed(0), 17)); // cap is 16
     }
 
     // --- Random strategy ---------------------------------------------------
@@ -178,7 +194,7 @@ public class RhythmGeneratorTests
     public void Generate_DispatchesOnStrategyArm()
     {
         GenerationParams pattern = new PatternParams(
-            RhythmKind.Density(1, 1), new PatternSelection.Fixed(0), Array.Empty<SequenceBehaviour>(), 1, Ts, 0);
+            RhythmKind.Placement(1, "all", 1), new PatternSelection.Fixed(0), Array.Empty<SequenceBehaviour>(), 1, Ts, 0);
         GenerationParams random = new RandomParams(new[] { 4 }, 1, 0, Ts, 0);
 
         Assert.Equal(new[] { 0 }, Canonical(RhythmGenerator.Generate(pattern))[0]); // Density(1,1)[0] = {0}

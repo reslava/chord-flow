@@ -12,10 +12,10 @@ public static class PatternStrategy
     public static OnsetGrid Generate(PatternParams p)
     {
         ArgumentNullException.ThrowIfNull(p);
-        if (p.BarCount is < 1 or > 4)
+        if (p.BarCount is < 1 or > 16)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(p), p.BarCount, "Pattern BarCount must be between 1 and 4 (req IN3).");
+                nameof(p), p.BarCount, "Pattern BarCount must be between 1 and 16 (req IN3).");
         }
 
         if (p.Kind.Patterns.Count == 0)

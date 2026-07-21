@@ -12,19 +12,10 @@ public sealed record RhythmKind(string Id, string Name, string Category, IReadOn
 {
     private const int BeatsPerBar = 4; // 4/4 only (req EX5)
 
-    /// <summary>Every bar with exactly <paramref name="onsetCount"/> onsets among the subdivision's cells.</summary>
-    public static RhythmKind Density(int subdivision, int onsetCount)
-    {
-        int totalCells = subdivision * BeatsPerBar;
-        var patterns = Combinations(Enumerable.Range(0, totalCells).ToArray(), onsetCount)
-            .Select(cells => OnsetBar.FromCells(subdivision, BeatsPerBar, cells))
-            .ToArray();
-        string sub = SubName(subdivision);
-        return new RhythmKind($"density:{sub}:{onsetCount}", $"{Cap(sub)} · {onsetCount}-onset", "density", patterns);
-    }
-
-    /// <summary>Density restricted to a cell <paramref name="region"/> — <c>onbeat</c> (downbeat cells) /
-    /// <c>offbeat</c> (the <c>&amp;</c>s) / <c>all</c> — the syncopation-axis families.</summary>
+    /// <summary>Every bar with exactly <paramref name="onsetCount"/> onsets among the cells of a
+    /// <paramref name="region"/> — <c>all</c> (density; every cell) / <c>onbeat</c> (downbeat cells) /
+    /// <c>offbeat</c> (the <c>&amp;</c>s), the syncopation-axis families. (A former separate <c>Density</c>
+    /// factory was just <c>Placement(all)</c> — folded in.)</summary>
     public static RhythmKind Placement(int subdivision, string region, int onsetCount)
     {
         int totalCells = subdivision * BeatsPerBar;

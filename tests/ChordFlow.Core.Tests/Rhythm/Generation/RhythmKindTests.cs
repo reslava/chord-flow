@@ -15,18 +15,18 @@ public class RhythmKindTests
     private static int[] Ticks(OnsetBar bar) => bar.OnsetTicks(Ts).ToArray();
 
     [Fact]
-    public void Density_Quarter2Onset_HasSixPatternsEachWithTwoOnsets()
+    public void PlacementAll_Quarter2Onset_HasSixPatternsEachWithTwoOnsets()
     {
-        var kind = RhythmKind.Density(1, 2);
+        var kind = RhythmKind.Placement(1, "all", 2); // "all" region = the former density family
         Assert.Equal(6, kind.Patterns.Count); // C(4,2)
         Assert.All(kind.Patterns, p => Assert.Equal(2, p.OnsetCount));
-        Assert.Equal("density", kind.Category);
+        Assert.Equal("placement", kind.Category);
     }
 
     [Fact]
-    public void Density_Eighth2Onset_Has28Patterns()
+    public void PlacementAll_Eighth2Onset_Has28Patterns()
     {
-        Assert.Equal(28, RhythmKind.Density(2, 2).Patterns.Count); // C(8,2)
+        Assert.Equal(28, RhythmKind.Placement(2, "all", 2).Patterns.Count); // C(8,2)
     }
 
     [Fact]
