@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: [rf_01KTSAPAT132QTEY5BEPRKS3MB, rf_01KTSAQ6990GY3J4CZ7HPVPW6K]
-last_ai_block: 65
+last_ai_block: 71
 ---
 # generated-rhythms-for-practice Chat 001
 
@@ -915,3 +915,92 @@ Only the CDP verify (step 2) is left, and the app's closed. When you relaunch wi
 I ran app, checked, looks working OK, I left it open for you
 
 What next step/phase?
+
+## AI:
+
+plan-006 committed. **The generator engine + dogfood page are done and polished** (6 plans). Where we are against the original phase plan:
+
+- **Phase 1 — Core** ✓
+- **Phase 2 — Dogfood page** ✓ (+ rests/loop/reference, the bar-pattern-kind refactor, the strategy flatten + Surprise, figure defaults)
+- **Phase 3 — reference pulse + presets** — *mostly absorbed*: the **Beat-1** reference shipped, and the **named figures already double as presets**. Only the `Quarters` reference-pulse variant is left (small).
+- **Phase 4 — Practice integration** — *not started*. **This is the payoff**: use a generated rhythm as a real **Comping / Lead / Drums track over a song** in the Practice page (its whole reason to exist — the north star).
+- **Phase 5** — triplets (tracked: `triplet-subdivisions`) + save-a-generation-into-an-exercise. Deferred.
+
+**My recommendation: Phase 4 (Practice integration) next.** It's what turns this from a sandbox into a practice tool. One real prerequisite inside it — the **legato-safety finding**: to comp/lead an *arbitrary syncopated* generated bar, the `OnsetGrid → RhythmPattern` projection needs a notatable-safe policy (snap the ring to a notatable value + rest the remainder, or a verified tie). The drums path already works, so drums-into-Practice could even land first.
+
+Also on the board but lower priority: the **alphaTab short-score replay bug** (`playback/short-score-replay-early-stop` — the Loop toggle mitigates it), and the `Quarters` reference pulse.
+
+Want me to **design Phase 4** (idea → design → req → plans)? Or would you rather knock out something smaller first (the replay bug, or `Quarters` pulse)?
+
+## Rafa:
+
+Yes, I think it is time for Phase 4. 
+Should we write a new thread + idea -> design -> req -> plan? I think so
+Reminding you the 4 possible ways in Practice/Exercise Page for the generated rhythms:
+1. Comping track
+2. Leading track
+3. Drums truck
+4. Extra track: using some special instrument voicings. The default could be an extra drums track with closed hihat, but we could allow some kind of instrument that sound similar to a metronome. This extra track should has also volume slide bar
+
+
+### If we follow with Phase 4
+
+1. write thread + idea + design + req. Then we will be ready to start a new freshh session from there, correct?
+2. we need to spin up threads + idea for pending phases to don't be forgotten:
+- Phase 3
+- Phase 5 already spunned
+- Playback Error already spunned
+- Any more?
+
+## AI:
+
+**Yes — thread + idea + design + (locked) req is exactly the fresh-session handoff.** A new session loads the thread bundle + the locked req and goes straight to writing/implementing plans.
+
+**Spun up the pending trackers** (all under `exercises`, dependency-ordered):
+- **Phase 4** → `practice-integration` (thread + idea — your 4 track types captured, incl. the extra hi-hat/metronome track + volume). Priority next.
+- **Phase 3** → `reference-pulse-presets` (thread + idea — `Quarters` pulse + the trainer presets).
+- **Phase 5** → `triplet-subdivisions` (already) **+** `save-generation-into-exercise` (new, depends on Phase 4).
+- **Playback bug** → `short-score-replay-early-stop` (already).
+
+**Any more?** The only other deferrals are small **req-EX** tweaks — Ramp behaviour (EX8), multi-lane drum generation (EX2), stab/staccato policy (EX7), cross-bar sustain (EX4). They're minor additive tweaks tracked by their EX handles; I wouldn't spin threads until we decide to build them. So the roadmap's complete.
+
+---
+
+**Before I write the Phase-4 design + req, 4 decisions — here are my recommendations:**
+
+1. **Legato safety (comping/lead of syncopated bars)** → **snap-and-rest** (ring to the largest notatable value, rest the remainder). Simple, always renderable, no unverified ties. A verified-tie version can come later if the "not ringing fully" bugs you. **Drums + extra land first** (no legato dependency).
+2. **Extra track** → a new `ExtraPart` arm = a **second percussion track** on a pickable voice (default **closed hi-hat**), its own volume. Reuses `DrumGrooveRenderer`. A pitched "metronome click" voice is an easy add on top.
+3. **How params reach Practice** → v1 a **compact inline picker per track** (strategy + figure/kind + selection), reusing the `rhythmGenerate` request shape — not the whole generator panel in HarmonyControlsR. Full fidelity stays on the Rhythm Gen page.
+4. **Reference pulse in Practice** → **off** (the song is the reference), per IN8.
+
+Give these a thumbs-up (or tweak any), and I'll write **`design.md` + `req.md`** for `practice-integration` — then you can start a fresh session on it.
+
+## Rafa:
+
+1. Agree
+2. Agree. When we get running a pitched "metronome click" voice this will be the default
+3. Practice page Exercise should take the rhythm produced currently in `Rhythm Gen` page to fully take advantage of all its params, Agree? In future we also allow persisted ones.
+4. Yes, off
+
+Are we converged?
+If so, write design + req
+If not tell me
+
+## AI:
+
+Converged — **`practice-integration` now has thread + idea + design + locked req.** Ready for a fresh session.
+
+**Design highlights:**
+- **Four roles** — Comping/Lead (legato `RhythmPattern`), Drums/Extra (single-voice `DrumGroove`).
+- **Source = the Rhythm Gen page's current generation** (your #3): a "**Use in Practice as → Comping/Lead/Drums/Extra**" handoff stashes `{strategy, params, seed}` in a small per-role registry; Practice's Generate resolves each via the **same `RhythmRequestResolver` + `RhythmGenerator`** (one path, can't drift). Persisted ones later.
+- **Extra track** = a new `ExtraPart` arm (second percussion `\track`, default closed hi-hat, own volume) — additive like `DrumPart` was.
+- **Legato safety = snap-and-rest** (renderable for any syncopated bar); **drums/extra land first**, comping/lead after.
+- Reference pulse **off** in Practice.
+
+**req:** 10 Included (`IN1`–`IN10`), 6 Excluded, 6 Constraints.
+
+**Suggested plan split** (the fresh session refines): 1) legato-safety · 2) `ExtraPart` arm + renderer · 3) registry + resolve path + bridge · 4) Rhythm-Gen "use as role" action · 5) HarmonyControlsR wiring · 6) end-to-end dogfood.
+
+**To start fresh:** open a new session and point it at `exercises/practice-integration` (`load exercises/practice-integration`) — it'll pull the idea+design+locked-req bundle and can go straight to writing plans against the `IN`/`C` handles.
+
+Anything to adjust in the design/req before you switch, or are we good to close this chat?
