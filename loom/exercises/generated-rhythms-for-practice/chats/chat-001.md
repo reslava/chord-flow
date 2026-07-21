@@ -8,7 +8,7 @@ version: 1
 tags: []
 parent_id: null
 requires_load: [rf_01KTSAPAT132QTEY5BEPRKS3MB, rf_01KTSAQ6990GY3J4CZ7HPVPW6K]
-last_ai_block: 61
+last_ai_block: 65
 ---
 # generated-rhythms-for-practice Chat 001
 
@@ -855,3 +855,63 @@ The page fix is already deployed to the running app — **reload the page** (or 
 So we defer confidently. I captured the full analysis as **`exercises/triplet-subdivisions`** (thread + idea, depends-on this thread, EX3/Phase-5) so the reasoning isn't lost.
 
 **Committing plan-005 now** (including the surprise/region fix).
+
+## Rafa:
+
+Sorry I forgot to tell you that figures sounds correctly. 
+
+### Default values
+
+These are the values that do not affect at the primary rhythm. Need to be checked
+selection = fixed
+index = 0
+displace = 0
+sweep = off
+restbar = off
+content = 1
+rest = 0
+call/resp = off
+bars = 4
+
+### Figures
+
+The only problem is that when User select strategic = figure 
+the controls should be set to default values in order to not modify the figure nature
+
+### Random figures
+
+Generating figures with random values could be interesting, but maybe we should add a button `Reset` to set controls to its default values and Figure sound naturally
+
+## AI:
+
+Figures sound right — noted, no mask changes. And I follow the defaults idea: a figure should play its *natural* self, and the modifier controls shouldn't quietly alter it.
+
+**Plan (small page tweaks):**
+1. **Neutral defaults** for the non-primary controls: `index 0 · rotIdx 0 · displace 0 · sweep off · restBar off · content 1 · rest 0 · call/resp off · bars 4`.
+2. **Switching Strategy → Figure auto-applies those defaults** (so a figure you land on plays natural, even if you'd been tweaking).
+3. A **Reset** button that restores the defaults anytime (your idea) — "make this figure sound natural again."
+4. **Surprise me stays wild** — it sets its random modifiers directly, *without* triggering the reset, so random figure variations are still fun.
+
+**One nuance to confirm — `selection`:** you listed **fixed**, but for a **multi-bar clave** (son/rumba/bossa are 2-bar figures) `Fixed(0)` plays only bar 1 forever — it *breaks* the clave. **Cycle(0)** is the truly neutral default: for a 1-bar figure it's identical to repeat, and for a clave it plays both bars in order (the natural clave). So I'd make the figure default **selection = Cycle** (not Fixed). Agree? (Everything else exactly as you listed.)
+
+If yes, I'll do it as a quick **plan-006** (page-only). Confirm the Cycle point and I'll implement + verify.
+
+## Rafa:
+
+Yes, I agree
+
+## AI:
+
+**plan-006 step 1 done** — implemented + deployed:
+- **Neutral defaults** (`resetModifiers`): selection = **Cycle(0)**, index/rotIdx/displace 0, sweep/restBar/callResponse off, content 1, rest 0, bars 4.
+- **Switching Strategy → Figure** now auto-resets the modifiers (figure lands natural).
+- **Reset** button restores defaults anytime.
+- **Surprise-me** untouched (sets its randoms without firing the reset), so random figure variations still work.
+
+Only the CDP verify (step 2) is left, and the app's closed. When you relaunch with the debug port, tell me and I'll confirm (switch→figure resets, Reset restores, a clave plays both bars, Surprise still varies) — then commit **plan-006**. Or if you'd rather, I can commit now and you eyeball it on next launch. Your call.
+
+## Rafa:
+
+I ran app, checked, looks working OK, I left it open for you
+
+What next step/phase?

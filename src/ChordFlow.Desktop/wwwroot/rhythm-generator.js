@@ -93,6 +93,9 @@ window.ChordFlowRhythmGen = (function () {
   function buildControls() {
     controlsEl.innerHTML = "";
     ctrl.strategy = select(STRATEGIES, "figure");
+    // Landing on Figure should play the figure's natural self — reset the modifiers to neutral defaults.
+    // (Surprise-me sets its randoms programmatically, which does NOT fire this change event.)
+    ctrl.strategy.addEventListener("change", () => { if (ctrl.strategy.value === "figure") resetModifiers(); });
 
     // Figure + Pattern kind controls.
     ctrl.figureId = select(FIGURES, "tresillo");
@@ -110,7 +113,7 @@ window.ChordFlowRhythmGen = (function () {
     ctrl.restContent = number(1, 1, 8);
     ctrl.restRest = number(1, 0, 8);
     ctrl.callResponse = checkbox("Call/Resp", false);
-    ctrl.barCount = number(2, 1, MAX_BARS);
+    ctrl.barCount = number(4, 1, MAX_BARS);
 
     ctrl.figureGroup = row(field("Figure", ctrl.figureId));
     ctrl.placementGroup = row(field("Subdiv", ctrl.subdivision), field("Region", ctrl.region), field("Onsets", ctrl.onsetCount));
@@ -158,9 +161,10 @@ window.ChordFlowRhythmGen = (function () {
     ctrl.tempo = number(100, 40, 240);
     ctrl.seed = number(1, 0);
     const reroll = button("Reroll", () => { ctrl.seed.value = String(randInt(0, 99999)); generate(); });
+    const reset = button("Reset", () => { resetModifiers(); generate(); });
     const surprise = button("🎲 Surprise me", surpriseMe);
     const gen = button("Generate", generate);
-    const commonRow = row(field("Voice", ctrl.voice), field("Tempo", ctrl.tempo), field("Seed", ctrl.seed), reroll, surprise, gen);
+    const commonRow = row(field("Voice", ctrl.voice), field("Tempo", ctrl.tempo), field("Seed", ctrl.seed), reroll, reset, surprise, gen);
 
     controlsEl.append(
       field("Strategy", ctrl.strategy),
@@ -252,6 +256,22 @@ window.ChordFlowRhythmGen = (function () {
     }
     // The router reads the request nested (envelope.RhythmGenerate).
     return { type: "rhythmGenerate", rhythmGenerate: req };
+  }
+
+  // Restore the modifier controls to their neutral defaults, so a figure plays its natural self (req IN7).
+  // selection = Cycle(0) is neutral for both a 1-bar figure (== repeat) and a 2-bar clave (plays both bars).
+  function resetModifiers() {
+    ctrl.selection.value = "cycle";
+    ctrl.selIndex.value = "0";
+    ctrl.selRotIndex.value = "0";
+    ctrl.displace.value = "0";
+    ctrl.sweep._input.checked = false;
+    ctrl.restBar._input.checked = false;
+    ctrl.restContent.value = "1";
+    ctrl.restRest.value = "0";
+    ctrl.callResponse._input.checked = false;
+    ctrl.barCount.value = "4";
+    sync();
   }
 
   // Randomize all Pattern params (strategy figure/pattern) and generate.
