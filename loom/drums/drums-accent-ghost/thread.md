@@ -4,12 +4,12 @@ id: th_01KXWNG8ZCDQ2P8JS8ZH4M8435
 title: Drums accents & ghost notes — velocity glyphs in the hit-grid DSL
 status: active
 created: 2026-07-19
-updated: 2026-07-19
+updated: 2026-07-21
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 20
+priority: 40
 depends_on: [th_01KXWGMM4VDFXGNMWXGW063CX0]
 ---
 # Drums accents & ghost notes — velocity glyphs in the hit-grid DSL

@@ -4,11 +4,12 @@ id: th_01KXZNR4ZT8Z4WGYYCMK1SS6NJ
 title: Rhythm-pattern catalog metadata — genre-filter Comping/Lead (reverses EX3)
 status: active
 created: 2026-07-20
+updated: 2026-07-21
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 45
+priority: 100
 depends_on: [th_01KXZMKHC8FAPCMWKEEWDV8FNC]
 ---
 # Rhythm-pattern catalog metadata — genre-filter Comping/Lead (reverses EX3)

@@ -4,12 +4,12 @@ id: th_01KXVRFWH04VPJ1X0GTMXKWH7T
 title: actual-situation
 status: active
 created: 2026-07-18
-updated: 2026-07-19
+updated: 2026-07-21
 version: 1
 tags: []
 parent_id: null
 requires_load: []
-priority: 100
+priority: 160
 depends_on: []
 ---
 # actual-situation

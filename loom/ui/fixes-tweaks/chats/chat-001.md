@@ -2,8 +2,8 @@
 type: chat
 id: ch_01KV7K7VD2SM20XPGRPRNHDE3J
 title: fixes-tweaks Chat
-status: active
-created: "2026-06-16T00:00:00.000Z"
+status: done
+created: 2026-06-16
 version: 1
 tags: []
 parent_id: null
