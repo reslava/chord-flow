@@ -5,10 +5,10 @@ using ChordFlow.Music.Rhythm.Generation;
 namespace ChordFlow.Features.Rhythm;
 
 /// <summary>
-/// Maps a wire <see cref="RhythmGenerationRequest"/> (strategy + operator/behaviour/family/palette tokens)
-/// onto the Core <see cref="GenerationParams"/> discriminated union — the one place that knows the token
-/// vocabulary. Every unknown token or out-of-range count fails loud as a <see cref="FormatException"/>, which
-/// the handler surfaces as a <c>rhythmGenerateError</c> (never a host crash). 4/4 only (req EX5).
+/// Maps a wire <see cref="RhythmGenerationRequest"/> onto the Core <see cref="GenerationParams"/> union — the
+/// one place that knows the token vocabulary (kind / selection / behaviour tokens; random palette). Every
+/// unknown token or out-of-range count fails loud as a <see cref="FormatException"/>, which the handler
+/// surfaces as a <c>rhythmGenerateError</c> (never a host crash). 4/4 only (req EX5).
 /// </summary>
 public static class RhythmRequestResolver
 {
@@ -25,6 +25,8 @@ public static class RhythmRequestResolver
         };
     }
 
+    // --- Pattern strategy (v2: kind + selection + behaviours) --------------
+
     private static PatternParams ResolvePattern(RhythmGenerationRequest r)
     {
         int barCount = r.BarCount ?? 1;
@@ -33,14 +35,58 @@ public static class RhythmRequestResolver
             throw new FormatException($"BarCount {barCount} is out of range (1–4).");
         }
 
+        var behaviours = (r.Behaviours ?? Array.Empty<RhythmBehaviourSpec>()).Select(ResolveBehaviour).ToArray();
         return new PatternParams(
-            ResolveFamily(r.Family),
-            ResolveOperator(r.Operator),
-            ResolveBehaviour(r.Behaviour),
-            barCount,
-            TimeSignature.FourFour,
-            r.Seed);
+            ResolveKind(r.Kind), ResolveSelection(r.Selection), behaviours, barCount, TimeSignature.FourFour, r.Seed);
     }
+
+    private static RhythmKind ResolveKind(RhythmKindSpec? spec)
+    {
+        if (spec is null)
+        {
+            throw new FormatException("A pattern needs a kind.");
+        }
+
+        return Normalize(spec.Source) switch
+        {
+            "density" => RhythmKind.Density(spec.Subdivision ?? 2, spec.OnsetCount ?? 1),
+            "placement" => RhythmKind.Placement(spec.Subdivision ?? 2, Normalize(spec.Region) is "" ? "all" : Normalize(spec.Region), spec.OnsetCount ?? 1),
+            "figure" => GrooveFigures.ById(spec.FigureId ?? "")
+                ?? throw new FormatException($"Unknown groove figure '{spec.FigureId}'."),
+            _ => throw new FormatException($"Unknown kind source '{spec.Source}' (expected density/placement/figure)."),
+        };
+    }
+
+    private static PatternSelection ResolveSelection(RhythmSelectionSpec? spec)
+    {
+        if (spec is null)
+        {
+            return new PatternSelection.Fixed(0);
+        }
+
+        return Normalize(spec.Kind) switch
+        {
+            "fixed" => new PatternSelection.Fixed(spec.Index ?? 0),
+            "cycle" => new PatternSelection.Cycle(),
+            "randominkind" or "random" => new PatternSelection.RandomInKind(),
+            "fixedplusrotating" => new PatternSelection.FixedPlusRotating(spec.Index ?? 0),
+            _ => throw new FormatException($"Unknown selection '{spec.Kind}'."),
+        };
+    }
+
+    private static SequenceBehaviour ResolveBehaviour(RhythmBehaviourSpec spec)
+    {
+        return Normalize(spec.Kind) switch
+        {
+            "displace" => new SequenceBehaviour.Displace(Arg(spec, 0)),
+            "sweep" => new SequenceBehaviour.Sweep(),
+            "restbar" => new SequenceBehaviour.RestBar(ArgOr(spec, 0, 1), ArgOr(spec, 1, 1)),
+            "callresponse" => new SequenceBehaviour.CallResponse(),
+            _ => throw new FormatException($"Unknown behaviour '{spec.Kind}'."),
+        };
+    }
+
+    // --- Random strategy ---------------------------------------------------
 
     private static RandomParams ResolveRandom(RhythmGenerationRequest r)
     {
@@ -70,60 +116,10 @@ public static class RhythmRequestResolver
         return new RandomParams(r.Palette, content, silence, TimeSignature.FourFour, r.Seed, rest);
     }
 
-    private static RhythmFamily ResolveFamily(string? token) => Normalize(token) switch
-    {
-        "quarter" => RhythmFamily.Quarter,
-        "eighth" => RhythmFamily.Eighth,
-        _ => throw new FormatException($"Unknown rhythm family '{token}' (expected quarter/eighth)."),
-    };
-
-    private static BarOperator ResolveOperator(RhythmOperatorSpec? spec)
-    {
-        if (spec is null)
-        {
-            throw new FormatException("A pattern needs an operator.");
-        }
-
-        return Normalize(spec.Kind) switch
-        {
-            "uniform" => new BarOperator.Uniform(),
-            "isolate" => new BarOperator.Isolate(Arg(spec, 0)),
-            "anchorrotate" => new BarOperator.AnchorRotate(),
-            "mask" => new BarOperator.Mask(Args(spec)),
-            "displace" => new BarOperator.Displace(Arg(spec, 0)),
-            "accumulate" => new BarOperator.Accumulate(Arg(spec, 0)),
-            "thin" => new BarOperator.Thin(Arg(spec, 0)),
-            _ => throw new FormatException($"Unknown bar operator '{spec.Kind}'."),
-        };
-    }
-
-    private static SequenceBehaviour ResolveBehaviour(RhythmBehaviourSpec? spec)
-    {
-        if (spec is null)
-        {
-            throw new FormatException("A pattern needs a behaviour.");
-        }
-
-        return Normalize(spec.Kind) switch
-        {
-            "repeat" => new SequenceBehaviour.Repeat(),
-            "cycle" => new SequenceBehaviour.Cycle(),
-            "sweep" => new SequenceBehaviour.Sweep(),
-            "restbar" => new SequenceBehaviour.RestBar(ArgOr(spec, 0, 1), ArgOr(spec, 1, 1)),
-            "callresponse" => new SequenceBehaviour.CallResponse(),
-            _ => throw new FormatException($"Unknown sequence behaviour '{spec.Kind}'."),
-        };
-    }
-
-    private static int Arg(RhythmOperatorSpec spec, int index) =>
+    private static int Arg(RhythmBehaviourSpec spec, int index) =>
         spec.Args is { } a && index < a.Count
             ? a[index]
-            : throw new FormatException($"Operator '{spec.Kind}' needs argument {index}.");
-
-    private static IReadOnlyList<int> Args(RhythmOperatorSpec spec) =>
-        spec.Args is { Count: > 0 } a
-            ? a
-            : throw new FormatException($"Operator '{spec.Kind}' needs at least one argument.");
+            : throw new FormatException($"Behaviour '{spec.Kind}' needs argument {index}.");
 
     private static int ArgOr(RhythmBehaviourSpec spec, int index, int fallback) =>
         spec.Args is { } a && index < a.Count ? a[index] : fallback;

@@ -4,7 +4,8 @@ id: de_01KY0RDXS9C7X93BX8Y1HVCMC3
 title: Generated Rhythms for Practice
 status: done
 created: 2026-07-20
-version: 1
+updated: 2026-07-21
+version: 3
 idea_version: 1
 tags: []
 parent_id: id_01KY0R4KJ4ZKWFVWQJ6T5MCJFR
@@ -71,22 +72,44 @@ static class RhythmGenerator {
 
 `GenerationParams` (shared): `BarCount` (1–4), `Ts` (4/4 v1), `Seed` (int — used by any random draw; present from day one so `{strategy, params, seed}` fully reproduces a generation). Plus a strategy-specific payload.
 
-### 3a. Pattern strategy — the pedagogy substrate
+### 3a. Pattern strategy — bar-pattern kinds (v2, revised — chat-001)
 
-A layered model. Every drill isolates **one of two axes**:
-- **Axis A — which beats sound** (bar-level; quarters). A `:1` block is onset-or-rest, so the variable is *which of the 4 beats* attack.
-- **Axis B — where inside a beat** (block-level, `:2`+; eighths/16ths). The variable is placement within the beat (on-beat / `&` / `e` / `a`).
+> **Supersedes the original `block = beat` operators.** The first cut atomized to per-beat blocks, which made a *quarter* block a single trivial option — so `Uniform`/`Cycle`/`AnchorRotate` collapsed to `x x x x`. The pedagogically useful unit is a **whole-bar pattern** drawn from an enumerable **kind** (Rafa's original "block kinds", formalized). Reworked accordingly; the **onset-grid model, both projections, and the Random strategy are unchanged** — this reworks only the Pattern strategy's vocabulary/selection layer.
 
-Four concepts compose:
+The generation unit is a **bar pattern** (an `OnsetBar` — *which cells across the bar attack*). Three independent knobs compose it:
 
-1. **`RhythmFamily`** — a named, *ordered* palette of non-empty `Block`s at one subdivision (the set a Cycle/Rotate/Random draws from). v1:
-   - **Quarter** — subdivision 1, blocks `{[0]}` (a beat sounds; "not sounding" is the operator masking it). Axis-A family.
-   - **Eighth** — subdivision 2, blocks `{[0], [1], [0,1]}` = on-beat, the `&`, both. Axis-B family.
-2. **`BarOperator`** — decides, per beat, whether the beat is empty and which family block it gets: `(family, beatIndex, rng) → Block`. The six v1 operators: **Uniform**, **Isolate(k)**, **AnchorRotate**, **Mask(beats)**, **Displace(cells)**, **Accumulate(n)/Thin(n)** (see `idea.md` for each). Each is a small param record under a `BarOperator` discriminated union.
-3. **`SequenceBehaviour`** — decides, per bar, the operator's per-bar configuration: `(barIndex, operatorConfig, prevBar) → operatorConfig`. The v1 behaviours: **Repeat**, **Cycle**, **Sweep** (binds an operator param to `barIndex` — the signature drill), **RestBar** (emit an empty `OnsetBar`), **CallResponse** (content bar then empty bar). *(Random-in-family, Ramp deferred to the extended-families phase.)*
-4. **Composition:** for each `barIndex`, the behaviour yields the operator config for that bar, the operator fills 4 beats from the family → an `OnsetBar`; collect into the `OnsetGrid`.
+1. **Kind** — an *ordered set of bar patterns* (a singleton for a named figure). Two sources:
+   - **Generated families** (enumerated by rule): *Density* — quarter/eighth bars by **onset count** (1/2/3/4); e.g. 2-onset quarters = {`xx..`,`x.x.`,`x..x`,`.xx.`,`.x.x`,`..xx`}. *Placement* (eighth) — **on-beat only** / **off-beat (`&`) only** / **on-beat + `&`**.
+   - **Named figures** (curated data — the catalog below): a figure is a singleton kind that doubles as a preset; adding one is a data edit, no engine change.
+2. **Selection** — how bars are drawn from the kind across `BarCount` bars: **Fixed(index)** (one pattern repeated) · **Cycle** (bar N = pattern N) · **RandomInKind** (seeded) · **FixedPlusRotating** (one fixed + one cycling). Layered multi-bar **behaviours**: **RestBar** (insert silent bars) · **CallResponse** (content/empty) · **Sweep** (walk the selection index or a transform param across bars).
+3. **Transform** (optional) — **Displace(cells)**: shift the chosen pattern's onsets N cells later (wrap in-bar) → offbeat/pushed variants (`x.x.` → `.x.x`). Kept from v1 as a post-selection transform (chat-001 #5).
 
-`PatternParams(RhythmFamily Family, BarOperator Operator, SequenceBehaviour Behaviour, int BarCount, int Seed)` — Subdivision comes from the Family.
+Rests are intrinsic — a bar pattern's non-onset cells are the rests (silent on drums), deliberate, not random.
+
+`PatternParams(RhythmKind Kind, PatternSelection Selection, IReadOnlyList<SequenceBehaviour> Behaviours, DisplaceTransform? Displace, int BarCount, int Seed)` — exact C# shape settled at plan time; subdivision comes from the Kind.
+
+#### Named groove figure catalog (cheap curated data — grow freely)
+
+Eighth grid = 8 cells `1 &1 2 &2 3 &3 4 &4`; quarter grid = 4 cells `1 2 3 4`. Authored best-effort — **verified by ear in the app** during plan-004 (Rafa's call), adjusting any that don't sound right.
+
+| Figure | Grid | Cells | Pattern |
+|--------|------|-------|---------|
+| Four-on-the-floor | Q | 0,1,2,3 | `xxxx` |
+| Downbeats (1 & 3) | Q | 0,2 | `x.x.` |
+| Backbeat (2 & 4) | Q | 1,3 | `.x.x` |
+| Beat-1 anchor | Q | 0 | `x...` |
+| Straight eighths | 8 | all | `xxxxxxxx` |
+| Offbeats (all `&`s) | 8 | 1,3,5,7 | `.x.x.x.x` |
+| Charleston | 8 | 0,3 | `x..x....` |
+| Reverse Charleston | 8 | 4,7 | `....x..x` |
+| Tresillo (3-3-2) | 8 | 0,3,6 | `x..x..x.` |
+| Cinquillo | 8 | 0,2,3,5,6 | `x.xx.xx.` |
+| Dotted-quarter push | 8 | 0,3,6,7 | `x..x..xx` |
+| Habanera | 8 | 0,3,4,6 | `x..xx.x.` |
+| Son clave 3-2 (2-bar) | 8 | [0,3,6][2,4] | `x..x..x.` / `..x.x...` |
+| Son clave 2-3 (2-bar) | 8 | [2,4][0,3,6] | `..x.x...` / `x..x..x.` |
+| Rumba clave 3-2 (2-bar) | 8 | [0,3,7][2,4] | `x..x...x` / `..x.x...` |
+| Bossa clave (2-bar) | 8 | [0,3,6][2,4,7] | `x..x..x.` / `..x.x..x` |
 
 ### 3b. Random strategy
 
@@ -152,4 +175,5 @@ Phase boundaries are the design's proposal; 3 could fold into 2 and 5 is a clear
 - Exact control layout of the generator page (strategy/preset selector + param knobs).
 - Whether the dogfood page also offers a notation (percussion ScoreR) view of durations, or DrumsR-only for v1 (leaning DrumsR-only).
 - Cross-bar sustain for the legato projection (deferred; v1 rings to the barline).
+- **Legato projection & syncopation (Phase-4 finding, surfaced in plan-004).** Now that the Pattern strategy emits arbitrary syncopated bar patterns, the legato `OnsetGrid → RhythmPattern` ring-to-barline can produce a **non-notatable** length (e.g. 120 ticks), which the quantizer rejects (C4). The **drums** path is unaffected (it notates hit + rest, never a ring), so the dogfood page is fine. The **comping/lead** legato path needs a notatable-safe policy (snap the ring to the largest notatable value + rest the remainder, or a verified tie) **before Practice integration (Phase 4)**. Until then, C4 is asserted over legato-safe grids only.
 - Reference-pulse voice/wiring specifics in comping/lead mode (transport metronome vs a generated click).

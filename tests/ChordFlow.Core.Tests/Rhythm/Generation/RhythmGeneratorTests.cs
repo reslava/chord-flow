@@ -5,31 +5,111 @@ using Xunit;
 namespace ChordFlow.Core.Tests;
 
 /// <summary>
-/// Tests the rhythm generation engine: determinism (req IN6/C7) and the per-operator / per-behaviour /
-/// per-strategy onset shapes (req IN2/IN3/IN4). Grids are compared by their canonical per-bar onset-tick
-/// arrays (structural equality — the model deliberately keeps codebase-precedent record equality).
+/// Tests the rhythm generation engine (req IN2/IN3/IN4/IN6): the Pattern strategy over bar-pattern kinds
+/// (selection + behaviours + Displace), the Random strategy (+ rests), and determinism. Grids compare by
+/// their canonical per-bar onset-tick arrays.
 /// </summary>
 public class RhythmGeneratorTests
 {
     private static readonly TimeSignature Ts = TimeSignature.FourFour;
 
-    // A grid's canonical form: bar-by-bar bar-relative onset ticks.
     private static int[][] Canonical(OnsetGrid g) =>
         g.Bars.Select(b => b.OnsetTicks(g.TimeSignature).ToArray()).ToArray();
 
     private static OnsetGrid Pattern(
-        RhythmFamily family, BarOperator op, SequenceBehaviour behaviour, int bars, int seed = 0) =>
-        PatternStrategy.Generate(new PatternParams(family, op, behaviour, bars, Ts, seed));
+        RhythmKind kind, PatternSelection selection, int bars, int seed = 0, params SequenceBehaviour[] behaviours) =>
+        PatternStrategy.Generate(new PatternParams(kind, selection, behaviours, bars, Ts, seed));
 
-    // --- Determinism -------------------------------------------------------
+    private static RhythmKind Figure(string id) => GrooveFigures.ById(id)!;
+
+    // --- Pattern strategy: selection ---------------------------------------
 
     [Fact]
-    public void Pattern_SameSeed_SameGrid()
+    public void Fixed_RepeatsTheChosenPattern()
     {
-        var a = Pattern(RhythmFamily.Eighth, new BarOperator.AnchorRotate(), new SequenceBehaviour.Cycle(), 4, seed: 7);
-        var b = Pattern(RhythmFamily.Eighth, new BarOperator.AnchorRotate(), new SequenceBehaviour.Cycle(), 4, seed: 7);
-        Assert.Equal(Canonical(a), Canonical(b));
+        var g = Pattern(RhythmKind.Density(1, 2), new PatternSelection.Fixed(0), 2);
+        // Density(1,2)[0] = cells {0,1} = beats 1&2 → ticks [0,48]
+        Assert.Equal(new[] { new[] { 0, 48 }, new[] { 0, 48 } }, Canonical(g));
     }
+
+    [Fact]
+    public void Cycle_ToursTheKind()
+    {
+        var g = Pattern(RhythmKind.Density(1, 2), new PatternSelection.Cycle(), 3);
+        Assert.Equal(new[] { new[] { 0, 48 }, new[] { 0, 96 }, new[] { 0, 144 } }, Canonical(g));
+    }
+
+    [Fact]
+    public void RandomInKind_SameSeed_SameGrid()
+    {
+        var kind = RhythmKind.Density(2, 3);
+        Assert.Equal(
+            Canonical(Pattern(kind, new PatternSelection.RandomInKind(), 4, seed: 9)),
+            Canonical(Pattern(kind, new PatternSelection.RandomInKind(), 4, seed: 9)));
+    }
+
+    [Fact]
+    public void FixedPlusRotating_AlternatesFixedAndCycling()
+    {
+        var g = Pattern(RhythmKind.Density(1, 2), new PatternSelection.FixedPlusRotating(0), 4);
+        // even bars = fixed[0]=[0,48]; odd bar1 = cycle[0]=[0,48]; odd bar3 = cycle[1]=[0,96]
+        Assert.Equal(new[] { new[] { 0, 48 }, new[] { 0, 48 }, new[] { 0, 48 }, new[] { 0, 96 } }, Canonical(g));
+    }
+
+    // --- Pattern strategy: figures + behaviours ----------------------------
+
+    [Fact]
+    public void Figure_Backbeat_SoundsBeats2And4()
+    {
+        Assert.Equal(new[] { new[] { 48, 144 } }, Canonical(Pattern(Figure("backbeat"), new PatternSelection.Fixed(0), 1)));
+    }
+
+    [Fact]
+    public void Displace_ShiftsDownbeatsToTheBackbeat()
+    {
+        // downbeats x.x. displaced 1 cell → .x.x = backbeat
+        var g = Pattern(Figure("downbeats"), new PatternSelection.Fixed(0), 1, behaviours: new SequenceBehaviour.Displace(1));
+        Assert.Equal(new[] { new[] { 48, 144 } }, Canonical(g));
+    }
+
+    [Fact]
+    public void Sweep_WalksTheSingleOnsetAcrossTheBars()
+    {
+        var g = Pattern(Figure("beat1"), new PatternSelection.Fixed(0), 4, behaviours: new SequenceBehaviour.Sweep());
+        Assert.Equal(new[] { new[] { 0 }, new[] { 48 }, new[] { 96 }, new[] { 144 } }, Canonical(g));
+    }
+
+    [Fact]
+    public void RestBar_InsertsSilentBars()
+    {
+        var g = Pattern(Figure("four-on-floor"), new PatternSelection.Fixed(0), 4, behaviours: new SequenceBehaviour.RestBar());
+        Assert.Equal(
+            new[] { new[] { 0, 48, 96, 144 }, Array.Empty<int>(), new[] { 0, 48, 96, 144 }, Array.Empty<int>() },
+            Canonical(g));
+    }
+
+    [Fact]
+    public void CallResponse_SilencesOddBars()
+    {
+        var g = Pattern(Figure("four-on-floor"), new PatternSelection.Fixed(0), 2, behaviours: new SequenceBehaviour.CallResponse());
+        Assert.Equal(new[] { new[] { 0, 48, 96, 144 }, Array.Empty<int>() }, Canonical(g));
+    }
+
+    [Fact]
+    public void Clave_CycleProducesTheTwoBarLoop()
+    {
+        var g = Pattern(Figure("son-clave-32"), new PatternSelection.Cycle(), 2);
+        Assert.Equal(new[] { new[] { 0, 72, 144 }, new[] { 48, 96 } }, Canonical(g)); // 3-side then 2-side
+    }
+
+    [Fact]
+    public void Pattern_RejectsBarCountOutOfRange()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            Pattern(RhythmKind.Density(1, 2), new PatternSelection.Fixed(0), 5));
+    }
+
+    // --- Random strategy ---------------------------------------------------
 
     [Fact]
     public void Random_SameSeed_SameGrid()
@@ -38,105 +118,11 @@ public class RhythmGeneratorTests
         Assert.Equal(Canonical(RandomStrategy.Generate(p)), Canonical(RandomStrategy.Generate(p)));
     }
 
-    // --- Bar operators (single-bar Repeat) ---------------------------------
-
-    [Fact]
-    public void Uniform_Quarter_AllFourBeatsSound()
-    {
-        var g = Pattern(RhythmFamily.Quarter, new BarOperator.Uniform(), new SequenceBehaviour.Repeat(), 1);
-        Assert.Equal(new[] { 0, 48, 96, 144 }, Canonical(g)[0]);
-    }
-
-    [Fact]
-    public void Isolate_Quarter_OnlyTheChosenBeatSounds()
-    {
-        var g = Pattern(RhythmFamily.Quarter, new BarOperator.Isolate(2), new SequenceBehaviour.Repeat(), 1);
-        Assert.Equal(new[] { 96 }, Canonical(g)[0]);
-    }
-
-    [Fact]
-    public void Mask_Quarter_Backbeat_SoundsBeats2And4()
-    {
-        var g = Pattern(RhythmFamily.Quarter, new BarOperator.Mask(new[] { 1, 3 }), new SequenceBehaviour.Repeat(), 1);
-        Assert.Equal(new[] { 48, 144 }, Canonical(g)[0]);
-    }
-
-    [Fact]
-    public void Displace_Eighth_MovesEveryOnsetToTheAnd()
-    {
-        var g = Pattern(RhythmFamily.Eighth, new BarOperator.Displace(1), new SequenceBehaviour.Repeat(), 1);
-        Assert.Equal(new[] { 24, 72, 120, 168 }, Canonical(g)[0]);
-    }
-
-    [Fact]
-    public void AnchorRotate_Eighth_FixesBeat1AndRotatesTheRest()
-    {
-        var g = Pattern(RhythmFamily.Eighth, new BarOperator.AnchorRotate(), new SequenceBehaviour.Repeat(), 1);
-        // beat0 [0]→0 · beat1 blocks[1]=[&]→72 · beat2 blocks[2]=[on,&]→96,120 · beat3 blocks[0]=[on]→144
-        Assert.Equal(new[] { 0, 72, 96, 120, 144 }, Canonical(g)[0]);
-    }
-
-    [Fact]
-    public void Accumulate_Quarter_SoundsTheFirstNBeats()
-    {
-        var g = Pattern(RhythmFamily.Quarter, new BarOperator.Accumulate(2), new SequenceBehaviour.Repeat(), 1);
-        Assert.Equal(new[] { 0, 48 }, Canonical(g)[0]);
-    }
-
-    [Fact]
-    public void Thin_Quarter_DropsTheLastNBeats()
-    {
-        var g = Pattern(RhythmFamily.Quarter, new BarOperator.Thin(1), new SequenceBehaviour.Repeat(), 1);
-        Assert.Equal(new[] { 0, 48, 96 }, Canonical(g)[0]);
-    }
-
-    // --- Sequence behaviours (multi-bar) -----------------------------------
-
-    [Fact]
-    public void Sweep_Isolate_WalksTheOnsetAcrossTheBars()
-    {
-        var g = Pattern(RhythmFamily.Quarter, new BarOperator.Isolate(0), new SequenceBehaviour.Sweep(), 4);
-        Assert.Equal(new[] { new[] { 0 }, new[] { 48 }, new[] { 96 }, new[] { 144 } }, Canonical(g));
-    }
-
-    [Fact]
-    public void RestBar_AlternatesContentAndSilence()
-    {
-        var g = Pattern(RhythmFamily.Quarter, new BarOperator.Uniform(), new SequenceBehaviour.RestBar(), 4);
-        Assert.Equal(
-            new[] { new[] { 0, 48, 96, 144 }, Array.Empty<int>(), new[] { 0, 48, 96, 144 }, Array.Empty<int>() },
-            Canonical(g));
-    }
-
-    [Fact]
-    public void CallResponse_EvenBarsSound_OddBarsAreSilent()
-    {
-        var g = Pattern(RhythmFamily.Quarter, new BarOperator.Uniform(), new SequenceBehaviour.CallResponse(), 2);
-        Assert.Equal(new[] { new[] { 0, 48, 96, 144 }, Array.Empty<int>() }, Canonical(g));
-    }
-
-    [Fact]
-    public void Cycle_Eighth_ToursTheFamilyBlocksBarByBar()
-    {
-        var g = Pattern(RhythmFamily.Eighth, new BarOperator.Uniform(), new SequenceBehaviour.Cycle(), 3);
-        Assert.Equal(
-            new[]
-            {
-                new[] { 0, 48, 96, 144 },                          // blocks[0] = on-beat every beat
-                new[] { 24, 72, 120, 168 },                        // blocks[1] = the & every beat
-                new[] { 0, 24, 48, 72, 96, 120, 144, 168 },        // blocks[2] = both every beat
-            },
-            Canonical(g));
-    }
-
-    // --- Random strategy ---------------------------------------------------
-
     [Fact]
     public void Random_AllQuarters_FillsEveryBeat_ThenSilenceBars()
     {
         var p = new RandomParams(new[] { 4 }, ContentBars: 1, SilenceBars: 1, Ts, Seed: 42);
-        var g = RandomStrategy.Generate(p);
-        Assert.Equal(new[] { new[] { 0, 48, 96, 144 }, Array.Empty<int>() }, Canonical(g));
+        Assert.Equal(new[] { new[] { 0, 48, 96, 144 }, Array.Empty<int>() }, Canonical(RandomStrategy.Generate(p)));
     }
 
     [Fact]
@@ -191,18 +177,11 @@ public class RhythmGeneratorTests
     [Fact]
     public void Generate_DispatchesOnStrategyArm()
     {
-        GenerationParams pattern =
-            new PatternParams(RhythmFamily.Quarter, new BarOperator.Uniform(), new SequenceBehaviour.Repeat(), 1, Ts, 0);
+        GenerationParams pattern = new PatternParams(
+            RhythmKind.Density(1, 1), new PatternSelection.Fixed(0), Array.Empty<SequenceBehaviour>(), 1, Ts, 0);
         GenerationParams random = new RandomParams(new[] { 4 }, 1, 0, Ts, 0);
 
-        Assert.Equal(new[] { 0, 48, 96, 144 }, Canonical(RhythmGenerator.Generate(pattern))[0]);
+        Assert.Equal(new[] { 0 }, Canonical(RhythmGenerator.Generate(pattern))[0]); // Density(1,1)[0] = {0}
         Assert.Equal(new[] { 0, 48, 96, 144 }, Canonical(RhythmGenerator.Generate(random))[0]);
-    }
-
-    [Fact]
-    public void Pattern_RejectsBarCountOutOfRange()
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            Pattern(RhythmFamily.Quarter, new BarOperator.Uniform(), new SequenceBehaviour.Repeat(), 5));
     }
 }
