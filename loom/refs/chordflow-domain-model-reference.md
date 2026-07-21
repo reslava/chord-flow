@@ -4,8 +4,8 @@ id: rf_01KTM41K36DYJ0CE44FE7TMCGH
 title: ChordFlow Domain Model
 status: active
 created: 2026-06-08
-updated: 2026-07-20
-version: 133
+updated: 2026-07-21
+version: 134
 tags: []
 parent_id: null
 requires_load: []
@@ -133,7 +133,7 @@ The **rhythm generation engine** manufactures timing on the fly (for groove/time
 | `RhythmFamily(Name, Subdivision, IReadOnlyList<Block> Blocks)` | A named, ordered palette of non-empty blocks at one subdivision (the set Cycle/Rotate draw from). v1: `Quarter` (subdiv 1, `{[0]}`, Axis A = which beats sound) and `Eighth` (subdiv 2, `{[0],[1],[0,1]}` = on-beat/&/both, Axis B = placement in the beat). `Primary` = first (strong) block; `Silence` = an empty beat. Triplet/16th families are a later phase. |
 | `BarOperator` (abstract record) | Decides per beat which family block a beat gets — `Apply(family, beatIndex, beatsPerBar, rng) → Block` + shared `BuildBar → OnsetBar`. Six arms: `Uniform`, `Isolate(Beat)`, `AnchorRotate` (beat 0 fixed, rest rotate), `Mask(Beats)`, `Displace(Cells)` (shift the primary within the beat — the offbeat maker), `Accumulate(Count)`/`Thin(Count)`. |
 | `SequenceBehaviour` (abstract record) | Decides per bar how the base operator evolves — `BarAt(barIndex, baseOperator, family, beatsPerBar, rng) → OnsetBar`. Five arms: `Repeat`, `Cycle` (tour the family list), `Sweep` (bind `Isolate.Beat`/`Displace.Cells` to `barIndex` — the signature drill), `RestBar(ContentBars,RestBars)`, `CallResponse`. |
-| `GenerationParams(TimeSignature Ts, int Seed)` (abstract) → `PatternParams` / `RandomParams` | The generation request. `PatternParams(Family, Operator, Behaviour, BarCount, Ts, Seed)` (pedagogical); `RandomParams(ValuePalette, ContentBars, SilenceBars, Ts, Seed)` (free fill on a v1 sixteenth grid; values are alphaTex denominators). `Seed` makes every generation reproducible — a generation is fully described by `{strategy, params, seed}` (saveable later; ephemeral now). |
+| `GenerationParams(TimeSignature Ts, int Seed)` (abstract) → `PatternParams` / `RandomParams` | The generation request. `PatternParams(Family, Operator, Behaviour, BarCount, Ts, Seed)` (pedagogical); `RandomParams(ValuePalette, ContentBars, SilenceBars, Ts, Seed, RestProbability=0)` (free fill on a v1 sixteenth grid; values are alphaTex denominators; **`RestProbability`** 0..1 interleaves rests — each the length of the value drawn — with beat 1 free to rest). `Seed` makes every generation reproducible — a generation is fully described by `{strategy, params, seed}` (saveable later; ephemeral now). |
 | `RhythmGenerator` / `PatternStrategy` / `RandomStrategy` | `RhythmGenerator.Generate(GenerationParams) → OnsetGrid` dispatches on the arm. `PatternStrategy` runs the behaviour×operator×family composition; `RandomStrategy` seed-fills content bars from the value palette then appends silence bars. Deterministic. |
 | `OnsetGridToRhythmPattern` (`Music/Rhythm/Generation/`) | **Projection → comping/lead.** `Project(grid, id?, name?) → RhythmPattern`, **ring-to-next-onset** (legato, fixed v1): each onset lasts to the next onset; the last rings to the barline (no cross-bar tie); empty bar → whole-bar rest. Stays inside the verified `:N`+rest vocabulary by construction (no unverified tie/dotted token reaches the renderer). |
 | `OnsetGridToDrumGroove` (`Instruments/Drums/`) | **Projection → drums.** `Project(grid, voice=HiHatClosed, id?, name?) → DrumGroove`: each onset → a one-cell `RhythmEvent` hit on one `DrumLane`; onsets map 1:1 (no sustain policy). Lives under `Instruments/Drums` (the legal `Instruments → Music` edge). Onset ticks agree with the `RhythmPattern` projection (unit-test invariant). |

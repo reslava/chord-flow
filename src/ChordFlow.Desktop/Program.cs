@@ -8,6 +8,7 @@ using ChordFlow.Features.GenerateExercise;
 using ChordFlow.Features.Packs;
 using ChordFlow.Features.PracticeSession;
 using ChordFlow.Features.Progress;
+using ChordFlow.Features.Rhythm;
 using ChordFlow.Features.Scales;
 using ChordFlow.Features.Caged;
 using ChordFlow.Features.ChordSheets;
@@ -125,6 +126,7 @@ internal static class Program
                 var contentCrud = new ContentCrudHandler(dbOptions, renderer, packNames, new EngineVoicingSource());
                 var scales = new ScalesHandler();
                 var drumPreview = new DrumGroovePreviewHandler();
+                var rhythmGenerate = new RhythmGenerateHandler();
                 var caged = new CagedShapesHandler();
                 var cagedChord = new CagedChordHandler();
                 var voicingGrid = new VoicingGridHandler();
@@ -325,6 +327,16 @@ internal static class Program
                 {
                     try { bridge.Send(drumPreview.Preview(dsl, tempo)); }
                     catch (FormatException ex) { bridge.Send(new DrumPreviewErrorEnvelope(ex.Message)); }
+                };
+
+                // Rhythm Generator page: generate an onset grid → single-voice drum projection → percussion
+                // tex + grid diagram (one generated grid, projections that can't drift). A bad token / count
+                // surfaces inline as rhythmGenerateError (mirrors the drumPreview parse-error path).
+                router.RhythmGenerateRequested += request =>
+                {
+                    try { bridge.Send(rhythmGenerate.Generate(request)); }
+                    catch (Exception ex) when (ex is FormatException or ArgumentException)
+                    { bridge.Send(new RhythmGenerateErrorEnvelope(ex.Message)); }
                 };
 
                 // CAGED Shapes page: build the octave-shape fretboard diagram; an unknown shape surfaces inline (cagedError).

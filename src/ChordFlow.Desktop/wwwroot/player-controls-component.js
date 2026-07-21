@@ -103,13 +103,26 @@ window.ChordFlowPlayerControls = (function () {
       el.append(checkbox("Count-in", false, guard("countIn", (e) => engine.setCountIn(e.target.checked))).wrap);
     }
 
+    // Loop / cycling — default ON (req IN13): a short pattern repeats continuously. Applied straight on the
+    // engine; the default is (re)asserted once the player is ready so api.isLooping survives the score load.
+    let loopInput = null;
+    if (opts.loop !== false) {
+      const loopDefaultOn = opts.loopDefault !== false;
+      const loop = checkbox("Loop", loopDefaultOn, guard("loop", (e) => engine.setLooping(e.target.checked)));
+      loopInput = loop.input;
+      el.append(loop.wrap);
+    }
+
     // Optional Now/Next view toggle — rendered only when the consumer wires the boards.
     if (onToggleNowNext) {
       el.append(checkbox("Now/Next", true, guard("nowNext", (e) => onToggleNowNext(e.target.checked))).wrap);
     }
 
     // --- self-subscribe to the engine event bus (no per-page forwarding) ---
-    engine.on("ready", () => { playBtn.disabled = false; stopBtn.disabled = false; tempoInput.disabled = false; });
+    engine.on("ready", () => {
+      playBtn.disabled = false; stopBtn.disabled = false; tempoInput.disabled = false;
+      if (loopInput) engine.setLooping(loopInput.checked); // assert the default loop state now the player exists
+    });
     engine.on("stateChange", (playing) => { playBtn.textContent = playing ? "⏸ Pause" : "▶ Play"; });
     engine.on("finished", () => { playBtn.textContent = "▶ Play"; });
     engine.on("soundFontsListed", (fonts, selectedId) => {

@@ -40,6 +40,7 @@ window.ChordFlowDrums = (function () {
   const PAD_T = 22;     // top pad (bar numbers)
   const PAD_B = 8;
   const HIT_R = 8;
+  const COUNT_H = 20;   // extra bottom band for the opt-in "1 e & a" count row
 
   function el(name, attrs) {
     const n = document.createElementNS(NS, name);
@@ -50,6 +51,8 @@ window.ChordFlowDrums = (function () {
   function create(container, opts) {
     opts = opts || {};
     let theme = opts.theme === "dark" ? "dark" : "light";
+    // Opt-in count/emphasis overlay (Rhythm Generator page). Off by default, so the Drums page is unaffected.
+    const countLabels = !!opts.countLabels;
     let model = null;
     let marker = null; // { bar, beat } or null
 
@@ -73,7 +76,8 @@ window.ChordFlowDrums = (function () {
 
       const t = THEMES[theme];
       const gridW = LABEL_W + totalBeats() * BEAT_W;
-      const gridH = PAD_T + model.lanes.length * ROW_H + PAD_B;
+      const laneBottom = PAD_T + model.lanes.length * ROW_H;
+      const gridH = laneBottom + PAD_B + (countLabels ? COUNT_H : 0);
 
       svg = el("svg", { viewBox: `0 0 ${gridW} ${gridH}`, width: gridW, height: gridH, role: "img" });
       svg.style.maxWidth = "none";
@@ -98,7 +102,7 @@ window.ChordFlowDrums = (function () {
       for (let b = 0; b <= totalBeats(); b++) {
         const x = xForBeat(b);
         const isBar = b % model.beatsPerBar === 0;
-        svg.appendChild(el("line", { x1: x, y1: PAD_T, x2: x, y2: gridH - PAD_B, stroke: isBar ? t.barLine : t.grid, "stroke-width": isBar ? 1.5 : 1 }));
+        svg.appendChild(el("line", { x1: x, y1: PAD_T, x2: x, y2: laneBottom, stroke: isBar ? t.barLine : t.grid, "stroke-width": isBar ? 1.5 : 1 }));
         if (isBar && b < totalBeats()) {
           const num = el("text", { x: x + 3, y: 13, "font-size": 10, fill: t.muted });
           num.textContent = String(b / model.beatsPerBar + 1);
@@ -120,6 +124,27 @@ window.ChordFlowDrums = (function () {
           svg.appendChild(el("circle", { cx: xForHit(h), cy, r: HIT_R, fill: color, stroke: t.bg, "stroke-width": 1.5 }));
         });
       });
+
+      // Count/emphasis overlay (opt-in; display-only, no model change — req C5): the "1 e & a" counting row
+      // under the grid with downbeats bolded. Fixed 16th counting regardless of the grid's own subdivision, so
+      // "where is the & of 2" always reads — the direct hit on the pedagogy goal.
+      if (countLabels) {
+        const yLab = laneBottom + PAD_B + 11;
+        const names = ["1", "e", "&", "a"];
+        for (let gb = 0; gb < totalBeats(); gb++) {
+          names[0] = String((gb % model.beatsPerBar) + 1);
+          for (let s = 0; s < 4; s++) {
+            const down = s === 0;
+            const lab = el("text", {
+              x: xForBeat(gb) + (s / 4) * BEAT_W, y: yLab, "text-anchor": "middle",
+              "font-size": down ? 11 : 9, "font-weight": down ? 700 : 500,
+              fill: down || s === 2 ? t.text : t.muted,
+            });
+            lab.textContent = names[s];
+            svg.appendChild(lab);
+          }
+        }
+      }
 
       root.appendChild(svg);
       applyMarker();

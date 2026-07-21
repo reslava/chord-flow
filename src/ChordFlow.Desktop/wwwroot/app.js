@@ -223,6 +223,8 @@ const ChordFlow = (function () {
         onShow: () => window.ChordFlowContent && window.ChordFlowContent.show() },
       drums: { nav: $("navDrums"), el: $("drums-view"),
         onShow: () => window.ChordFlowDrumsView && window.ChordFlowDrumsView.show() },
+      rhythmGen: { nav: $("navRhythmGen"), el: $("rhythm-generator-view"),
+        onShow: () => window.ChordFlowRhythmGen && window.ChordFlowRhythmGen.show() },
       scales: { nav: $("navScales"), el: $("scales-view"),
         onShow: () => window.ChordFlowScales && window.ChordFlowScales.show() },
       caged: { nav: $("navCaged"), el: $("caged-shapes-view"),

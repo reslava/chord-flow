@@ -146,6 +146,46 @@ public class RhythmGeneratorTests
         Assert.Throws<ArgumentException>(() => RandomStrategy.Generate(p));
     }
 
+    [Fact]
+    public void Random_RestProbabilityOne_ProducesAnEmptyBar()
+    {
+        var p = new RandomParams(new[] { 4 }, ContentBars: 1, SilenceBars: 0, Ts, Seed: 5, RestProbability: 1.0);
+        Assert.Empty(Canonical(RandomStrategy.Generate(p))[0]);
+    }
+
+    [Fact]
+    public void Random_RestProbabilityZero_FillsSolid()
+    {
+        var p = new RandomParams(new[] { 4 }, ContentBars: 1, SilenceBars: 0, Ts, Seed: 5, RestProbability: 0.0);
+        Assert.Equal(new[] { 0, 48, 96, 144 }, Canonical(RandomStrategy.Generate(p))[0]);
+    }
+
+    [Fact]
+    public void Random_RestProbability_ThinsOutOnsets()
+    {
+        int Count(double rest) => Canonical(RandomStrategy.Generate(
+            new RandomParams(new[] { 4, 8 }, ContentBars: 2, SilenceBars: 0, Ts, Seed: 99, RestProbability: rest)))
+            .Sum(bar => bar.Length);
+        Assert.True(Count(0.0) > 0);
+        Assert.True(Count(0.0) >= Count(0.5));
+        Assert.True(Count(0.5) >= Count(1.0));
+        Assert.Equal(0, Count(1.0));
+    }
+
+    [Fact]
+    public void Random_SameSeedWithRests_SameGrid()
+    {
+        var p = new RandomParams(new[] { 4, 8, 16 }, ContentBars: 2, SilenceBars: 1, Ts, Seed: 7, RestProbability: 0.4);
+        Assert.Equal(Canonical(RandomStrategy.Generate(p)), Canonical(RandomStrategy.Generate(p)));
+    }
+
+    [Fact]
+    public void Random_RejectsRestProbabilityOutOfRange()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => RandomStrategy.Generate(
+            new RandomParams(new[] { 4 }, ContentBars: 1, SilenceBars: 0, Ts, Seed: 0, RestProbability: 1.5)));
+    }
+
     // --- Generator dispatch ------------------------------------------------
 
     [Fact]

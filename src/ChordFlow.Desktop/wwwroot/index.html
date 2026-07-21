@@ -307,6 +307,7 @@
       <button id="navPractice" type="button" class="active">Practice</button>
       <button id="navContent" type="button">Content</button>
       <button id="navDrums" type="button">Drums</button>
+      <button id="navRhythmGen" type="button">Rhythm Gen</button>
       <button id="navScales" type="button">Scales</button>
       <button id="navCaged" type="button">CAGED</button>
       <button id="navCagedChords" type="button">CAGED Chords</button>
@@ -388,6 +389,18 @@
     <div id="drumError" class="cc-error" style="padding:.2rem 1rem;"></div>
     <div id="drums-grid" style="margin:0 1rem 1rem;"></div>
     <div id="drums-score" style="margin:0 1rem 1rem;"></div>
+  </div>
+
+  <!-- Rhythm Generator view: the generation-engine dogfood page (Phase 2). Pick a strategy + params → the host
+       generates an onset grid, projects it to a single-voice drum groove, and returns the percussion score
+       (ScoreR, played) + grid model (DrumsR with the "1 e & a" count overlay) + an onset-ASCII debug line.
+       Generations are ephemeral (no save/library); presets + reference pulse are Phase 3. -->
+  <div id="rhythm-generator-view" hidden>
+    <section class="toolbar" id="rgControls" style="align-items:flex-start; gap:1rem; flex-wrap:wrap; padding:1rem;"></section>
+    <div id="rgError" class="cc-error" style="padding:.2rem 1rem;"></div>
+    <div id="rgGrid" style="margin:0 1rem 1rem;"></div>
+    <div id="rgGridText" style="margin:0 1rem .5rem; font-family:monospace; font-size:.85rem; color:#5a5f64;"></div>
+    <div id="rgScore" style="margin:0 1rem 1rem;"></div>
   </div>
 
   <!-- Scales view: type an interval set + pick a root → the host lights it on the neck (scales.js). The
@@ -489,6 +502,7 @@
   <script src="content-crud.js"></script>
   <script src="drums-render-component.js"></script>
   <script src="drums.js"></script>
+  <script src="rhythm-generator.js"></script>
   <script src="scales.js"></script>
   <script src="caged-shapes.js"></script>
   <script src="caged-chords.js"></script>

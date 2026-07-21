@@ -155,6 +155,9 @@ public sealed class WebMessageRouter
     /// <summary>Export the on-screen chord sheet to PDF (host prints the print-styled page via WebView2).</summary>
     public event Action? ExportChordSheetPdfRequested;
 
+    /// <summary>Generate a rhythm for the Rhythm Generator page — <c>(request)</c> → percussion tex + grid diagram.</summary>
+    public event Action<RhythmGenerationRequest>? RhythmGenerateRequested;
+
     /// <summary>Deserialize one inbound message string and dispatch it to subscribers.</summary>
     public void Dispatch(string message)
     {
@@ -299,6 +302,12 @@ public sealed class WebMessageRouter
                     DrumPreviewRequested?.Invoke(drumDsl, envelope.Tempo ?? 100);
                 }
                 break;
+            case "rhythmGenerate":
+                if (envelope.RhythmGenerate is { } rhythmRequest)
+                {
+                    RhythmGenerateRequested?.Invoke(rhythmRequest);
+                }
+                break;
             case "cagedPreview":
                 if (envelope.Shape is { } cagedShape)
                 {
@@ -404,7 +413,9 @@ public sealed class WebMessageRouter
         // voicingDerive: the neck window for a single-operator derivation (reuses Family/Quality/Shape/RootPitchClass).
         int? MinFret, int? MaxFret,
         // Optional render-time presentation options on the render-producing verbs (generate/loadExercise/entityPreview).
-        InboundRenderOptions? RenderOptions);
+        InboundRenderOptions? RenderOptions,
+        // rhythmGenerate: the Rhythm Generator page request (nested strategy + operator/behaviour/family/palette tokens + seed/voice).
+        RhythmGenerationRequest? RhythmGenerate);
 
     private sealed record InboundRenderOptions(
         bool? ShowChordNames, bool? ShowChordDiagramsOverStaff, bool? ShowChordDiagramsOnTop, InboundVoicingSource? Voicing);

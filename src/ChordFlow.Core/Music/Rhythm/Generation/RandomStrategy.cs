@@ -32,6 +32,12 @@ public static class RandomStrategy
             throw new ArgumentException("The value palette must have at least one note value.", nameof(p));
         }
 
+        if (p.RestProbability is < 0.0 or > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(p), p.RestProbability, "RestProbability must be between 0 and 1 (req IN12).");
+        }
+
         int beatsPerBar = p.Ts.Numerator;
         int cellsPerBar = beatsPerBar * BaseSubdivision;
         int[] advances = p.ValuePalette.Select(v => ValueToBaseCells(v)).ToArray();
@@ -40,7 +46,7 @@ public static class RandomStrategy
         var bars = new OnsetBar[p.ContentBars + p.SilenceBars];
         for (int i = 0; i < p.ContentBars; i++)
         {
-            bars[i] = FillBar(rng, advances, beatsPerBar, cellsPerBar);
+            bars[i] = FillBar(rng, advances, beatsPerBar, cellsPerBar, p.RestProbability);
         }
 
         for (int i = 0; i < p.SilenceBars; i++)
@@ -51,14 +57,21 @@ public static class RandomStrategy
         return OnsetGrid.Of(bars, p.Ts);
     }
 
-    // Walk the sixteenth grid: an onset at the current cell, then advance by a random palette value, until
-    // the bar is full. Cell 0 always attacks (the downbeat sounds). Group the landed cells by beat into blocks.
-    private static OnsetBar FillBar(Random rng, int[] advances, int beatsPerBar, int cellsPerBar)
+    // Walk the sixteenth grid: at each step the current cell is a rest (with restProbability) or an onset,
+    // then advance by a random palette value, until the bar is full. Beat 1 is not forced — it may rest.
+    // Group the landed onset cells by beat into blocks.
+    private static OnsetBar FillBar(Random rng, int[] advances, int beatsPerBar, int cellsPerBar, double restProbability)
     {
         var onsetCells = new List<int>();
-        for (int pos = 0; pos < cellsPerBar; pos += advances[rng.Next(advances.Length)])
+        int pos = 0;
+        while (pos < cellsPerBar)
         {
-            onsetCells.Add(pos);
+            if (rng.NextDouble() >= restProbability)
+            {
+                onsetCells.Add(pos);
+            }
+
+            pos += advances[rng.Next(advances.Length)];
         }
 
         var beats = new Block[beatsPerBar];

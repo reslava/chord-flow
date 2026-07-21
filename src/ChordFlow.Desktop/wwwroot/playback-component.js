@@ -175,6 +175,7 @@ window.ChordFlowPlayback = (function () {
     let scrollMode = "off";
     let metronomeOn = false;   // desired click-track state, re-asserted once the synth is ready (see below)
     let countInOn = false;     // desired count-in state, re-asserted once the synth is ready
+    let loopOn = false;        // desired loop/cycling state (req IN13), re-asserted per loaded score
     const trackVolumes = { rhythm: 1, lead: 1, drums: 1 };   // Rhythm = track 0, Lead = track 1, Drums = track 2
 
     const api = new alphaTab.AlphaTabApi(surface, buildSettings(player, opts.scroll, currentSoundFont, opts.display));
@@ -255,6 +256,7 @@ window.ChordFlowPlayback = (function () {
         applyTrackVolume("lead");
         applyTrackVolume("drums");
         applyMetronomeCountIn();
+        api.isLooping = loopOn;
         clock.reset();
       });
 
@@ -317,6 +319,8 @@ window.ChordFlowPlayback = (function () {
       setTempo(bpm) { if (player && bpm && baseTempo) api.playbackSpeed = bpm / baseTempo; },
       setMetronome(state) { metronomeOn = !!state; applyMetronomeCountIn(); },
       setCountIn(state) { countInOn = !!state; applyMetronomeCountIn(); },
+      // Loop/cycling (req IN13): re-asserted per loaded score (the synth rebuilds channels on every load).
+      setLooping(state) { loopOn = !!state; if (player) api.isLooping = loopOn; },
       // Subscribe to an engine event bus (beat/position/stateChange/ready/finished/soundFontsListed). Multiple
       // consumers (page marker + PlayerControlsR) can each subscribe without the page forwarding events.
       on(event, handler) { on(event, handler); return this; },

@@ -4,8 +4,8 @@ id: rq_01KY0RF3C74YD1Z401KKD3PRVX
 title: Generated Rhythms for Practice — Requirements
 status: locked
 created: 2026-07-20
-updated: 2026-07-20
-version: 1
+updated: 2026-07-21
+version: 3
 design_version: 1
 tags: []
 parent_id: de_01KY0RDXS9C7X93BX8Y1HVCMC3
@@ -20,19 +20,21 @@ Requirements for the rhythm **generation engine** and its pedagogy layer — the
 - `IN1` An instrument-agnostic **onset-grid** generation model: `Block` (one beat's onset pattern), `OnsetBar` (4 blocks in 4/4), `OnsetGrid` (1–4 bars) — attack positions only, no durations/pitch/instrument.
 - `IN2` One `RhythmGenerator` with **two selectable strategies** — `Pattern` (pedagogical) and `Random` (free fill) — over the shared onset-grid substrate.
 - `IN3` The **Pattern strategy** pedagogy: named `RhythmFamily` palettes (**quarter + eighth** in v1), the six bar-composition operators (Uniform, Isolate, AnchorRotate, Mask, Displace, Accumulate/Thin), and the sequence behaviours Repeat / Cycle / Sweep / RestBar / CallResponse.
-- `IN4` The **Random strategy**: fill 1–4 content bars from a note-value palette, plus a silence-bar fill, tiled across the progression.
+- `IN4` The **Random strategy**: fill 1–4 content bars from a note-value palette, plus a silence-bar fill, tiled across the progression. (Refined by `IN12` — within-content-bar rests.)
 - `IN5` Two **projections** from one `OnsetGrid`: `→ RhythmPattern` (comping/lead, **ring-to-next-onset legato**) and `→ DrumGroove` (drums, **single voice**, onsets 1:1).
 - `IN6` **Determinism**: a generation is fully described by `{strategy, params, seed}` and re-running reproduces the same grid.
 - `IN7` A **Rhythm Generator dogfood page**: strategy/preset/param controls → generate → visualize on the reused **DrumsR** with a **count/emphasis overlay** (`1 e & a`) + audible playback, via a `rhythmGenerate` bridge verb.
-- `IN8` A **reference pulse** option (`Off | Beat1 | Quarters`) sounded under the generated figure.
+- `IN8` A **reference pulse** option (`Off | Beat1 | Quarters`) sounded under the generated figure. (The `Beat1` variant lands first on the Rhythm Generator page — an implicit, *visible* reference row, distinct voice, added post-generation, never part of the generated pattern.)
 - `IN9` **Named trainer presets** (pinned param tuples) — v1: Find the Beat, The Backbeat, On the &, Leave Space.
-- `IN10` **Practice integration**: the generator as an on-the-fly (ephemeral) **comping / lead / drums (single-voice)** rhythm source in the Generate flow.
+- `IN10` **Practice integration**: the generator as an on-the-fly (ephemeral) **comping / lead / drums (single-voice)** rhythm source in the Generate flow (may also be an extra track layered over a Song).
 - `IN11` **Phased delivery** — 1 idea + 1 design + N plans, one plan per phase, each independently shippable and dogfood-verifiable.
+- `IN12` The **Random strategy within-content-bar rests**: a **rest-probability** control intersperses rests among the onsets, each rest taking the length of the note value drawn at that step (quarter / eighth / 16th rests). Beat 1 is **not** forced to sound — the generator stays free; any downbeat reference is the `IN8` reference pulse, not a generator onset.
+- `IN13` A **Loop / cycling** playback toggle — added to **ScoreR** (shared, so every render surface can loop) and surfaced on the Rhythm Generator page, **default on**.
 
 ### ❌ Excluded
 
 - `EX1` **Persistence of generations** in v1 — they are ephemeral; saving a `{strategy, params, seed}` into an exercise is deferred (Phase 5).
-- `EX2` **Multi-lane drum generation** — v1 projects to a single user-picked drum voice only.
+- `EX2` **Multi-lane drum generation** — v1 projects to a single user-picked drum voice only. (The `IN8`/`IN12` reference pulse is a fixed non-generated layer, not multi-lane generation.)
 - `EX3` **Triplet & 16th families** in v1 — quarter + eighth only; richer subdivisions deferred (Phase 5).
 - `EX4` **Cross-bar sustain / syncopated ties** in the legato projection — the last onset of a bar rings only to the barline in v1.
 - `EX5` **Time signatures other than 4/4.**
